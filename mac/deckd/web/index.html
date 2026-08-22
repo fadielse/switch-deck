@@ -430,7 +430,7 @@
   var gestureMax = 0, gestureStart = 0, gestureMoved = 0;
   var lastTapEnd = 0, dragging = false;
   var mode = null;         // null | 'move' | 'scroll' | 'gesture' — locked once decided
-  var gx = 0, gy = 0, gestureFired = false;
+  var gx = 0, gy = 0, gestureFired = false, lastGesture = '';
   var primaryId = null;    // only the first finger down drives the cursor
   var smoothSpeed = 0;
 
@@ -497,7 +497,7 @@
       // spaces from one swipe.
       if (!gestureFired && (Math.abs(gx) > 55 || Math.abs(gy) > 55)) {
         gestureFired = true;
-        fireGesture(gx, gy);
+        lastGesture = fireGesture(gx, gy);
       }
       updateBadge();
       return;
@@ -528,6 +528,8 @@
   // not reachable through CGEvent, so we send the shortcuts they are bound to
   // instead. Same result, and it depends on those shortcuts still being enabled
   // under Keyboard > Shortcuts > Mission Control (they are by default).
+  var GESTURE_NAME = { 123: '← space', 124: '→ space', 125: '↓ App Expose', 126: '↑ Mission Control' };
+
   function fireGesture(dx, dy) {
     var code;
     if (Math.abs(dx) > Math.abs(dy)) {
@@ -538,11 +540,9 @@
     } else {
       code = dy < 0 ? 126 : 125;           // ↑ Mission Control  /  ↓ App Exposé
     }
-    send({ t: 'k', code: 59, d: 1 });                        // Control held for real
-    send({ t: 'k', code: code, d: 1, flags: ['ctrl'] });
-    send({ t: 'k', code: code, d: 0, flags: ['ctrl'] });
-    send({ t: 'k', code: 59, d: 0 });
+    sendChord(59, code, ['ctrl']);                           // Control, held
     clickSound(true);
+    return GESTURE_NAME[code];
   }
 
   function release(e) {
@@ -580,7 +580,7 @@
       if (mode) text += ' · ' + mode;
       if (mode === 'gesture') {
         text += ' · ' + Math.round(Math.abs(gx) > Math.abs(gy) ? gx : gy) + 'px'
-          + (gestureFired ? ' · TERKIRIM' : ' (ambang 55)');
+          + (gestureFired ? ' · KIRIM ⌃' + lastGesture : ' (ambang 55)');
       }
     }
     el('badge').textContent = text;
@@ -806,6 +806,21 @@
     return mods.shift ? key.u : key.l;
   }
 
+  // A chord has to be held, not just ordered. Sending the four frames back to
+  // back gave macOS about 27 ms of Control held — the verified Cmd+Tab test
+  // held Command for 430 ms. System shortcuts like Mission Control watch for a
+  // modifier that is actually down, so spread the frames out in time.
+  function sendChord(modCode, keyCode, flags) {
+    send({ t: 'k', code: modCode, d: 1 });
+    setTimeout(function () {
+      send({ t: 'k', code: keyCode, d: 1, flags: flags });
+      setTimeout(function () {
+        send({ t: 'k', code: keyCode, d: 0, flags: flags });
+        setTimeout(function () { send({ t: 'k', code: modCode, d: 0 }); }, 60);
+      }, 60);
+    }, 70);
+  }
+
   function pressFunctionKey(key) {
     markModsUsed();
     // `key.media === undefined`, never `!key.media`. NX_KEYTYPE_SOUND_UP is 0,
@@ -823,13 +838,8 @@
       return;
     }
     // Mission Control and Spotlight have no media code, so they go as their
-    // real shortcuts — with the modifier physically held, not as a flag. Flags
-    // alone were why these two did nothing.
-    var mod = key.scFlags[0] === 'cmd' ? 55 : 59;
-    send({ t: 'k', code: mod, d: 1 });
-    send({ t: 'k', code: key.sc, d: 1, flags: key.scFlags });
-    send({ t: 'k', code: key.sc, d: 0, flags: key.scFlags });
-    send({ t: 'k', code: mod, d: 0 });
+    // real shortcuts — with the modifier physically held, not as a flag.
+    sendChord(key.scFlags[0] === 'cmd' ? 55 : 59, key.sc, key.scFlags);
   }
 
   function pressKey(key) {
