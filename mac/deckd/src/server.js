@@ -12,7 +12,7 @@ import { Deck } from './deck.js';
 import { runAction } from './actions.js';
 import { toInputFrame } from './sanitize.js';
 import { runSystemAction } from './system.js';
-import { loadTls, serveCaAndRedirect } from './tls.js';
+import { loadTls, serveFrontDoor } from './tls.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
@@ -163,6 +163,11 @@ const handler = async (req, res) => {
 
 const server = tls ? createHttps(tls.options, handler) : createHttp(handler);
 
+// With TLS the app moves one port up, and the port people type stays plain HTTP
+// so an address typed without a scheme still lands somewhere useful.
+const appPort = Number(process.env.PORT) || config.port;
+const httpsPort = tls ? appPort + 1 : appPort;
+
 const wss = new WebSocketServer({ noServer: true });
 
 deck.load();
@@ -277,7 +282,7 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => console.log('[deckd] tablet putus'));
 });
 
-const port = Number(process.env.PORT) || config.port;
+const port = httpsPort;
 
 server.listen(port, () => {
   try {
@@ -285,17 +290,18 @@ server.listen(port, () => {
   } catch (err) {
     console.error('[deckd] tidak bisa menulis kode pairing:', err.message);
   }
-  const scheme = tls ? 'https' : 'http';
-  const url = `${scheme}://${lanAddress()}:${port}/`;
+  // Always the plain-HTTP address: it is what survives being typed by hand.
+  const url = `http://${lanAddress()}:${appPort}/`;
   console.log(`\n  SwitchDeck — ${config.hostName}`);
   if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);
   const total = deck.describe().pages.reduce((n, p) => n + p.keys.length, 0);
   console.log(`  deck: ${total} tombol dari ${deck.path}${deck.isNew ? ' (baru dibuat)' : ''}`);
   if (tls) {
-    serveCaAndRedirect({
-      port: port + 1, httpsPort: port, caPath: tls.caPath, address: lanAddress()
+    serveFrontDoor({
+      port: appPort, httpsPort: port, caPath: tls.caPath, address: lanAddress()
     });
-    console.log(`  HTTPS aktif. Sertifikat CA: http://${lanAddress()}:${port + 1}/ca.crt`);
+    console.log(`  HTTPS aktif di port ${port}.`);
+    console.log(`  Buka alamat di bawah ini di tablet — dia yang nuntun pasang sertifikat.`);
   } else {
     console.log('  HTTP biasa — layar tablet bakal tidur sendiri (butuh HTTPS).');
     console.log('  Jalankan `make cert` lalu restart untuk mengaktifkan HTTPS.');
