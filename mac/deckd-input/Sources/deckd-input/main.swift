@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -9,10 +10,14 @@ import Foundation
 
 setvbuf(stdout, nil, _IOLBF, 0)
 
+// stdout is written from the stdin reader and from the workspace observer on
+// two different threads; interleaved writes would produce torn lines.
+let outputQueue = DispatchQueue(label: "deckd-input.stdout")
+
 func emit(_ payload: [String: Any]) {
     guard let data = try? JSONSerialization.data(withJSONObject: payload),
           let line = String(data: data, encoding: .utf8) else { return }
-    print(line)
+    outputQueue.sync { print(line) }
 }
 
 let arguments = Set(CommandLine.arguments.dropFirst())
@@ -76,7 +81,41 @@ emit([
 
 let decoder = JSONDecoder()
 
-while let line = readLine(strippingNewline: true) {
+/// Which application is in front, reported so the deck can follow it.
+///
+/// This is why the stdin loop moved off the main thread: NSWorkspace delivers
+/// its notifications on a run loop, and readLine() blocks — so with both on
+/// main, the notification would never arrive.
+func reportFront(_ app: NSRunningApplication?) {
+    guard let app else { return }
+    emit([
+        "t": "front",
+        "app": app.localizedName ?? "",
+        "bundle": app.bundleIdentifier ?? ""
+    ])
+}
+
+NSWorkspace.shared.notificationCenter.addObserver(
+    forName: NSWorkspace.didActivateApplicationNotification,
+    object: nil,
+    queue: .main
+) { note in
+    reportFront(note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)
+}
+
+// Say what is in front now, so a client connecting later is not left blank
+// until the next time the user switches apps.
+reportFront(NSWorkspace.shared.frontmostApplication)
+
+DispatchQueue.global(qos: .userInitiated).async {
+    readStdin()
+    exit(0)
+}
+
+RunLoop.main.run()
+
+func readStdin() {
+  while let line = readLine(strippingNewline: true) {
     let trimmed = line.trimmingCharacters(in: .whitespaces)
     guard !trimmed.isEmpty else { continue }
 
@@ -125,4 +164,5 @@ while let line = readLine(strippingNewline: true) {
     default:
         emit(["t": "err", "msg": "unknown frame type", "type": frame.t])
     }
+}
 }

@@ -173,6 +173,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(good.frames.some((f) => f.t === 'err' && f.id === 'rm -rf /'),
         'aksi sistem ngawur ditolak', 'tablet cuma boleh kirim id, bukan perintah');
 
+  // --- deck ikut app aktif ---
+  const xcodePage = pages.findIndex((p) => (p.match || []).some((m) => m === 'xcode'));
+  check(xcodePage >= 0, 'ada halaman yang minta app tertentu', `Xcode di index ${xcodePage}`);
+  check(hello?.front?.page === xcodePage,
+        'hello memetakan app depan ke halamannya',
+        `front="${hello?.front?.app}" -> halaman ${hello?.front?.page}`);
+
   // --- cabut device ---
   const helloDevices = hello?.devices ?? [];
   check(helloDevices.length > 0 && helloDevices.some((d) => d.current),

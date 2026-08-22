@@ -48,6 +48,20 @@ function defaultDeck() {
           { id: 'vol-up', label: '🔊', action: { type: 'media', code: 0 } }
         ]
       },
+      {
+        name: 'Xcode',
+        // `match` is what makes the deck follow the Mac: an app name or bundle
+        // id, matched case-insensitively against whatever is frontmost.
+        match: ['Xcode'],
+        keys: [
+          { id: 'xc-build', label: 'Build', hint: '⌘B', action: { type: 'shortcut', keys: ['cmd', 'b'] } },
+          { id: 'xc-run', label: 'Run', hint: '⌘R', color: '#10331f', action: { type: 'shortcut', keys: ['cmd', 'r'] } },
+          { id: 'xc-stop', label: 'Stop', hint: '⌘.', color: '#34181b', action: { type: 'shortcut', keys: ['cmd', '.'] } },
+          { id: 'xc-clean', label: 'Clean', hint: '⇧⌘K', action: { type: 'shortcut', keys: ['cmd', 'shift', 'k'] } },
+          { id: 'xc-open', label: 'Open Quickly', hint: '⇧⌘O', action: { type: 'shortcut', keys: ['cmd', 'shift', 'o'] } },
+          { id: 'xc-nav', label: 'Navigator', hint: '⌘0', action: { type: 'shortcut', keys: ['cmd', '0'] } }
+        ]
+      },
       { name: 'App', keys: appPage() }
     ]
   };
@@ -58,6 +72,7 @@ function normalise(deck) {
   return {
     pages: pages.map((p, i) => ({
       name: String(p?.name ?? `Halaman ${i + 1}`),
+      match: (Array.isArray(p?.match) ? p.match : []).map((m) => String(m).toLowerCase()),
       keys: (Array.isArray(p?.keys) ? p.keys : []).filter((k) => k && k.id && k.action)
     }))
   };
@@ -108,10 +123,22 @@ export class Deck {
     return {
       pages: this.deck.pages.map((p) => ({
         name: p.name,
+        match: p.match,
         keys: p.keys.map((k) => ({ id: k.id, label: k.label ?? k.id, hint: k.hint, color: k.color }))
       })),
       error: this.error ?? null
     };
+  }
+
+  /// Which page wants this application, or -1. Both the visible name and the
+  /// bundle id are checked, since a config is easier to write with names but
+  /// bundle ids are what actually disambiguate.
+  pageFor(front) {
+    if (!front) return -1;
+    const name = String(front.app || '').toLowerCase();
+    const bundle = String(front.bundle || '').toLowerCase();
+    return this.deck.pages.findIndex((p) =>
+      p.match.some((m) => m === name || m === bundle));
   }
 
   find(id) {

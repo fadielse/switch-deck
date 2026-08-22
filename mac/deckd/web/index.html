@@ -519,12 +519,23 @@
         if (f.refreshHz > 0) c.refreshHz = f.refreshHz;
         c.lanUrl = f.lanUrl || null;
         c.devices = f.devices || [];
-        if (host.id === activeId) renderDeviceList();
+        c.front = f.front || null;
+        if (host.id === activeId) {
+          renderDeviceList();
+          if (c.front) applyFront(c.front);
+        }
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'front') {
+        c.front = f;
+        if (host.id === activeId) applyFront(f);
       } else if (f.t === 'devices') {
         c.devices = f.devices || [];
-        if (host.id === activeId) renderDeviceList();
+        c.front = f.front || null;
+        if (host.id === activeId) {
+          renderDeviceList();
+          if (c.front) applyFront(c.front);
+        }
       } else if (f.t === 'deck') {
         c.deck = f.deck;
         if (host.id === activeId) renderDeck(c.deck);
@@ -569,6 +580,14 @@
     }
     paintStatus();
     paintLatency();
+  }
+
+  /// A page with no match for the current app leaves the deck on page 0, which
+  /// is the one meant to be generally useful.
+  function applyFront(front) {
+    frontApp = front.app || '';
+    autoPage = front.page >= 0 ? front.page : 0;
+    if (activePage === AUTO) renderDeck({ pages: deckPages });
   }
 
   function setActive(id) {
@@ -630,6 +649,12 @@
   // Split across both palm rests so the trackpad stays centred, like a MacBook.
   // -1 means no page: the palm rests stay empty and the trackpad sits alone.
   var NO_PAGE = -1;
+  // AUTO follows whatever is in front on the Mac. It is a mode rather than the
+  // default behaviour: a deck that changes under you while you are reaching for
+  // a button is worse than one that stays put, so choosing a page pins it.
+  var AUTO = -2;
+  var autoPage = 0;      // where AUTO currently resolves
+  var frontApp = '';
   var deckPages = [], activePage = 0;
   try {
     var savedPage = localStorage.getItem('switchdeck.page');
@@ -638,7 +663,10 @@
 
   function renderDeck(description) {
     deckPages = (description && description.pages) || [];
-    if (activePage >= deckPages.length) activePage = deckPages.length ? 0 : NO_PAGE;
+    if (activePage >= 0 && activePage >= deckPages.length) {
+      activePage = deckPages.length ? 0 : NO_PAGE;
+    }
+    if (autoPage >= deckPages.length) autoPage = 0;
 
     var tabs = el('pages');
     tabs.innerHTML = '';
@@ -660,13 +688,19 @@
     // Always offer the empty option, even with a single page — wanting nothing
     // beside the trackpad is a choice, not a consequence of having no deck.
     tab('Kosong', NO_PAGE);
+    // Only offer Auto if some page actually asks for an app; otherwise it would
+    // be a mode that never does anything.
+    if (deckPages.some(function (p) { return (p.match || []).length; })) {
+      tab(activePage === AUTO && frontApp ? 'Auto · ' + frontApp : 'Auto', AUTO);
+    }
     deckPages.forEach(function (page, index) { tab(page.name, index); });
 
     var left = el('deck-l'), right = el('deck-r');
     left.innerHTML = ''; right.innerHTML = '';
-    var keys = activePage === NO_PAGE
+    var shown = activePage === AUTO ? autoPage : activePage;
+    var keys = shown === NO_PAGE || shown === AUTO
       ? []
-      : ((deckPages[activePage] && deckPages[activePage].keys) || []);
+      : ((deckPages[shown] && deckPages[shown].keys) || []);
     keys.forEach(function (k, index) {
       var aside = index % 2 === 0 ? left : right;
       var b = document.createElement('button');

@@ -30,7 +30,21 @@ const deck = new Deck({
   }
 });
 
+let frontTimer = null;
+
 const input = new InputBridge(binary, {
+  onFront: (front) => {
+    // Debounced: alt-tabbing through three apps should land on the last one,
+    // not flick the deck through all three.
+    clearTimeout(frontTimer);
+    frontTimer = setTimeout(() => {
+      const index = deck.pageFor(front);
+      const payload = JSON.stringify({ t: 'front', app: front.app, page: index });
+      for (const client of wss.clients) {
+        if (client.readyState === 1) client.send(payload);
+      }
+    }, 250);
+  },
   onStatus: (frame) => {
     if (frame.trusted) return;
     console.error('\n!! deckd-input TIDAK punya izin Accessibility.');
@@ -231,6 +245,7 @@ wss.on('connection', (ws, req) => {
     // be blamed on the wifi.
     lanUrl: viaTailscale ? `http://${lanAddress()}:${port}/` : null,
     devices: describeDevices(ws.deckToken),
+    front: input.front ? { app: input.front.app, page: deck.pageFor(input.front) } : null,
     trusted: input.trusted,
     refreshHz: input.refreshHz,
     deck: deck.describe(),

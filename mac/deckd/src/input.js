@@ -5,9 +5,10 @@ import { createInterface } from 'node:readline';
 /// the far side of this pipe (decision K10), so this file never learns what a
 /// CGEvent is.
 export class InputBridge {
-  constructor(binaryPath, { onStatus } = {}) {
+  constructor(binaryPath, { onStatus, onFront } = {}) {
     this.binaryPath = binaryPath;
     this.onStatus = onStatus ?? (() => {});
+    this.onFront = onFront ?? (() => {});
     this.child = null;
     this.trusted = null;
     this.refreshHz = 60;
@@ -28,6 +29,9 @@ export class InputBridge {
         this.trusted = frame.trusted;
         if (frame.refreshHz > 0) this.refreshHz = frame.refreshHz;
         this.onStatus(frame);
+      } else if (frame.t === 'front') {
+        this.front = { app: frame.app, bundle: frame.bundle };
+        this.onFront(this.front);
       } else if (frame.t === 'err') {
         console.error('[deckd-input]', frame.msg, frame.raw ?? '');
       }
