@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -77,6 +77,29 @@ latency:
 ## Opens and closes Mission Control a few times; do not touch the Mac while it runs.
 gesture-test: build
 	@node tools/gesture-test.mjs
+
+## Run deckd at login, and bring it back if it dies.
+install: build
+	@./scripts/install-agent.sh
+
+uninstall:
+	@./scripts/uninstall-agent.sh
+
+## The pairing code, which has nowhere to print once deckd runs headless.
+code:
+	@cat ~/.config/switchdeck/pairing-code 2>/dev/null \
+	  || echo "belum ada — deckd belum pernah jalan sejak versi ini"
+
+## Is it running, and what has it been saying?
+status:
+	@launchctl list | grep -q com.switchdeck.deckd \
+	  && echo "  LaunchAgent: terpasang" || echo "  LaunchAgent: tidak terpasang"
+	@pgrep -f "deckd/src/server.js" >/dev/null \
+	  && echo "  deckd      : jalan (pid $$(pgrep -f 'deckd/src/server.js' | head -1))" \
+	  || echo "  deckd      : tidak jalan"
+	@echo "  kode       : $$(cat ~/.config/switchdeck/pairing-code 2>/dev/null || echo '-')"
+	@echo ""
+	@tail -n 12 ~/.config/switchdeck/deckd.log 2>/dev/null | sed 's/^/  /' || true
 
 ## Serve the browser capability page to the tablet.
 serve:

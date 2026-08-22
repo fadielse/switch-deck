@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +42,16 @@ input.start();
 // somewhere stops working once deckd is restarted.
 const pairingCode = newCode();
 const throttle = new Throttle();
+
+// Under launchd there is no terminal to print to, so the code goes to a file
+// that `make code` reads. Same 0600 as config.json — it is a credential until
+// it is used, and this is the only way to see it once deckd starts at login.
+const CODE_FILE = join(dirname(config.path), 'pairing-code');
+try {
+  writeFileSync(CODE_FILE, pairingCode + '\n', { mode: 0o600 });
+} catch (err) {
+  console.error('[deckd] tidak bisa menulis kode pairing:', err.message);
+}
 
 function knownDevice(token) {
   return Object.keys(config.devices).some((known) => sameSecret(known, token));

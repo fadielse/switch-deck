@@ -19,6 +19,30 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
+## Phase F7 — always on
+
+```sh
+make install     # start at login, come back after a crash
+make status      # is it running, and what has it been saying
+make code        # the pairing code
+make uninstall
+```
+
+A LaunchAgent pointing at node, not a compiled binary. The single binary was
+for handing this to other people, which the design notes list as an anti-goal —
+dropping it also dissolved the "Bun is not installed" blocker that had been
+sitting against this phase since F1.
+
+Running headless removes the terminal the pairing code used to print to, so the
+code is written to `~/.config/switchdeck/pairing-code` at mode 0600 and read
+back with `make code`. It stays a credential until it is used, so it is
+readable only by you and never served over HTTP.
+
+Accessibility is the thing to watch here. Started by launchd there is no parent
+application to lend its grant the way a terminal does, so run `make doctor`
+after installing; if it comes back red, add `deckd-input` itself to Privacy &
+Security.
+
 ## Phase F4 — the deck
 
 Buttons come from `~/.config/switchdeck/deck.json`, written with a starter deck
