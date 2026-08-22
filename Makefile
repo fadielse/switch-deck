@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 deckd e2e check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -55,6 +55,14 @@ click: build
 ## Keycode 8 = "c". Proves the modifier-flag path before F3 needs it.
 cmd-c: build
 	@printf '{"t":"k","code":8,"d":1,"flags":["cmd"]}\n{"t":"k","code":8,"d":0,"flags":["cmd"]}\n' | $(BIN)
+
+## Run the SwitchDeck server (F1). Prints the URL to open on the tablet.
+deckd: build
+	@cd mac/deckd && npm start
+
+## Chain test: does a macro sent over the WebSocket reach deckd-input?
+e2e: build
+	@cd mac/deckd && node test/chain.js
 
 ## Serve the browser capability page to the tablet.
 serve:

@@ -1,0 +1,113 @@
+import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { WebSocketServer } from 'ws';
+
+import { lanAddress, loadConfig } from './config.js';
+import { InputBridge } from './input.js';
+import { MACROS, describeMacros } from './macros.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const config = loadConfig();
+
+const binary = process.env.DECKD_INPUT
+  ?? join(here, '..', '..', 'deckd-input', '.build', 'release', 'deckd-input');
+
+const input = new InputBridge(binary, {
+  onStatus: (frame) => {
+    if (frame.trusted) return;
+    console.error('\n!! deckd-input TIDAK punya izin Accessibility.');
+    console.error('!! Tombol bakal kelihatan sukses tapi nggak ada yang kejadian.');
+    console.error('!! Jalanin: make doctor\n');
+  },
+});
+input.start();
+
+function tokenMatches(candidate) {
+  const a = Buffer.from(String(candidate ?? ''));
+  const b = Buffer.from(config.token);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+const page = readFileSync(join(here, '..', 'web', 'index.html'));
+
+const server = createServer((req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/health') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, trusted: input.trusted }));
+    return;
+  }
+  if (url.pathname === '/') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(page);
+    return;
+  }
+  res.writeHead(404).end('not found');
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (url.pathname !== '/ws' || !tokenMatches(url.searchParams.get('t'))) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  // Blueprint K2: mouse frames are tiny and frequent, so Nagle would batch them
+  // into visible lag. Set from day one rather than as an F2 optimisation.
+  socket.setNoDelay(true);
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+});
+
+wss.on('connection', (ws) => {
+  console.log('[deckd] tablet nyambung');
+  ws.send(JSON.stringify({
+    t: 'hello',
+    host: config.hostName,
+    trusted: input.trusted,
+    deck: describeMacros(),
+  }));
+
+  ws.on('message', (raw) => {
+    let frame;
+    try {
+      frame = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+
+    if (frame.t === 'ping') {
+      ws.send(JSON.stringify({ t: 'pong', ts: frame.ts }));
+      return;
+    }
+
+    if (frame.t === 'macro') {
+      const macro = MACROS[frame.id];
+      if (!macro) {
+        ws.send(JSON.stringify({ t: 'err', id: frame.id, msg: 'macro tidak dikenal' }));
+        return;
+      }
+      for (const f of macro.frames) input.send(f);
+      ws.send(JSON.stringify({ t: 'ack', id: frame.id, trusted: input.trusted }));
+      return;
+    }
+
+    ws.send(JSON.stringify({ t: 'err', msg: 'frame tidak dikenal', type: frame.t }));
+  });
+
+  ws.on('close', () => console.log('[deckd] tablet putus'));
+});
+
+const port = Number(process.env.PORT) || config.port;
+
+server.listen(port, () => {
+  const url = `http://${lanAddress()}:${port}/#t=${config.token}`;
+  console.log(`\n  SwitchDeck — ${config.hostName}`);
+  if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);
+  console.log(`\n  Buka di tablet:\n  ${url}\n`);
+  console.log('  (link ini mengandung token — jangan disebar)\n');
+});

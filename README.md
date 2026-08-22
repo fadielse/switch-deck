@@ -19,7 +19,23 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
-## Current phase: F0 — prove CGEvent works
+## Phase F1 — one button, end to end
+
+```sh
+make deckd      # start the server; prints the URL to open on the tablet
+make e2e        # chain test: WebSocket -> deckd -> deckd-input
+```
+
+`deckd` serves the client, holds the WebSocket and drives `deckd-input` over a
+pipe. A token is generated into `~/.config/switchdeck/config.json` (mode 0600)
+on first run and required on every connection — there is no unauthenticated
+mode, since this server types into your Mac.
+
+The tablet sends a macro **id**, never a key sequence or a command string. That
+is what bounds the damage an attacker on your LAN could do to "the macros you
+defined" instead of "anything at all".
+
+## Phase F0 — prove CGEvent works (done)
 
 F0 deliberately produces nothing visual. Its whole job is to kill the biggest risk
 before any UI exists: if relative mouse deltas can't be injected correctly, the
@@ -69,9 +85,10 @@ Still needs a human:
 - [ ] Re-run the browser check with a single finger — the first two runs used
       a rate counter that spanned multiple gestures, so the Hz figure is not
       trustworthy yet
-- [ ] **R1** — `make r1`, lock the pointer on the page it opens, and let it
-      grade itself. The delta fields are proven present in the event stream;
-      how an app interprets them is not.
+- [x] **R1 closed** — `make r1` read 16 events at exactly 7/5, and the summed
+      movement over an out-and-back probe was exactly (0, 0). A perfect
+      cancellation means macOS passes our deltas through untouched; pointer
+      acceleration would have made the two bursts disagree.
 
 ## Protocol (stdin, JSON Lines)
 

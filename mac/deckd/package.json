@@ -1,0 +1,13 @@
+{
+  "name": "deckd",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SwitchDeck server — serves the client, holds the WebSocket, drives deckd-input",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

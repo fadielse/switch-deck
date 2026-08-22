@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>SwitchDeck</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; min-height: 100vh; padding: 20px;
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #101216; color: #e6e8ec;
+    display: flex; flex-direction: column; gap: 16px;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .host { font-weight: 700; font-size: 17px; }
+  .pill {
+    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .up   { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
+  .down { background: #34181b; color: #f2777f; border: 1px solid #5e2a2f; }
+  .mid  { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
+  #warn {
+    display: none; background: #34181b; border: 1px solid #5e2a2f; color: #f2b0b5;
+    border-radius: 10px; padding: 12px 14px; font-size: 13px;
+  }
+  #deck { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .key {
+    aspect-ratio: 1 / 1; min-height: 130px;
+    border-radius: 16px; border: 1px solid #2f3642; background: #1f2530; color: #e6e8ec;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    font-size: 18px; font-weight: 700; transition: transform .06s, background .12s, border-color .12s;
+  }
+  .key .hint { font-size: 13px; font-weight: 500; color: #8b93a1; }
+  .key:active { transform: scale(.96); background: #2b3341; }
+  .key.ok   { background: #10331f; border-color: #1d5c37; }
+  .key.fail { background: #34181b; border-color: #5e2a2f; }
+  footer { margin-top: auto; color: #8b93a1; font-size: 12px; display: flex; justify-content: space-between; }
+  #pair { display: none; flex-direction: column; gap: 10px; }
+  input {
+    padding: 14px; font-size: 16px; border-radius: 10px;
+    border: 1px solid #2f3642; background: #181b21; color: #e6e8ec; width: 100%;
+  }
+  button.primary {
+    padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px;
+    border: none; background: #3d6fd1; color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="host" id="host">SwitchDeck</span>
+  <span class="pill mid" id="status">nyambungin…</span>
+</header>
+
+<div id="warn"></div>
+
+<div id="pair">
+  <p style="margin:0;color:#8b93a1;font-size:13px">Tempel token dari terminal Mac (baris <code>config.json</code>), atau buka ulang lewat link lengkap yang dicetak server.</p>
+  <input id="token" placeholder="token" autocapitalize="off" autocorrect="off" spellcheck="false">
+  <button class="primary" id="save">Simpan &amp; sambung</button>
+</div>
+
+<div id="deck"></div>
+
+<footer>
+  <span id="latency">—</span>
+  <span id="hint"></span>
+</footer>
+
+<script>
+(function () {
+  var STORE = 'switchdeck.token';
+  var statusEl = document.getElementById('status');
+  var deckEl = document.getElementById('deck');
+  var warnEl = document.getElementById('warn');
+  var pairEl = document.getElementById('pair');
+  var ws = null, pingTimer = null, retry = null;
+
+  function readToken() {
+    var m = location.hash.match(/t=([a-f0-9]+)/i);
+    if (m) {
+      try { localStorage.setItem(STORE, m[1]); } catch (e) {}
+      // Keep the token out of the visible URL once it is stored.
+      history.replaceState(null, '', location.pathname);
+      return m[1];
+    }
+    try { return localStorage.getItem(STORE); } catch (e) { return null; }
+  }
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = 'pill ' + cls;
+  }
+
+  function connect(token) {
+    if (!token) {
+      pairEl.style.display = 'flex';
+      setStatus('belum dipasangkan', 'down');
+      return;
+    }
+    pairEl.style.display = 'none';
+    setStatus('nyambungin…', 'mid');
+
+    var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws?t=' + encodeURIComponent(token));
+
+    ws.onopen = function () {
+      setStatus('nyambung', 'up');
+      clearInterval(pingTimer);
+      pingTimer = setInterval(function () {
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
+      }, 2000);
+    };
+
+    ws.onmessage = function (ev) {
+      var f;
+      try { f = JSON.parse(ev.data); } catch (e) { return; }
+
+      if (f.t === 'hello') {
+        document.getElementById('host').textContent = f.host;
+        renderDeck(f.deck);
+        if (f.trusted === false) {
+          warnEl.style.display = 'block';
+          warnEl.textContent = 'Mac belum ngasih izin Accessibility. Tombol bakal kelihatan sukses tapi nggak ada yang kejadian di Mac. Jalanin `make doctor` di sana.';
+        }
+      } else if (f.t === 'pong') {
+        document.getElementById('latency').textContent = (Date.now() - f.ts) + ' ms';
+      } else if (f.t === 'ack') {
+        flash(f.id, 'ok');
+      } else if (f.t === 'err') {
+        flash(f.id, 'fail');
+        document.getElementById('hint').textContent = f.msg || '';
+      }
+    };
+
+    ws.onclose = function (ev) {
+      clearInterval(pingTimer);
+      // 1006 right after an upgrade is what a rejected token looks like here.
+      var rejected = ev.code === 1006 && statusEl.textContent === 'nyambungin…';
+      setStatus(rejected ? 'token ditolak' : 'putus', 'down');
+      if (rejected) {
+        try { localStorage.removeItem(STORE); } catch (e) {}
+        pairEl.style.display = 'flex';
+        return;
+      }
+      clearTimeout(retry);
+      retry = setTimeout(function () { connect(token); }, 1500);
+    };
+  }
+
+  function renderDeck(keys) {
+    deckEl.innerHTML = '';
+    (keys || []).forEach(function (k) {
+      var b = document.createElement('button');
+      b.className = 'key';
+      b.id = 'key-' + k.id;
+      b.innerHTML = '<span>' + k.label + '</span>' +
+                    (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+      b.addEventListener('click', function () {
+        if (!ws || ws.readyState !== 1) return;
+        ws.send(JSON.stringify({ t: 'macro', id: k.id }));
+      });
+      deckEl.appendChild(b);
+    });
+  }
+
+  function flash(id, cls) {
+    var el = document.getElementById('key-' + id);
+    if (!el) return;
+    el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, 260);
+  }
+
+  document.getElementById('save').addEventListener('click', function () {
+    var v = document.getElementById('token').value.trim();
+    if (!v) return;
+    try { localStorage.setItem(STORE, v); } catch (e) {}
+    connect(v);
+  });
+
+  connect(readToken());
+})();
+</script>
+</body>
+</html>
