@@ -8,12 +8,12 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 
-import { loadConfig } from '../src/config.js';
+
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = 8799;
 const STUB_OUT = join(tmpdir(), `switchdeck-chain-${process.pid}.jsonl`);
-const config = loadConfig();
+
 
 let failures = 0;
 function check(ok, label, detail = '') {
@@ -30,6 +30,29 @@ const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
+
+// The pairing code lives only in the server process, so read it back off its
+// own output — which also means the test walks the real pairing path rather
+// than reaching around it.
+let serverOut = '';
+server.stdout.on('data', (chunk) => { serverOut += chunk; });
+const pairingCode = async () => {
+  for (let i = 0; i < 50; i += 1) {
+    const m = serverOut.match(/Kode pairing:\s*(\d{6})/);
+    if (m) return m[1];
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return null;
+};
+
+async function pair(code) {
+  const res = await fetch(`http://127.0.0.1:${PORT}/pair`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
 
 const done = (code) => {
   server.kill();
@@ -63,11 +86,21 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   check(await waitForHealth(), 'server hidup dan /health jawab');
 
-  const bad = await open('salah-token-banget');
-  check(bad.rejected, 'token salah DITOLAK', 'ini yang bikin K5 bukan cuma slogan');
+  const code = await pairingCode();
+  check(!!code, 'server mencetak kode pairing 6 digit', code ?? 'tidak ketemu');
 
-  const good = await open(config.token);
-  check(!good.rejected, 'token benar diterima');
+  const wrong = await pair(code === '000000' ? '111111' : '000000');
+  check(wrong.status === 401, 'kode pairing salah DITOLAK');
+
+  const paired = await pair(code);
+  check(paired.status === 200 && !!paired.body.token, 'kode benar ditukar jadi token device',
+        'kode 6 digit cuma dipakai sekali; token panjang yang jaga koneksinya');
+
+  const bad = await open('salah-token-banget');
+  check(bad.rejected, 'token device palsu DITOLAK', 'ini yang bikin K5 bukan cuma slogan');
+
+  const good = await open(paired.body.token);
+  check(!good.rejected, 'token device diterima');
   if (good.rejected) done(1);
 
   await wait(200);
@@ -157,6 +190,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const clamped = readSent().slice(huge);
   check(clamped.length === 1 && Math.abs(clamped[0].dx) <= 400, 'nilai gila diclamp, bukan diteruskan mentah',
         clamped.length ? `dx=${clamped[0].dx}` : 'nggak ada frame');
+
+  // Throttle: the free tries are spent above, so this should be refused outright.
+  for (let i = 0; i < 4; i += 1) await pair('999999');
+  const throttled = await pair('999999');
+  check(throttled.status === 429, 'tebakan beruntun kena rate limit',
+        `${throttled.body.retryAfter ?? '?'} detik — inilah yang bikin 6 digit aman`);
 
   console.log('');
   console.log(failures === 0

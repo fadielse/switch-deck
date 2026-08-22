@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -12,16 +11,24 @@ export function loadConfig() {
   if (!existsSync(FILE)) {
     mkdirSync(DIR, { recursive: true });
     const created = {
-      token: randomBytes(16).toString('hex'),
       port: 8777,
       hostName: hostname().replace(/\.local$/, ''),
+      devices: {},
     };
-    // The token is a credential: it lets anything on the LAN type into this Mac.
+    // Device tokens are credentials: each one lets a device type into this Mac.
     writeFileSync(FILE, JSON.stringify(created, null, 2) + '\n', { mode: 0o600 });
     return { ...created, path: FILE, isNew: true };
   }
   const config = JSON.parse(readFileSync(FILE, 'utf8'));
-  return { port: 8777, hostName: hostname(), ...config, path: FILE, isNew: false };
+  return { port: 8777, hostName: hostname(), devices: {}, ...config, path: FILE, isNew: false };
+}
+
+/// Records a freshly paired device. Rewrites the whole file because it is a few
+/// lines and a partial write here would lock everything out.
+export function rememberDevice(config, token, name) {
+  config.devices[token] = { name, pairedAt: new Date().toISOString() };
+  const { path, isNew, ...persisted } = config;
+  writeFileSync(FILE, JSON.stringify(persisted, null, 2) + '\n', { mode: 0o600 });
 }
 
 export function lanAddress() {

@@ -130,8 +130,11 @@
   .row .val { flex: 0 0 52px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 
   #pair { display: none; flex-direction: column; gap: 10px; padding: 20px; }
-  #pair input { padding: 14px; font-size: 16px; border-radius: 10px; border: 1px solid var(--line);
-                background: var(--panel); color: var(--fg); }
+  #pair input {
+    padding: 16px; font-size: 34px; letter-spacing: .35em; text-align: center;
+    border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--fg); font-variant-numeric: tabular-nums;
+  }
   #pair button { padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px;
                  border: none; background: #3d6fd1; color: #fff; }
 </style>
@@ -140,7 +143,7 @@
 
 <header>
   <span class="host" id="host">SwitchDeck</span>
-  <span class="pill mid" id="status">nyambungin…</span>
+  <span class="pill mid" id="status">connecting</span>
   <span class="pages" id="pages"></span>
   <span class="metrics">
     <span id="lat">— ms</span>
@@ -154,9 +157,11 @@
 <div id="warn"></div>
 
 <div id="pair">
-  <p style="margin:0;color:var(--dim);font-size:13px">Tempel token dari <code>~/.config/switchdeck/config.json</code>, atau buka lewat link lengkap yang dicetak server.</p>
-  <input id="token" placeholder="token" autocapitalize="off" autocorrect="off" spellcheck="false">
-  <button id="save">Simpan &amp; sambung</button>
+  <p style="margin:0 0 4px;color:var(--dim);font-size:13px">Masukkan kode 6 digit yang dicetak di terminal Mac.</p>
+  <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000"
+         autocapitalize="off" autocorrect="off" spellcheck="false">
+  <button id="save">Pasangkan</button>
+  <p id="pairmsg" style="margin:0;font-size:13px;color:#f2777f;min-height:18px"></p>
 </div>
 
 <div id="kb"></div>
@@ -165,7 +170,6 @@
   <aside class="palm" id="deck-l"></aside>
   <div id="pad">
     <span class="badge" id="badge"></span>
-    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag<br>3 jari — geser kiri/kanan ganti app, ke atas Mission Control, ke bawah Launchpad</span>
   </div>
   <aside class="palm" id="deck-r"></aside>
 </main>
@@ -326,14 +330,14 @@
   }
 
   function connect(token) {
-    if (!token) { el('pair').style.display = 'flex'; setStatus('belum dipasangkan', 'down'); return; }
+    if (!token) { el('pair').style.display = 'flex'; setStatus('not paired', 'down'); return; }
     el('pair').style.display = 'none';
-    setStatus('nyambungin…', 'mid');
+    setStatus('connecting', 'mid');
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(proto + '://' + location.host + '/ws?t=' + encodeURIComponent(token));
 
     ws.onopen = function () {
-      setStatus('nyambung', 'up');
+      setStatus('connected', 'up');
       startPing();
     };
 
@@ -363,8 +367,8 @@
 
     ws.onclose = function (ev) {
       clearInterval(pingTimer);
-      var rejected = ev.code === 1006 && el('status').textContent === 'nyambungin…';
-      setStatus(rejected ? 'token ditolak' : 'putus', 'down');
+      var rejected = ev.code === 1006 && el('status').textContent === 'connecting';
+      setStatus(rejected ? 'pairing required' : 'disconnected', 'down');
       if (rejected) {
         try { localStorage.removeItem(STORE); } catch (e) {}
         el('pair').style.display = 'flex';
@@ -658,7 +662,6 @@
       }
     }
     el('badge').textContent = text;
-    el('padhint').style.opacity = pointers.size ? 0 : 1;
   }
 
   // One flush per frame. The tablet samples at ~93 Hz and animation frames run
@@ -1130,20 +1133,49 @@
   el('close').addEventListener('click', function () { el('settings').classList.remove('open'); });
 
   // ---------- pairing ----------
+  // The six-digit code is exchanged once for a long device token. The code is
+  // short enough to read off a screen; the token is what actually guards the
+  // connection from then on.
+  function pair(code) {
+    var msg = el('pairmsg');
+    msg.style.color = 'var(--dim)';
+    msg.textContent = 'memeriksa…';
+
+    fetch('/pair', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    }).then(function (res) {
+      return res.json().then(function (body) { return { status: res.status, body: body }; });
+    }).then(function (r) {
+      if (r.status === 200 && r.body.token) {
+        try { localStorage.setItem(STORE, r.body.token); } catch (e) {}
+        msg.textContent = '';
+        el('code').value = '';
+        connect(r.body.token);
+        return;
+      }
+      msg.style.color = '#f2777f';
+      msg.textContent = r.status === 429
+        ? 'terlalu banyak percobaan, tunggu ' + r.body.retryAfter + ' detik'
+        : 'kode salah';
+    }).catch(function () {
+      msg.style.color = '#f2777f';
+      msg.textContent = 'tidak bisa menghubungi Mac';
+    });
+  }
+
   el('save').addEventListener('click', function () {
-    var v = el('token').value.trim();
-    if (!v) return;
-    try { localStorage.setItem(STORE, v); } catch (e) {}
-    connect(v);
+    var v = el('code').value.replace(/\D/g, '');
+    if (v.length === 6) pair(v);
+  });
+  el('code').addEventListener('input', function () {
+    var v = el('code').value.replace(/\D/g, '');
+    el('code').value = v;
+    if (v.length === 6) pair(v);   // no reason to make them press a button too
   });
 
   function readToken() {
-    var m = location.hash.match(/t=([a-f0-9]+)/i);
-    if (m) {
-      try { localStorage.setItem(STORE, m[1]); } catch (e) {}
-      history.replaceState(null, '', location.pathname);
-      return m[1];
-    }
     try { return localStorage.getItem(STORE); } catch (e) { return null; }
   }
 

@@ -6,19 +6,34 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 
-import { loadConfig } from '../src/config.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = 8801;
-const config = loadConfig();
 
+let out = '';
 const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   env: { ...process.env, PORT: String(PORT), DECKD_INPUT: join(here, 'stub-input.js'),
          STUB_OUT: join(tmpdir(), 'switchdeck-latency.jsonl') },
-  stdio: ['ignore', 'ignore', 'ignore'],
+  stdio: ['ignore', 'pipe', 'ignore'],
 });
+server.stdout.on('data', (c) => { out += c; });
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function pairUp() {
+  for (let i = 0; i < 50; i += 1) {
+    const m = out.match(/Kode pairing:\s*(\d{6})/);
+    if (m) {
+      const res = await fetch(`http://127.0.0.1:${PORT}/pair`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: m[1] })
+      });
+      return (await res.json()).token;
+    }
+    await wait(100);
+  }
+  return null;
+}
 
 async function health() {
   for (let i = 0; i < 50; i += 1) {
@@ -31,7 +46,9 @@ async function health() {
 (async () => {
   if (!await health()) { console.log('server nggak hidup'); server.kill(); process.exit(1); }
 
-  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${config.token}`);
+  const token = await pairUp();
+  if (!token) { console.log('gagal pairing'); server.kill(); process.exit(1); }
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${token}`);
   await new Promise((r) => ws.on('open', r));
 
   const rtts = [];

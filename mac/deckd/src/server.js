@@ -1,11 +1,11 @@
-import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
-import { lanAddress, loadConfig } from './config.js';
+import { lanAddress, loadConfig, rememberDevice } from './config.js';
+import { Throttle, newCode, newToken, sameSecret } from './pairing.js';
 import { InputBridge } from './input.js';
 import { Deck } from './deck.js';
 import { runAction } from './actions.js';
@@ -38,16 +38,59 @@ const input = new InputBridge(binary, {
 });
 input.start();
 
-function tokenMatches(candidate) {
-  const a = Buffer.from(String(candidate ?? ''));
-  const b = Buffer.from(config.token);
-  return a.length === b.length && timingSafeEqual(a, b);
+// Regenerated every time the server starts, so a code left on a screen
+// somewhere stops working once deckd is restarted.
+const pairingCode = newCode();
+const throttle = new Throttle();
+
+function knownDevice(token) {
+  return Object.keys(config.devices).some((known) => sameSecret(known, token));
 }
 
 const pagePath = join(here, '..', 'web', 'index.html');
 
-const server = createServer((req, res) => {
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 4096) req.destroy();   // nothing legitimate is this big
+    });
+    req.on('end', () => resolve(body));
+  });
+}
+
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+
+  if (url.pathname === '/pair' && req.method === 'POST') {
+    const address = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+    const wait = throttle.retryAfter(address);
+    if (wait > 0) {
+      res.writeHead(429, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ retryAfter: Math.ceil(wait / 1000) }));
+      return;
+    }
+    let code = '';
+    try { code = JSON.parse(await readBody(req)).code; } catch { /* below */ }
+
+    if (!sameSecret(code, pairingCode)) {
+      const failures = throttle.fail(address);
+      console.log(`[deckd] pairing gagal dari ${address} (percobaan ke-${failures})`);
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'kode salah' }));
+      return;
+    }
+
+    throttle.succeed(address);
+    const token = newToken();
+    rememberDevice(config, token, address);
+    console.log(`[deckd] device baru dipasangkan dari ${address}`);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ token }));
+    return;
+  }
+
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, trusted: input.trusted }));
@@ -75,7 +118,7 @@ deck.watch();
 
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname !== '/ws' || !tokenMatches(url.searchParams.get('t'))) {
+  if (url.pathname !== '/ws' || !knownDevice(url.searchParams.get('t'))) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
@@ -156,11 +199,15 @@ wss.on('connection', (ws, req) => {
 const port = Number(process.env.PORT) || config.port;
 
 server.listen(port, () => {
-  const url = `http://${lanAddress()}:${port}/#t=${config.token}`;
+  const url = `http://${lanAddress()}:${port}/`;
   console.log(`\n  SwitchDeck — ${config.hostName}`);
   if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);
   const total = deck.describe().pages.reduce((n, p) => n + p.keys.length, 0);
   console.log(`  deck: ${total} tombol dari ${deck.path}${deck.isNew ? ' (baru dibuat)' : ''}`);
-  console.log(`\n  Buka di tablet:\n  ${url}\n`);
-  console.log('  (link ini mengandung token — jangan disebar)\n');
+  const paired = Object.keys(config.devices).length;
+  console.log(`\n  Buka di tablet:  ${url}`);
+  console.log(`  Kode pairing:    ${pairingCode}`);
+  console.log(`\n  Kode ini ganti tiap server dinyalakan, dan cuma dipakai sekali —`);
+  console.log('  setelah itu device dapat token sendiri dan tidak ditanya lagi.');
+  console.log(`  Device yang sudah terpasang: ${paired}\n`);
 });
