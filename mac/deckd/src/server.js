@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
-import { lanAddress, loadConfig, rememberDevice } from './config.js';
+import { isTailscaleAddress, lanAddress, loadConfig, rememberDevice } from './config.js';
 import { Throttle, newCode, newToken, sameSecret } from './pairing.js';
 import { InputBridge } from './input.js';
 import { Deck } from './deck.js';
@@ -156,11 +156,18 @@ wss.on('connection', (ws, req) => {
   // Printed so the link itself can be measured with ping, independently of
   // anything in this process.
   const peer = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-  console.log(`[deckd] tablet nyambung dari ${peer}`);
-  console.log(`[deckd] ukur jaringannya langsung:  ping -c 50 ${peer}`);
+  const viaTailscale = isTailscaleAddress(peer);
+  console.log(`[deckd] tablet nyambung dari ${peer}${viaTailscale ? ' (lewat Tailscale)' : ''}`);
+  if (viaTailscale) {
+    console.log(`[deckd] ! kalau tablet ada di jaringan yang sama, pakai http://${lanAddress()}:${port}/`);
+    console.log('[deckd] ! Tailscale bisa merelai lewat server di negara lain — puluhan ms tiap paket');
+  }
   ws.send(JSON.stringify({
     t: 'hello',
     host: config.hostName,
+    // Told to the client so it can say so, rather than leaving the latency to
+    // be blamed on the wifi.
+    lanUrl: viaTailscale ? `http://${lanAddress()}:${port}/` : null,
     trusted: input.trusted,
     refreshHz: input.refreshHz,
     deck: deck.describe(),

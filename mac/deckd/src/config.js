@@ -52,6 +52,17 @@ export function rememberDevice(config, token, name) {
   writeFileSync(FILE, JSON.stringify(persisted, null, 2) + '\n', { mode: 0o600 });
 }
 
+/// Tailscale hands out addresses from the carrier-grade NAT range. A tablet
+/// reaching deckd on one of those is going through Tailscale — and if the two
+/// devices cannot reach each other directly, through a DERP relay that may be
+/// in another country. That is worth saying out loud: it cost this project
+/// hours of chasing wifi theories when every packet was going to Singapore and
+/// back.
+export function isTailscaleAddress(address) {
+  const m = /^100\.(\d+)\./.exec(String(address ?? ''));
+  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127;
+}
+
 export function lanAddress() {
   for (const entries of Object.values(networkInterfaces())) {
     for (const entry of entries ?? []) {

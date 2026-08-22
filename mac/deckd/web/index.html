@@ -506,6 +506,7 @@
         c.deck = f.deck;
         c.trusted = f.trusted;
         if (f.refreshHz > 0) c.refreshHz = f.refreshHz;
+        c.lanUrl = f.lanUrl || null;
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
       } else if (f.t === 'deck') {
@@ -537,9 +538,18 @@
     var c = conn(id);
     if (c.refreshHz > 0) minSendGap = 1000 / c.refreshHz;
     renderDeck(c.deck || { pages: [] });
-    el('warn').style.display = c.trusted === false ? 'block' : 'none';
     if (c.trusted === false) {
+      el('warn').style.display = 'block';
       el('warn').textContent = 'Mac ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
+    } else if (c.lanUrl) {
+      // Reaching the Mac over Tailscale can mean a relay in another country,
+      // which is tens of milliseconds on every packet. Say it, with the address
+      // that avoids it.
+      el('warn').style.display = 'block';
+      el('warn').innerHTML = 'Nyambung lewat Tailscale, bukan jaringan lokal — bisa kerelai lewat server di negara lain. '
+        + 'Kalau tablet ini satu wifi sama Mac-nya, buka <b>' + c.lanUrl + '</b> dan pasangkan ulang.';
+    } else {
+      el('warn').style.display = 'none';
     }
     paintStatus();
     paintLatency();
