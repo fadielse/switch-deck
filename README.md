@@ -19,6 +19,25 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
+## Phase F4 — the deck
+
+Buttons come from `~/.config/switchdeck/deck.json`, written with a starter deck
+on first run and seeded only with apps that are actually installed, so nothing
+ships as a key that does nothing. Edit the file and every connected tablet
+redraws — the directory is watched, writes are debounced past an editor's
+save burst, and a syntax error keeps the last good deck on screen rather than
+emptying it.
+
+Action types: `shortcut`, `text`, `media`, `open_app`, `url`, `applescript`,
+`shell`. Shortcuts are held rather than fired — the modifier goes down, a beat
+passes, the key strikes — because macOS does not read a chord that arrives all
+at once.
+
+`shell` takes a command and an argument array, never a command line, so nothing
+is handed to a shell to re-parse. The tablet is sent ids and labels only; the
+actions never leave the Mac. Pressing a button sends its id, which is looked up
+here — the same rule that has bounded the attack surface since F1.
+
 ## Phase F3 — keyboard
 
 A full on-screen keyboard behind a mode tab. Two dispatch paths, deliberately:

@@ -7,7 +7,8 @@ import { WebSocketServer } from 'ws';
 
 import { lanAddress, loadConfig } from './config.js';
 import { InputBridge } from './input.js';
-import { MACROS, describeMacros } from './macros.js';
+import { Deck } from './deck.js';
+import { runAction } from './actions.js';
 import { toInputFrame } from './sanitize.js';
 import { runSystemAction } from './system.js';
 
@@ -16,6 +17,16 @@ const config = loadConfig();
 
 const binary = process.env.DECKD_INPUT
   ?? join(here, '..', '..', 'deckd-input', '.build', 'release', 'deckd-input');
+
+const deck = new Deck({
+  onChange: (description) => {
+    // Edited config reaches every connected tablet without a reconnect.
+    const payload = JSON.stringify({ t: 'deck', deck: description });
+    for (const client of wss.clients) {
+      if (client.readyState === 1) client.send(payload);
+    }
+  }
+});
 
 const input = new InputBridge(binary, {
   onStatus: (frame) => {
@@ -59,6 +70,9 @@ const server = createServer((req, res) => {
 
 const wss = new WebSocketServer({ noServer: true });
 
+deck.load();
+deck.watch();
+
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname !== '/ws' || !tokenMatches(url.searchParams.get('t'))) {
@@ -83,7 +97,7 @@ wss.on('connection', (ws, req) => {
     host: config.hostName,
     trusted: input.trusted,
     refreshHz: input.refreshHz,
-    deck: describeMacros(),
+    deck: deck.describe(),
   }));
 
   ws.on('message', (raw) => {
@@ -119,13 +133,17 @@ wss.on('connection', (ws, req) => {
     }
 
     if (frame.t === 'macro') {
-      const macro = MACROS[frame.id];
-      if (!macro) {
-        ws.send(JSON.stringify({ t: 'err', id: frame.id, msg: 'macro tidak dikenal' }));
+      const key = deck.find(frame.id);
+      if (!key) {
+        ws.send(JSON.stringify({ t: 'err', id: frame.id, msg: 'tombol tidak dikenal' }));
         return;
       }
-      for (const f of macro.frames) input.send(f);
-      ws.send(JSON.stringify({ t: 'ack', id: frame.id, trusted: input.trusted }));
+      runAction(key.action, (f) => input.send(f))
+        .then(() => ws.send(JSON.stringify({ t: 'ack', id: frame.id, trusted: input.trusted })))
+        .catch((err) => {
+          console.error('[deckd] action gagal:', frame.id, err.message);
+          ws.send(JSON.stringify({ t: 'err', id: frame.id, msg: err.message }));
+        });
       return;
     }
 
@@ -141,6 +159,8 @@ server.listen(port, () => {
   const url = `http://${lanAddress()}:${port}/#t=${config.token}`;
   console.log(`\n  SwitchDeck — ${config.hostName}`);
   if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);
+  const total = deck.describe().pages.reduce((n, p) => n + p.keys.length, 0);
+  console.log(`  deck: ${total} tombol dari ${deck.path}${deck.isNew ? ' (baru dibuat)' : ''}`);
   console.log(`\n  Buka di tablet:\n  ${url}\n`);
   console.log('  (link ini mengandung token — jangan disebar)\n');
 });

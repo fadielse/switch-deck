@@ -60,10 +60,17 @@
     transition: transform .06s, background .12s, border-color .12s;
   }
   .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
+  .key span:first-child { font-size: 14px; line-height: 1.15; }
   .key.down { transform: scale(.96); background: #2b3341; }
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
+  .pages { display: flex; gap: 5px; }
+  .pages button {
+    padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600;
+  }
+  .pages button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
   #kbtoggle.on, #fs.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
 
   #kb { flex: 1.7 1 0; display: none; flex-direction: column; gap: 5px; min-height: 0; }
@@ -134,6 +141,7 @@
 <header>
   <span class="host" id="host">SwitchDeck</span>
   <span class="pill mid" id="status">nyambungin…</span>
+  <span class="pages" id="pages"></span>
   <span class="metrics">
     <span id="lat">— ms</span>
     <span id="rate">— f/s</span>
@@ -342,6 +350,8 @@
           el('warn').style.display = 'block';
           el('warn').textContent = 'Mac belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
         }
+      } else if (f.t === 'deck') {
+        renderDeck(f.deck);          // config diedit, tidak perlu reconnect
       } else if (f.t === 'pong') {
         pushRtt(Date.now() - f.ts);
       } else if (f.t === 'ack') {
@@ -394,13 +404,38 @@
 
   // ---------- deck ----------
   // Split across both palm rests so the trackpad stays centred, like a MacBook.
-  function renderDeck(keys) {
+  var deckPages = [], activePage = 0;
+
+  function renderDeck(description) {
+    deckPages = (description && description.pages) || [];
+    if (activePage >= deckPages.length) activePage = 0;
+
+    var tabs = el('pages');
+    tabs.innerHTML = '';
+    // One page needs no switcher; more than one does.
+    if (deckPages.length > 1) {
+      deckPages.forEach(function (page, index) {
+        var b = document.createElement('button');
+        b.textContent = page.name;
+        b.className = index === activePage ? 'on' : '';
+        b.addEventListener('pointerdown', function (e) {
+          e.preventDefault();
+          activePage = index;
+          clickSound(true);
+          renderDeck({ pages: deckPages });
+        });
+        tabs.appendChild(b);
+      });
+    }
+
     var left = el('deck-l'), right = el('deck-r');
     left.innerHTML = ''; right.innerHTML = '';
-    (keys || []).forEach(function (k, index) {
+    var keys = (deckPages[activePage] && deckPages[activePage].keys) || [];
+    keys.forEach(function (k, index) {
       var aside = index % 2 === 0 ? left : right;
       var b = document.createElement('button');
       b.className = 'key'; b.id = 'key-' + k.id;
+      if (k.color) b.style.background = k.color;
       b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
@@ -414,7 +449,14 @@
       });
       aside.appendChild(b);
     });
+
+    if (description && description.error) {
+      el('warn').style.display = 'block';
+      el('warn').textContent = 'deck.json ada salah ketik, jadi deck terakhir yang benar tetap dipakai: '
+        + description.error;
+    }
   }
+
   function flash(id, cls) {
     var e = el('key-' + id); if (!e) return;
     e.classList.add(cls); setTimeout(function () { e.classList.remove(cls); }, 240);

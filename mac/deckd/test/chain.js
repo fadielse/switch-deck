@@ -73,8 +73,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(200);
   const hello = good.frames.find((f) => f.t === 'hello');
   check(!!hello, 'dapat frame hello');
-  check(Array.isArray(hello?.deck), 'hello bawa daftar deck',
-        `${hello?.deck?.length ?? 0} tombol — kosong sampai F4 mendesain deck-nya`);
+  const pages = hello?.deck?.pages ?? [];
+  const totalKeys = pages.reduce((n, p) => n + p.keys.length, 0);
+  check(pages.length > 0 && totalKeys > 0, 'hello bawa deck berhalaman',
+        `${pages.length} halaman, ${totalKeys} tombol`);
+  check(pages.every((p) => p.keys.every((k) => k.action === undefined)),
+        'tablet TIDAK dikasih action-nya', 'cuma id + label, jadi tidak ada yang bisa dieksekusi dari sana');
 
   good.ws.send(JSON.stringify({ t: 'ping', ts: 12345 }));
   await wait(150);
@@ -89,10 +93,15 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     ? readFileSync(STUB_OUT, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
     : []);
 
-  // Jalur macro -> frame TIDAK tercakup lagi sejak tombol Copy dihapus: tabel
-  // macro-nya kosong. Cakupannya balik di F4 begitu ada macro sungguhan.
-  check(readSent().length === 0, 'tabel macro kosong, nol frame diteruskan',
-        'jalur macro->frame nganggur sampai F4');
+  good.ws.send(JSON.stringify({ t: 'macro', id: 'copy' }));
+  await wait(400);
+  check(good.frames.some((f) => f.t === 'ack' && f.id === 'copy'), 'tombol deck di-ack');
+
+  const sent = readSent();
+  const down = sent.find((f) => f.t === 'k' && f.code === 8 && f.d === 1);
+  check(sent.some((f) => f.t === 'k' && f.code === 55 && f.d === 1),
+        'modifier ditahan sebagai key beneran', 'bukan cuma flag — itu yang bikin chord kebaca');
+  check(down?.flags?.includes('cmd'), 'chord ⌘C utuh sampai deckd-input');
 
   // --- F2: trackpad frames lewat jalur pass-through yang divalidasi ---
   const before = readSent().length;
