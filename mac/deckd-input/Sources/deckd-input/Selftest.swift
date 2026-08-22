@@ -156,6 +156,20 @@ enum Selftest {
             print("         scroll delta yang keliatan: \(TapObserver.shared.scrollDeltas.prefix(5))")
         }
 
+        // --- 5b. burst typing. This passes with and without keystroke pacing,
+        //         which is how we know the dropped characters were not lost
+        //         here. Kept as a regression guard on the posting path. ---
+        let burstMark = TapObserver.shared.typedText.count
+        let burst = "fadilah hasan"
+        for character in burst {
+            injector.type(String(character))
+        }
+        pump(0.6)
+        let landed = String(TapObserver.shared.typedText.dropFirst(burstMark))
+        let burstOK = landed == burst
+        print("[\(burstOK ? "PASS" : "FAIL")] ngetik cepat tanpa huruf hilang — kirim \"\(burst)\", nyampe \"\(landed)\"")
+        if !burstOK { failures += 1 }
+
         CGEvent.tapEnable(tap: tap, enable: false)
 
         print("")

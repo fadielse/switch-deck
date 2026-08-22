@@ -59,6 +59,24 @@ final class Injector {
     /// enough that picking up the physical mouse resyncs before the next one.
     private static let resyncAfter: TimeInterval = 0.2
 
+    /// Spacing between keystrokes. Note what this is NOT: characters going
+    /// missing while typing ("fadilah hasan" arriving as "fdila hsan") was
+    /// traced to the client, not here — an event tap sees every character with
+    /// or without this pacing, so nothing was being lost at the posting layer.
+    /// It stays as cheap insurance against a receiving app that cannot keep up,
+    /// since typing is low rate and 9 ms per keystroke costs nothing. Mouse
+    /// motion is deliberately NOT paced: it must never block the stdin reader.
+    private var lastKeyEventAt: TimeInterval = 0
+    private static let minKeyGap: TimeInterval = 0.009
+
+    private func paceKeyEvent() {
+        let elapsed = Date().timeIntervalSince1970 - lastKeyEventAt
+        if elapsed < Injector.minKeyGap {
+            usleep(useconds_t((Injector.minKeyGap - elapsed) * 1_000_000))
+        }
+        lastKeyEventAt = Date().timeIntervalSince1970
+    }
+
     init() {
         source = CGEventSource(stateID: .hidSystemState)
         // Without this, every synthetic event suppresses real hardware input for
@@ -172,6 +190,7 @@ final class Injector {
     // MARK: - Keyboard
 
     func key(code: CGKeyCode, down: Bool, flags: CGEventFlags) {
+        paceKeyEvent()
         guard let event = CGEvent(keyboardEventSource: source,
                                   virtualKey: code,
                                   keyDown: down) else { return }
@@ -194,6 +213,7 @@ final class Injector {
         var index = 0
         while index < units.count {
             let chunk = Array(units[index ..< min(index + chunkSize, units.count)])
+            paceKeyEvent()
             for isDown in [true, false] {
                 guard let event = CGEvent(keyboardEventSource: source,
                                           virtualKey: 0,
@@ -204,7 +224,6 @@ final class Injector {
                 }
                 event.post(tap: .cghidEventTap)
             }
-            usleep(1_500)
             index += chunkSize
         }
     }

@@ -72,6 +72,7 @@
     justify-content: center; padding: 0; min-width: 0;
   }
   .kkey:active { background: #2b3341; }
+  .kkey { touch-action: none; }
   .kkey.mod { background: #232936; color: var(--dim); font-size: 16px; }
   .kkey.mod.once { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
   .kkey.mod.lock { background: #10331f; border-color: #1d5c37; color: #57d68b; }
@@ -271,7 +272,10 @@
       var b = document.createElement('button');
       b.className = 'key'; b.id = 'key-' + k.id;
       b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
-      b.addEventListener('click', function () { send({ t: 'macro', id: k.id }); });
+      b.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        send({ t: 'macro', id: k.id });
+      });
       aside.appendChild(b);
     });
   }
@@ -441,6 +445,12 @@
   // Cmd+Tab behaves like hardware: the switcher appears while Command is held.
   var MOD_CODE = { cmd: 55, shift: 56, opt: 58, ctrl: 59 };
   var mods = { cmd: 0, shift: 0, opt: 0, ctrl: 0 };   // 0 off, 1 one-shot, 2 locked
+  // Caps Lock is handled entirely on this side. macOS treats caps as a hardware
+  // toggle with its own state rather than an ordinary key, so posting keycode 57
+  // does nothing — and it does not need to, since we send the literal character
+  // anyway. Local toggle gives exactly the behaviour without touching the Mac's
+  // own caps state.
+  var capsOn = false;
 
   function ch(l, u, c) { return { k: 'ch', l: l, u: u, c: c }; }
   function sp(l, c, w, small) { return { k: 'sp', l: l, c: c, w: w, small: small }; }
@@ -457,7 +467,7 @@
     [sp('⇥', 48, 1.5), ch('q', 'Q', 12), ch('w', 'W', 13), ch('e', 'E', 14), ch('r', 'R', 15),
      ch('t', 'T', 17), ch('y', 'Y', 16), ch('u', 'U', 32), ch('i', 'I', 34), ch('o', 'O', 31),
      ch('p', 'P', 35), ch('[', '{', 33), ch(']', '}', 30), ch('\\', '|', 42)],
-    [sp('⇪', 57, 1.8), ch('a', 'A', 0), ch('s', 'S', 1), ch('d', 'D', 2), ch('f', 'F', 3),
+    [{ k: 'caps', l: '⇪', w: 1.8 }, ch('a', 'A', 0), ch('s', 'S', 1), ch('d', 'D', 2), ch('f', 'F', 3),
      ch('g', 'G', 5), ch('h', 'H', 4), ch('j', 'J', 38), ch('k', 'K', 40), ch('l', 'L', 37),
      ch(';', ':', 41), ch("'", '"', 39), sp('⏎', 36, 2.1)],
     [md('⇧', 'shift', 56, 2.3), ch('z', 'Z', 6), ch('x', 'X', 7), ch('c', 'C', 8), ch('v', 'V', 9),
@@ -492,6 +502,28 @@
       b.classList.toggle('once', state === 1);
       b.classList.toggle('lock', state === 2);
     });
+    var caps = document.querySelector('.kkey.caps');
+    if (caps) caps.classList.toggle('lock', capsOn);
+    paintLabels();
+  }
+
+  // The label has to show what the key will actually produce, otherwise Shift
+  // is invisible: the row still reads 1 2 3 when it would type ! @ #.
+  function paintLabels() {
+    ROWS.forEach(function (row) {
+      row.forEach(function (key) {
+        if (key.k === 'ch' && key.el) key.el.textContent = charFor(key);
+      });
+    });
+  }
+
+  var isLetter = function (key) { return /^[a-z]$/.test(key.l); };
+
+  function charFor(key) {
+    // Caps affects letters only, and Caps+Shift gives lowercase — same as the
+    // Mac's own keyboard. Symbols ignore caps entirely.
+    if (isLetter(key)) return (capsOn ? !mods.shift : !!mods.shift) ? key.u : key.l;
+    return mods.shift ? key.u : key.l;
   }
 
   function pressKey(key) {
@@ -499,7 +531,7 @@
     var chord = mods.cmd || mods.ctrl || mods.opt;
 
     if (key.k === 'ch' && !chord) {
-      send({ t: 'txt', s: mods.shift ? key.u : key.l });
+      send({ t: 'txt', s: charFor(key) });
     } else {
       var frame = { t: 'k', code: key.c, d: 1 };
       if (flags.length) frame.flags = flags;
@@ -517,18 +549,29 @@
       r.className = 'krow';
       row.forEach(function (key) {
         var b = document.createElement('button');
-        b.className = 'kkey' + (key.k === 'md' ? ' mod' : '') + (key.small ? ' small' : '');
+        b.className = 'kkey'
+          + (key.k === 'md' ? ' mod' : '')
+          + (key.k === 'caps' ? ' mod caps' : '')
+          + (key.small ? ' small' : '');
         b.style.flexGrow = key.w || 1;
         b.textContent = key.l;
+        key.el = b;
+
+        // pointerdown, not click. Fast tapping on glass loses click events to
+        // the browser's own double-tap handling, which is what dropped letters
+        // while typing — "fadilah hasan" came out "fdila hsan". pointerdown
+        // fires on contact and is never coalesced.
+        var act;
         if (key.k === 'md') {
           b.setAttribute('data-mod', key.m);
-          b.addEventListener('click', function () {
-            // tap = one-shot, tap again = locked, tap again = off
-            setMod(key.m, (mods[key.m] + 1) % 3);
-          });
+          // tap = one-shot, tap again = locked, tap again = off
+          act = function () { setMod(key.m, (mods[key.m] + 1) % 3); };
+        } else if (key.k === 'caps') {
+          act = function () { capsOn = !capsOn; paintMods(); };
         } else {
-          b.addEventListener('click', function () { pressKey(key); });
+          act = function () { pressKey(key); };
         }
+        b.addEventListener('pointerdown', function (e) { e.preventDefault(); act(); });
         r.appendChild(b);
       });
       kb.appendChild(r);
