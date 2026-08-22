@@ -9,6 +9,7 @@ import { lanAddress, loadConfig } from './config.js';
 import { InputBridge } from './input.js';
 import { MACROS, describeMacros } from './macros.js';
 import { toInputFrame } from './sanitize.js';
+import { runSystemAction } from './system.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
@@ -105,6 +106,15 @@ wss.on('connection', (ws, req) => {
         || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media') {
       const clean = toInputFrame(frame);
       if (clean) input.send(clean);
+      return;
+    }
+
+    // Like macros: an id from a fixed table, never a command from the tablet.
+    if (frame.t === 'sys') {
+      const ok = runSystemAction(frame.id);
+      ws.send(JSON.stringify(ok
+        ? { t: 'ack', id: frame.id }
+        : { t: 'err', id: frame.id, msg: 'aksi sistem tidak dikenal' }));
       return;
     }
 

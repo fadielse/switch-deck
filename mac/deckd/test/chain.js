@@ -117,6 +117,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
         'modifier dikirim sebagai key beneran', 'ini yang bikin Cmd+Tab kelakuannya kayak hardware');
   check(kb.some((f) => f.t === 'k' && f.code === 48 && f.flags?.includes('cmd')), 'chord diteruskan utuh');
 
+  // --- aksi sistem: id dari tabel tetap, bukan perintah dari tablet ---
+  good.ws.send(JSON.stringify({ t: 'sys', id: 'mission-control' }));
+  await wait(250);
+  check(good.frames.some((f) => f.t === 'ack' && f.id === 'mission-control'),
+        'aksi sistem yang dikenal di-ack');
+  good.ws.send(JSON.stringify({ t: 'sys', id: 'rm -rf /' }));
+  await wait(200);
+  check(good.frames.some((f) => f.t === 'err' && f.id === 'rm -rf /'),
+        'aksi sistem ngawur ditolak', 'tablet cuma boleh kirim id, bukan perintah');
+
   // --- yang HARUS ditolak ---
   const beforeBad = readSent().length;
   good.ws.send('{"t":"m","dx":null,"dy":1}');           // NaN di sisi Swift = crash

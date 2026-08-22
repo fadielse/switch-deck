@@ -157,7 +157,7 @@
   <aside class="palm" id="deck-l"></aside>
   <div id="pad">
     <span class="badge" id="badge"></span>
-    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag<br>3 jari — geser kiri/kanan pindah space, ke atas Mission Control, ke bawah App Exposé</span>
+    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag<br>3 jari — geser kiri/kanan ganti app, ke atas Mission Control, ke bawah Launchpad</span>
   </div>
   <aside class="palm" id="deck-r"></aside>
 </main>
@@ -534,21 +534,35 @@
   // not reachable through CGEvent, so we send the shortcuts they are bound to
   // instead. Same result, and it depends on those shortcuts still being enabled
   // under Keyboard > Shortcuts > Mission Control (they are by default).
-  var GESTURE_NAME = { 123: '← space', 124: '→ space', 125: '↓ App Expose', 126: '↑ Mission Control' };
-
+  // Only routes that are verified to work on this Mac.
+  //
+  // Control+Up, Control+arrow and the rest of the Mission Control hotkeys are
+  // NOT among them: the events arrive at the frontmost app — a terminal prints
+  // ^[[1;5A for Control+Up — but macOS never intercepts them for its own
+  // shortcuts. Six combinations of event source and injection point were tried;
+  // none changed that. Launching the app does work, and Command+Tab works
+  // because the Dock handles it through a different path, so the gestures use
+  // those two instead of the shortcuts they nominally map to.
   function fireGesture(dx, dy) {
-    var code;
     if (Math.abs(dx) > Math.abs(dy)) {
-      // Content follows the fingers: swiping left moves to the space on the
-      // right, matching how macOS behaves with natural scrolling.
-      var goRight = cfg.natural ? dx < 0 : dx > 0;
-      code = goRight ? 124 : 123;          // → next space  /  ← previous space
-    } else {
-      code = dy < 0 ? 126 : 125;           // ↑ Mission Control  /  ↓ App Exposé
+      var forward = cfg.natural ? dx < 0 : dx > 0;
+      if (forward) {
+        sendChord(55, 48, ['cmd']);                    // ⌘⇥  next app
+        clickSound(true);
+        return '⌘⇥ app berikutnya';
+      }
+      sendChord([55, 56], 48, ['cmd', 'shift']);       // ⌘⇧⇥ previous app
+      clickSound(true);
+      return '⌘⇧⇥ app sebelumnya';
     }
-    sendChord(59, code, ['ctrl']);                           // Control, held
+    if (dy < 0) {
+      send({ t: 'sys', id: 'mission-control' });
+      clickSound(true);
+      return 'Mission Control';
+    }
+    send({ t: 'sys', id: 'launchpad' });
     clickSound(true);
-    return GESTURE_NAME[code];
+    return 'Launchpad';
   }
 
   function release(e) {
@@ -699,8 +713,10 @@
   var ROWS = [
     [sp('esc', 53, 1.5),
      fk('dim', 1, 122, { media: 3 }), fk('bright', 2, 120, { media: 2 }),
-     fk('mission', 3, 99, { sc: 126, scFlags: ['ctrl'] }),   // Mission Control = ⌃↑
-     fk('search', 4, 118, { sc: 49, scFlags: ['cmd'] }),   // Spotlight = ⌘space
+     // Not the shortcuts they are named after: macOS ignores synthetic events
+     // for its own hotkeys. Launching the app works.
+     fk('mission', 3, 99, { sys: 'mission-control' }),
+     fk('search', 4, 118, { sys: 'spotlight' }),
      fk('mic', 5, 96), fk('moon', 6, 97),                  // no equivalent: plain F-key only
      fk('prev', 7, 98, { media: 18 }), fk('playpause', 8, 100, { media: 16 }),
      fk('next', 9, 101, { media: 17 }), fk('mute', 10, 109, { media: 7 }),
@@ -816,13 +832,16 @@
   // back gave macOS about 27 ms of Control held — the verified Cmd+Tab test
   // held Command for 430 ms. System shortcuts like Mission Control watch for a
   // modifier that is actually down, so spread the frames out in time.
-  function sendChord(modCode, keyCode, flags) {
-    send({ t: 'k', code: modCode, d: 1 });
+  function sendChord(modCodes, keyCode, flags) {
+    var mods = [].concat(modCodes);
+    mods.forEach(function (m) { send({ t: 'k', code: m, d: 1 }); });
     setTimeout(function () {
       send({ t: 'k', code: keyCode, d: 1, flags: flags });
       setTimeout(function () {
         send({ t: 'k', code: keyCode, d: 0, flags: flags });
-        setTimeout(function () { send({ t: 'k', code: modCode, d: 0 }); }, 60);
+        setTimeout(function () {
+          mods.slice().reverse().forEach(function (m) { send({ t: 'k', code: m, d: 0 }); });
+        }, 60);
       }, 60);
     }, 70);
   }
@@ -832,7 +851,7 @@
     // `key.media === undefined`, never `!key.media`. NX_KEYTYPE_SOUND_UP is 0,
     // so the falsy check sent F12 as a plain F-key instead of volume up — which
     // is why volume did nothing and, with a browser in front, opened DevTools.
-    if (fnOn || (key.media === undefined && key.sc === undefined)) {
+    if (fnOn || (key.media === undefined && key.sys === undefined)) {
       // fn held, or nothing better to send: the plain F-key.
       send({ t: 'k', code: key.fkey, d: 1 });
       send({ t: 'k', code: key.fkey, d: 0 });
@@ -843,9 +862,7 @@
       send({ t: 'media', media: key.media, d: 0 });
       return;
     }
-    // Mission Control and Spotlight have no media code, so they go as their
-    // real shortcuts — with the modifier physically held, not as a flag.
-    sendChord(key.scFlags[0] === 'cmd' ? 55 : 59, key.sc, key.scFlags);
+    send({ t: 'sys', id: key.sys });
   }
 
   function pressKey(key) {
