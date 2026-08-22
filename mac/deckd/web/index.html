@@ -44,6 +44,24 @@
   }
   .palm .key { pointer-events: auto; }
 
+  /* Portrait is a different machine: held upright the tablet is a deck stood on
+     its edge, not a laptop. The palm rests either side of a trackpad make no
+     sense at that width, so the deck becomes a grid across the top and the
+     trackpad takes what is left. */
+  @media (orientation: portrait) {
+    main { flex-direction: column; }
+    .palm {
+      flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; overflow: visible;
+      pointer-events: auto;      /* nothing to rest a palm on in this layout */
+    }
+    #deck-r { display: none; }   /* one grid reads better than two */
+    .palm .key { flex: 1 1 30%; min-height: 62px; }
+    #pad { flex: 1 1 auto; min-height: 180px; }
+    #kb { flex: 1.2 1 0; }
+    .kkey { font-size: 13px; }
+    .kkey .sub { font-size: 8px; }
+  }
+
   #pad {
     flex: 1.6 1 0; position: relative; border-radius: 14px;
     background: #14181f; border: 1px solid var(--line);
@@ -64,7 +82,19 @@
   }
   .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
   .key span:first-child { font-size: 14px; line-height: 1.15; }
-  .key.down { transform: scale(.96); background: #2b3341; }
+  .key { transition: transform .09s ease, background .12s ease, box-shadow .12s ease; }
+  .key.down {
+    transform: scale(.94);
+    background: #2b3341;
+    box-shadow: inset 0 0 0 1px #3d6fd1;
+  }
+  /* A brief flash on the reply, so a button that reached the Mac looks
+     different from one that was merely pressed. */
+  .key.ok { animation: pulse .3s ease; }
+  @keyframes pulse {
+    0% { box-shadow: inset 0 0 0 1px #57d68b; }
+    100% { box-shadow: inset 0 0 0 1px transparent; }
+  }
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
@@ -713,8 +743,12 @@
     var keys = shown === NO_PAGE || shown === AUTO
       ? []
       : ((deckPages[shown] && deckPages[shown].keys) || []);
+
+    // Portrait puts every key in one grid; landscape splits them so the
+    // trackpad stays centred between two palm rests.
+    var portrait = window.matchMedia('(orientation: portrait)').matches;
     keys.forEach(function (k, index) {
-      var aside = index % 2 === 0 ? left : right;
+      var aside = portrait ? left : (index % 2 === 0 ? left : right);
       var b = document.createElement('button');
       b.className = 'key'; b.id = 'key-' + k.id;
       if (k.color) b.style.background = k.color;
@@ -1565,6 +1599,12 @@
       box.appendChild(row);
     });
   }
+
+  // Re-render on rotate: which container a key belongs in is decided at build
+  // time, so the grid has to be rebuilt rather than just restyled.
+  window.matchMedia('(orientation: portrait)').addEventListener('change', function () {
+    renderDeck({ pages: deckPages });
+  });
 
   el('install').addEventListener('click', function () {
     if (!installPrompt) return;
