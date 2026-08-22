@@ -24,6 +24,19 @@ if arguments.contains("--prompt") {
     exit(trusted ? 0 : 1)
 }
 
+if arguments.contains("--selftest") {
+    exit(Selftest.run())
+}
+
+if arguments.contains("--doctor") {
+    Diagnostics.report()
+    exit(Injector.isTrusted() ? 0 : 1)
+}
+
+if arguments.contains("--wait-trust") {
+    Diagnostics.waitForTrust(timeout: 120)
+}
+
 if arguments.contains("--check") {
     let trusted = Injector.isTrusted()
     emit(["t": "trust", "trusted": trusted])

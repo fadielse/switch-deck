@@ -1,10 +1,23 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
+
+## Explain exactly which app needs the Accessibility grant, and why.
+doctor: build
+	@$(BIN) --doctor || true
+
+## Automated proof that events really reach macOS. Restores the cursor and
+## swallows its own probes, so it is safe to run any time.
+selftest: build
+	@$(BIN) --selftest
+
+## Blocks until the permission is granted, so you get a clear confirmation.
+wait-trust: build
+	@$(BIN) --wait-trust
 
 ## Report whether this binary is allowed to inject input.
 check: build

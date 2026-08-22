@@ -27,8 +27,8 @@ whole plan is void.
 
 ```sh
 make build      # compile deckd-input
-make check      # is this binary allowed to inject input?
-make prompt     # open the Accessibility permission dialog
+make doctor     # which app needs the Accessibility grant, and is it granted?
+make selftest   # automated proof that events really reach macOS
 ```
 
 ### Permission gotcha
@@ -38,6 +38,18 @@ not the binary itself. So grant Accessibility to your terminal (Terminal.app,
 iTerm, VS Code — whichever you run `make` from), then fully quit and reopen it.
 `make check` exits non-zero until that's done, and without it macOS drops every
 event silently — no error, just nothing happening.
+
+### Self-test
+
+`make selftest` asserts against a `CGEventTap` rather than against eyeballs. It
+checks that the cursor moves by exactly the requested amount, that
+`mouseEventDeltaX/Y` survive into the event stream (risk R1), that keycode
+events arrive, and that text sent via `keyboardSetUnicodeString` arrives intact.
+Its probes are swallowed at the tap and the cursor is restored, so running it
+never types into whatever window happens to be focused.
+
+What it cannot prove: whether an app that reads raw deltas *interprets* them
+correctly. That still needs a human with Blender or Figma open.
 
 ### F0 acceptance
 
@@ -51,12 +63,12 @@ make serve      # serve the browser check page to the tablet on your LAN
 
 Still needs a human:
 
-- [ ] `make type` puts text in TextEdit
-- [ ] `make move` moves the cursor
+- [x] Injection path proven end to end — `make selftest`, 4/4
+- [x] Browser check run on the Huawei tablet (Chrome/Android, 153 Hz pointer
+      rate, `touch-action: none` holds, 5 touch points)
 - [ ] **R1** — open something that reads raw deltas (Blender, a game, Figma pan)
-      and confirm the movement is correct there, not just that the cursor moves
-- [ ] Run the browser check page on the Huawei tablet and record the summary in
-      the vault Status note
+      and confirm the movement is correct there. The delta fields are proven
+      present; how an app interprets them is not.
 
 ## Protocol (stdin, JSON Lines)
 
