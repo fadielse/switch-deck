@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { createServer as createHttp } from 'node:http';
 import { dirname, join } from 'node:path';
 
 /// HTTPS exists here for one reason: a page served over plain http is not a
@@ -22,17 +21,11 @@ export function loadTls(configPath) {
   };
 }
 
-/// The front door has to speak plain HTTP, because a browser given a bare
-/// "host:port" tries http:// first — so putting TLS on the port people type
-/// breaks the link they already have, with an error that explains nothing.
-///
-/// So this sits on the well-known port and does three things: hands out the CA,
-/// explains what to do with it, and points at the HTTPS port. HTTPS itself
-/// moves one port up.
-export function serveFrontDoor({ port, httpsPort, caPath, address }) {
-  const secureUrl = `https://${address}:${httpsPort}/`;
-
-  const page = `<!doctype html><meta charset="utf-8">
+/// Shown at /setup on either port. HTTPS is optional here — it buys Wake Lock
+/// so the tablet screen stops sleeping, and install-to-homescreen — so this
+/// explains rather than forces, and never redirects into a certificate warning.
+export function setupPage(secureUrl) {
+  return `<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SwitchDeck — pasang sertifikat</title>
 <style>
@@ -44,38 +37,14 @@ export function serveFrontDoor({ port, httpsPort, caPath, address }) {
        text-decoration:none;font-weight:600}
  .p{background:#3d6fd1;color:#fff} .s{background:#1f2530;color:#cdd6e4;border:1px solid #2f3642}
 </style>
-<h1>SwitchDeck</h1>
-<p>Sekali saja: pasang sertifikat supaya layar tablet berhenti tidur sendiri
-   dan SwitchDeck bisa dipasang ke home screen.</p>
+<h1>SwitchDeck jalan tanpa ini</h1>
+<p>Sertifikat cuma menambah dua hal: layar tablet berhenti tidur sendiri saat
+   dipakai, dan SwitchDeck bisa dipasang ke home screen.</p>
 <a class="btn p" href="/ca.crt">1 — Unduh sertifikat</a>
 <ol>
   <li>Buka <code>Settings → Security → Install certificate → CA certificate</code></li>
   <li>Pilih berkas yang barusan diunduh</li>
 </ol>
-<a class="btn s" href="${secureUrl}">2 — Lanjut ke SwitchDeck</a>
-<p>Sudah pernah pasang? Langsung pakai tombol kedua.</p>`;
-
-  const server = createHttp((req, res) => {
-    const path = (req.url || '/').split('?')[0];
-
-    if (path === '/ca.crt' && caPath) {
-      res.writeHead(200, {
-        'content-type': 'application/x-x509-ca-cert',
-        'content-disposition': 'attachment; filename="switchdeck-ca.crt"'
-      });
-      res.end(readFileSync(caPath));
-      return;
-    }
-    if (path === '/go') {
-      res.writeHead(302, { location: secureUrl });
-      res.end();
-      return;
-    }
-    // Not a redirect: sending them straight to HTTPS before the certificate is
-    // installed produces a security warning that explains none of this.
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(page);
-  });
-  server.listen(port);
-  return server;
+<a class="btn s" href="${secureUrl}">2 — Buka lewat HTTPS</a>
+<p>Kalau langkah 2 gagal, pakai saja alamat http biasa — semua fitur lain sama.</p>`;
 }

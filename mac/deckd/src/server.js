@@ -12,7 +12,7 @@ import { Deck } from './deck.js';
 import { runAction } from './actions.js';
 import { toInputFrame } from './sanitize.js';
 import { runSystemAction } from './system.js';
-import { loadTls, serveFrontDoor } from './tls.js';
+import { loadTls, setupPage } from './tls.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
@@ -141,6 +141,21 @@ const handler = async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/ca.crt' && tls?.caPath) {
+    res.writeHead(200, {
+      'content-type': 'application/x-x509-ca-cert',
+      'content-disposition': 'attachment; filename="switchdeck-ca.crt"'
+    });
+    res.end(readFileSync(tls.caPath));
+    return;
+  }
+
+  if (url.pathname === '/setup') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(setupPage(`https://${lanAddress()}:${httpsPort}/`));
+    return;
+  }
+
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, trusted: input.trusted }));
@@ -161,19 +176,28 @@ const handler = async (req, res) => {
   res.writeHead(404).end('not found');
 };
 
-const server = tls ? createHttps(tls.options, handler) : createHttp(handler);
-
-// With TLS the app moves one port up, and the port people type stays plain HTTP
-// so an address typed without a scheme still lands somewhere useful.
+// The app is served on BOTH ports when TLS is available, not only on HTTPS.
+// Requiring HTTPS meant the address people already had stopped working, and a
+// browser handed a bare "host:port" tries http:// first. HTTPS is an upgrade —
+// it buys Wake Lock and install-to-homescreen — not a precondition for the
+// thing working at all.
 const appPort = Number(process.env.PORT) || config.port;
 const httpsPort = tls ? appPort + 1 : appPort;
 
+const plain = createHttp(handler);
+const secure = tls ? createHttps(tls.options, handler) : null;
+const servers = secure ? [plain, secure] : [plain];
+
 const wss = new WebSocketServer({ noServer: true });
+
+function attachUpgrade(server) {
+  server.on('upgrade', onUpgrade);
+}
 
 deck.load();
 deck.watch();
 
-server.on('upgrade', (req, socket, head) => {
+function onUpgrade(req, socket, head) {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname !== '/ws' || !knownDevice(url.searchParams.get('t'))) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -188,7 +212,7 @@ server.on('upgrade', (req, socket, head) => {
     ws.deckToken = token;   // so this socket can be hung up when it is revoked
     wss.emit('connection', ws, req);
   });
-});
+}
 
 wss.on('connection', (ws, req) => {
   // Printed so the link itself can be measured with ping, independently of
@@ -284,7 +308,10 @@ wss.on('connection', (ws, req) => {
 
 const port = httpsPort;
 
-server.listen(port, () => {
+servers.forEach(attachUpgrade);
+if (secure) secure.listen(httpsPort);
+
+plain.listen(appPort, () => {
   try {
     writeFileSync(CODE_FILE, pairingCode + '\n', { mode: 0o600 });
   } catch (err) {
@@ -297,11 +324,8 @@ server.listen(port, () => {
   const total = deck.describe().pages.reduce((n, p) => n + p.keys.length, 0);
   console.log(`  deck: ${total} tombol dari ${deck.path}${deck.isNew ? ' (baru dibuat)' : ''}`);
   if (tls) {
-    serveFrontDoor({
-      port: appPort, httpsPort: port, caPath: tls.caPath, address: lanAddress()
-    });
-    console.log(`  HTTPS aktif di port ${port}.`);
-    console.log(`  Buka alamat di bawah ini di tablet — dia yang nuntun pasang sertifikat.`);
+    console.log(`  Jalan di dua-duanya: http://${lanAddress()}:${appPort}/  dan  https://${lanAddress()}:${httpsPort}/`);
+    console.log(`  HTTPS bikin layar tablet berhenti tidur. Panduan pasang sertifikat: /setup`);
   } else {
     console.log('  HTTP biasa — layar tablet bakal tidur sendiri (butuh HTTPS).');
     console.log('  Jalankan `make cert` lalu restart untuk mengaktifkan HTTPS.');
