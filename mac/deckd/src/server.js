@@ -71,8 +71,12 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
-wss.on('connection', (ws) => {
-  console.log('[deckd] tablet nyambung');
+wss.on('connection', (ws, req) => {
+  // Printed so the link itself can be measured with ping, independently of
+  // anything in this process.
+  const peer = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  console.log(`[deckd] tablet nyambung dari ${peer}`);
+  console.log(`[deckd] ukur jaringannya langsung:  ping -c 50 ${peer}`);
   ws.send(JSON.stringify({
     t: 'hello',
     host: config.hostName,

@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -68,6 +68,10 @@ e2e: build
 ## Run this in a second terminal while `make deckd` is up.
 verify-copy:
 	@node tools/watch-clipboard.mjs
+
+## Measure what the server itself costs, over loopback and under load.
+latency:
+	@cd mac/deckd && node test/latency.js
 
 ## Serve the browser capability page to the tablet.
 serve:
