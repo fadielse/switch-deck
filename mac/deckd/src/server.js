@@ -102,7 +102,7 @@ wss.on('connection', (ws, req) => {
     // would double the traffic for no benefit — the character appearing is the
     // feedback.
     if (frame.t === 'm' || frame.t === 's' || frame.t === 'b'
-        || frame.t === 'k' || frame.t === 'txt') {
+        || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media') {
       const clean = toInputFrame(frame);
       if (clean) input.send(clean);
       return;

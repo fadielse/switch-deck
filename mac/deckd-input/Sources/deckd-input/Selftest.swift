@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -9,6 +10,7 @@ final class TapObserver {
     var observedDeltas: [(Int64, Int64)] = []
     var typedText = ""
     var scrollDeltas: [Int64] = []
+    var mediaCodes: [Int32] = []
 }
 
 private let tapCallback: CGEventTapCallBack = { _, type, event, _ in
@@ -34,6 +36,12 @@ private let tapCallback: CGEventTapCallBack = { _, type, event, _ in
                 observer.typedText += String(utf16CodeUnits: buffer, count: length)
                 return nil
             }
+        }
+    // 14 is NX_SYSDEFINED; CGEventType has no case for it.
+    case CGEventType(rawValue: 14)!:
+        if let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype.rawValue == 8 {
+            observer.mediaCodes.append(Int32((nsEvent.data1 & 0xFFFF_0000) >> 16))
+            return nil   // swallowed, so the machine's volume is untouched
         }
     case .scrollWheel:
         observer.scrollDeltas.append(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1))
@@ -63,6 +71,7 @@ enum Selftest {
         let mask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.mouseMoved.rawValue)
             | (1 << CGEventType.scrollWheel.rawValue)
+            | (1 << 14)
         guard let tap = CGEvent.tapCreate(tap: .cghidEventTap,
                                           place: .headInsertEventTap,
                                           options: .defaultTap,
@@ -169,6 +178,18 @@ enum Selftest {
         let burstOK = landed == burst
         print("[\(burstOK ? "PASS" : "FAIL")] ngetik cepat tanpa huruf hilang — kirim \"\(burst)\", nyampe \"\(landed)\"")
         if !burstOK { failures += 1 }
+
+        // --- 6. media keys (the Magic Keyboard function row) ---
+        let mute: Int32 = 7   // NX_KEYTYPE_MUTE
+        injector.media(mute, down: true)
+        injector.media(mute, down: false)
+        pump(0.3)
+        let mediaOK = TapObserver.shared.mediaCodes.contains(mute)
+        print("[\(mediaOK ? "PASS" : "FAIL")] media key nyampe (mute, ditelan di tap — volume nggak berubah)")
+        if !mediaOK {
+            failures += 1
+            print("         media code yang keliatan: \(TapObserver.shared.mediaCodes)")
+        }
 
         CGEvent.tapEnable(tap: tap, enable: false)
 

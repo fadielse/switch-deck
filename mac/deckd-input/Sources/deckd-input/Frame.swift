@@ -24,6 +24,9 @@ struct Frame: Decodable {
     // literal text to type
     let s: String?
 
+    // NX_KEYTYPE_* code for a media key
+    let media: Int?
+
     // latency probe echo value
     let ts: Double?
 }

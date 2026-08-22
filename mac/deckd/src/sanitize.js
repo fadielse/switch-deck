@@ -52,6 +52,13 @@ export function toInputFrame(frame) {
                            : { t: 'k', code: frame.code, d: frame.d };
     }
 
+    case 'media': {
+      // NX_KEYTYPE_* codes are small; anything else is a bug.
+      if (!Number.isInteger(frame.media) || frame.media < 0 || frame.media > 40) return null;
+      if (frame.d !== 0 && frame.d !== 1) return null;
+      return { t: 'media', media: frame.media, d: frame.d };
+    }
+
     case 'txt': {
       if (typeof frame.s !== 'string' || !frame.s.length) return null;
       if (frame.s.length > MAX_TEXT) return null;

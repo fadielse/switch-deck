@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
@@ -226,6 +227,25 @@ final class Injector {
             }
             index += chunkSize
         }
+    }
+
+    /// The function row on an Apple keyboard is media keys, not F-keys. Those
+    /// travel as NSSystemDefined events with subtype 8 rather than as virtual
+    /// keycodes — posting keycode 111 sends F12, which does nothing to the
+    /// volume. Codes are the NX_KEYTYPE_* constants.
+    func media(_ code: Int32, down: Bool) {
+        let state = down ? 0xA : 0xB
+        let data1 = Int((code << 16) | Int32(state << 8))
+        guard let event = NSEvent.otherEvent(with: .systemDefined,
+                                             location: .zero,
+                                             modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(state << 8)),
+                                             timestamp: 0,
+                                             windowNumber: 0,
+                                             context: nil,
+                                             subtype: 8,
+                                             data1: data1,
+                                             data2: -1) else { return }
+        event.cgEvent?.post(tap: .cghidEventTap)
     }
 
     static func parseFlags(_ names: [String]?) -> CGEventFlags {

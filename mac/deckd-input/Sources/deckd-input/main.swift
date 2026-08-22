@@ -109,6 +109,13 @@ while let line = readLine(strippingNewline: true) {
                      down: (frame.d ?? 1) == 1,
                      flags: Injector.parseFlags(frame.flags))
 
+    case "media":
+        guard let code = frame.media else {
+            emit(["t": "err", "msg": "missing media code"])
+            continue
+        }
+        injector.media(Int32(code), down: (frame.d ?? 1) == 1)
+
     case "txt":
         injector.type(frame.s ?? "")
 
