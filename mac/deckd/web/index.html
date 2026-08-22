@@ -60,7 +60,7 @@
     transition: transform .06s, background .12s, border-color .12s;
   }
   .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
-  .key:active { transform: scale(.96); }
+  .key.down { transform: scale(.96); background: #2b3341; }
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
@@ -88,7 +88,11 @@
   .arrows { display: flex; gap: 5px; flex: 3 1 0; min-width: 0; }
   .arrows .col { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; }
   .arrows .col .kkey { flex: 1 1 0; font-size: 12px; }
-  .kkey:active { background: #2b3341; }
+  /* Not :active. The browser treats activation as singular, so once a finger
+     is holding Shift no other key can light up — and preventDefault on
+     pointerdown suppresses it anyway. An explicit class is per-element and
+     survives any number of simultaneous touches. */
+  .kkey.down { background: #3a4560; border-color: #4d7ee0; }
   .kkey { touch-action: none; }
   .kkey.mod { background: #232936; color: var(--dim); font-size: 16px; }
   .kkey.mod.once { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
@@ -281,7 +285,12 @@
       b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
+        b.setPointerCapture(e.pointerId);
+        b.classList.add('down');
         send({ t: 'macro', id: k.id });
+      });
+      ['pointerup', 'pointercancel'].forEach(function (name) {
+        b.addEventListener(name, function () { b.classList.remove('down'); });
       });
       aside.appendChild(b);
     });
@@ -701,6 +710,7 @@
     b.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       b.setPointerCapture(e.pointerId);
+      b.classList.add('down');
       act();
       if (!repeats) return;
       delayTimer = setTimeout(function () {
@@ -711,6 +721,7 @@
     ['pointerup', 'pointercancel'].forEach(function (name) {
       b.addEventListener(name, function () {
         stop();
+        b.classList.remove('down');
         if (onUp) onUp();
       });
     });
