@@ -63,9 +63,12 @@ if arguments.contains("--check") {
 let injector = Injector()
 let trusted = Injector.isTrusted()
 
+let refreshHz = CGDisplayCopyDisplayMode(CGMainDisplayID())?.refreshRate ?? 0
+
 emit([
     "t": "ready",
     "trusted": trusted,
+    "refreshHz": refreshHz > 0 ? refreshHz : 60,
     "hint": trusted
         ? "accessibility granted"
         : "no accessibility permission — events will be silently dropped by macOS; run with --prompt",

@@ -81,6 +81,7 @@ wss.on('connection', (ws, req) => {
     t: 'hello',
     host: config.hostName,
     trusted: input.trusted,
+    refreshHz: input.refreshHz,
     deck: describeMacros(),
   }));
 

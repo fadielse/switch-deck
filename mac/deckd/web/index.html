@@ -146,6 +146,7 @@
   var el = function (id) { return document.getElementById(id); };
   var ws = null, pingTimer = null, retry = null;
   var rtts = [], sentThisSecond = 0, rateWindow = Date.now();
+  var minSendGap = 1000 / 60;   // replaced by the Mac's real refresh on hello
 
   // ---------- transport ----------
   function send(frame) {
@@ -178,6 +179,10 @@
       var f; try { f = JSON.parse(ev.data); } catch (e) { return; }
       if (f.t === 'hello') {
         el('host').textContent = f.host;
+        // No point sending motion faster than the Mac can draw the cursor: the
+        // extra packets cost airtime on a loaded link and main-thread time here,
+        // and land on a frame that is never rendered.
+        if (f.refreshHz > 0) minSendGap = 1000 / f.refreshHz;
         renderDeck(f.deck);
         if (f.trusted === false) {
           el('warn').style.display = 'block';
@@ -363,7 +368,15 @@
     return whole;
   }
 
-  function flush() {
+  var lastSendAt = 0;
+
+  function flush(now) {
+    // Animation frames run at the tablet's refresh (~90 Hz), which is faster
+    // than the Mac's. Skipping a frame loses nothing: the deltas stay in the
+    // buffer and merge into the next send.
+    if (now - lastSendAt < minSendGap) { requestAnimationFrame(flush); return; }
+    lastSendAt = now;
+
     var take = pointers.size ? cfg.smooth : 1;   // no finger down: land it now
 
     var ix = drain(accX, take), iy = drain(accY, take);

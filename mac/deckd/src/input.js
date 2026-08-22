@@ -10,6 +10,7 @@ export class InputBridge {
     this.onStatus = onStatus ?? (() => {});
     this.child = null;
     this.trusted = null;
+    this.refreshHz = 60;
     this.restarts = 0;
   }
 
@@ -25,6 +26,7 @@ export class InputBridge {
       }
       if (frame.t === 'ready') {
         this.trusted = frame.trusted;
+        if (frame.refreshHz > 0) this.refreshHz = frame.refreshHz;
         this.onStatus(frame);
       } else if (frame.t === 'err') {
         console.error('[deckd-input]', frame.msg, frame.raw ?? '');
