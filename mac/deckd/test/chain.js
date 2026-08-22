@@ -68,7 +68,11 @@ async function waitForHealth() {
   for (let i = 0; i < 50; i += 1) {
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/health`);
-      if (res.ok) return true;
+      // Wait for the front application to have been reported too, not just for
+      // the port to answer. Connecting before that made the deck-follows-app
+      // assertion pass or fail depending on timing, which is worse than not
+      // having it.
+      if (res.ok && (await res.json()).front) return true;
     } catch {}
     await new Promise((r) => setTimeout(r, 100));
   }

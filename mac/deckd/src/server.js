@@ -172,7 +172,9 @@ const handler = async (req, res) => {
 
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, trusted: input.trusted }));
+    // front is included so a caller can wait for the injector to have reported
+       // one, instead of racing it.
+       res.end(JSON.stringify({ ok: true, trusted: input.trusted, front: input.front ?? null }));
     return;
   }
   if (url.pathname === '/') {
