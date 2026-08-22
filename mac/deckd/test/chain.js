@@ -89,18 +89,50 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(good.frames.some((f) => f.t === 'err' && f.id === 'rm-rf-slash'),
         'macro tak dikenal ditolak', 'tablet cuma boleh kirim id yang sudah didefinisikan');
 
-  const sent = existsSync(STUB_OUT)
+  const readSent = () => (existsSync(STUB_OUT)
     ? readFileSync(STUB_OUT, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
-    : [];
-  const downFrame = sent.find((f) => f.t === 'k' && f.code === 8 && f.d === 1);
-  const upFrame = sent.find((f) => f.t === 'k' && f.code === 8 && f.d === 0);
+    : []);
+
+  const afterMacro = readSent();
+  const downFrame = afterMacro.find((f) => f.t === 'k' && f.code === 8 && f.d === 1);
+  const upFrame = afterMacro.find((f) => f.t === 'k' && f.code === 8 && f.d === 0);
   check(!!downFrame && !!upFrame, 'deckd-input nerima keydown + keyup untuk C');
   check(downFrame?.flags?.includes('cmd'), 'frame bawa modifier cmd', 'jadi beneran ⌘C');
-  check(sent.length === 2, 'tepat 2 frame diteruskan', `dapat ${sent.length}`);
+  check(afterMacro.length === 2, 'macro cuma bikin 2 frame', `dapat ${afterMacro.length}`);
+
+  // --- F2: trackpad frames lewat jalur pass-through yang divalidasi ---
+  const before = readSent().length;
+  good.ws.send(JSON.stringify({ t: 'm', dx: 5, dy: -3 }));
+  good.ws.send(JSON.stringify({ t: 's', dx: 0, dy: 4 }));
+  good.ws.send(JSON.stringify({ t: 'b', btn: 'r', d: 1 }));
+  await wait(250);
+  const passed = readSent().slice(before);
+  check(passed.some((f) => f.t === 'm' && f.dx === 5 && f.dy === -3), 'frame gerak diteruskan');
+  check(passed.some((f) => f.t === 's' && f.dy === 4), 'frame scroll diteruskan');
+  check(passed.some((f) => f.t === 'b' && f.btn === 'r'), 'frame klik kanan diteruskan');
+
+  // --- yang HARUS ditolak ---
+  const beforeBad = readSent().length;
+  good.ws.send('{"t":"m","dx":null,"dy":1}');           // NaN di sisi Swift = crash
+  good.ws.send(JSON.stringify({ t: 'm', dx: 0, dy: 0 })); // no-op, buang saja
+  good.ws.send(JSON.stringify({ t: 'b', btn: 'evil', d: 1 }));
+  good.ws.send(JSON.stringify({ t: 'k', code: 8, d: 1 }));
+  good.ws.send(JSON.stringify({ t: 'shell', cmd: 'rm -rf /' }));
+  await wait(250);
+  const leaked = readSent().slice(beforeBad);
+  check(leaked.length === 0, 'frame cacat/terlarang TIDAK diteruskan',
+        leaked.length ? `bocor: ${JSON.stringify(leaked)}` : 'termasuk NaN yang bikin Swift trap, dan keycode yang belum boleh (F3)');
+
+  const huge = readSent().length;
+  good.ws.send(JSON.stringify({ t: 'm', dx: 1e12, dy: 0 }));
+  await wait(200);
+  const clamped = readSent().slice(huge);
+  check(clamped.length === 1 && Math.abs(clamped[0].dx) <= 400, 'nilai gila diclamp, bukan diteruskan mentah',
+        clamped.length ? `dx=${clamped[0].dx}` : 'nggak ada frame');
 
   console.log('');
   console.log(failures === 0
-    ? 'RANTAI F1 UTUH: WebSocket -> deckd -> deckd-input.'
+    ? 'RANTAI UTUH: WebSocket -> deckd -> deckd-input (macro F1 + trackpad F2).'
     : `${failures} cek GAGAL.`);
   done(failures === 0 ? 0 : 1);
 })();

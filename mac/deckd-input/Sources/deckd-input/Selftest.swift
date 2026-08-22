@@ -8,6 +8,7 @@ final class TapObserver {
     var probeKeySeen = false
     var observedDeltas: [(Int64, Int64)] = []
     var typedText = ""
+    var scrollDeltas: [Int64] = []
 }
 
 private let tapCallback: CGEventTapCallBack = { _, type, event, _ in
@@ -34,6 +35,9 @@ private let tapCallback: CGEventTapCallBack = { _, type, event, _ in
                 return nil
             }
         }
+    case .scrollWheel:
+        observer.scrollDeltas.append(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1))
+        return nil
     case .mouseMoved:
         observer.observedDeltas.append((
             event.getIntegerValueField(.mouseEventDeltaX),
@@ -56,7 +60,9 @@ enum Selftest {
             return 2
         }
 
-        let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.mouseMoved.rawValue)
+        let mask = (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.mouseMoved.rawValue)
+            | (1 << CGEventType.scrollWheel.rawValue)
         guard let tap = CGEvent.tapCreate(tap: .cghidEventTap,
                                           place: .headInsertEventTap,
                                           options: .defaultTap,
@@ -79,6 +85,19 @@ enum Selftest {
             print("FAIL — tidak bisa baca posisi kursor")
             return 1
         }
+        // Park the cursor mid-screen first. The previous version asserted from
+        // wherever the cursor happened to be, so a cursor near an edge got
+        // clamped and the test failed for a reason that had nothing to do with
+        // the injection path.
+        let screen = CGDisplayBounds(CGMainDisplayID())
+        let parking = CGPoint(x: screen.midX, y: screen.midY)
+        CGWarpMouseCursorPosition(parking)
+        // A warp briefly suppresses movement that follows it — with only 0.1s of
+        // settle, two of the ten steps were swallowed and the test read 8/10.
+        CGAssociateMouseAndMouseCursorPosition(1)
+        pump(0.4)
+        let start = CGEvent(source: nil)?.location ?? parking
+
         let step = (dx: 7.0, dy: 5.0)
         let repeats = 10
         for _ in 0 ..< repeats {
@@ -86,9 +105,9 @@ enum Selftest {
             usleep(4_000)
         }
         pump(0.3)
-        let after = CGEvent(source: nil)?.location ?? origin
-        let movedX = after.x - origin.x
-        let movedY = after.y - origin.y
+        let after = CGEvent(source: nil)?.location ?? start
+        let movedX = after.x - start.x
+        let movedY = after.y - start.y
         let wantX = step.dx * Double(repeats)
         let wantY = step.dy * Double(repeats)
         let moveOK = abs(movedX - wantX) < 2 && abs(movedY - wantY) < 2
@@ -125,6 +144,16 @@ enum Selftest {
         if !textOK {
             failures += 1
             print("         yang kebaca: \"\(TapObserver.shared.typedText)\"")
+        }
+
+        // --- 5. scroll (added in F2) ---
+        injector.scroll(dx: 0, dy: 9)
+        pump(0.3)
+        let scrollOK = TapObserver.shared.scrollDeltas.contains(9)
+        print("[\(scrollOK ? "PASS" : "FAIL")] scroll nyampe (9 px vertikal, ditelan di tap)")
+        if !scrollOK {
+            failures += 1
+            print("         scroll delta yang keliatan: \(TapObserver.shared.scrollDeltas.prefix(5))")
         }
 
         CGEvent.tapEnable(tap: tap, enable: false)

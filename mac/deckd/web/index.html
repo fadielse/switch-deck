@@ -5,49 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>SwitchDeck</title>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --bg: #101216; --panel: #181b21; --line: #262a33; --dim: #8b93a1; --fg: #e6e8ec;
+  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
   body {
-    margin: 0; min-height: 100vh; padding: 20px;
-    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: #101216; color: #e6e8ec;
-    display: flex; flex-direction: column; gap: 16px;
-    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px;
+    font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--fg);
+    touch-action: none; user-select: none; -webkit-user-select: none;
   }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .host { font-weight: 700; font-size: 17px; }
-  .pill {
-    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
-    white-space: nowrap;
-  }
-  .up   { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
+  header { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+  .host { font-weight: 700; }
+  .pill { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+  .up { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
   .down { background: #34181b; color: #f2777f; border: 1px solid #5e2a2f; }
-  .mid  { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
-  #warn {
-    display: none; background: #34181b; border: 1px solid #5e2a2f; color: #f2b0b5;
-    border-radius: 10px; padding: 12px 14px; font-size: 13px;
+  .mid { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
+  .metrics { margin-left: auto; display: flex; gap: 12px; color: var(--dim); font-size: 12px;
+             font-variant-numeric: tabular-nums; }
+  .gear { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
+          background: var(--panel); color: var(--fg); font-size: 13px; }
+
+  main { flex: 1 1 auto; display: flex; gap: 10px; min-height: 0; }
+
+  #pad {
+    flex: 1 1 auto; position: relative; border-radius: 14px;
+    background: #14181f; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    color: #4b535f; font-size: 13px; text-align: center;
   }
-  #deck { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  #pad.active { border-color: #3d6fd1; background: #161d2b; }
+  #pad .badge {
+    position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  aside {
+    flex: 0 0 170px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+  }
   .key {
-    aspect-ratio: 1 / 1; min-height: 130px;
-    border-radius: 16px; border: 1px solid #2f3642; background: #1f2530; color: #e6e8ec;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-    font-size: 18px; font-weight: 700; transition: transform .06s, background .12s, border-color .12s;
+    flex: 0 0 auto; min-height: 62px; border-radius: 12px; border: 1px solid #2f3642;
+    background: #1f2530; color: var(--fg); font-size: 15px; font-weight: 700;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    transition: transform .06s, background .12s, border-color .12s;
   }
-  .key .hint { font-size: 13px; font-weight: 500; color: #8b93a1; }
-  .key:active { transform: scale(.96); background: #2b3341; }
-  .key.ok   { background: #10331f; border-color: #1d5c37; }
+  .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
+  .key:active { transform: scale(.96); }
+  .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
-  footer { margin-top: auto; color: #8b93a1; font-size: 12px; display: flex; justify-content: space-between; }
-  #pair { display: none; flex-direction: column; gap: 10px; }
-  input {
-    padding: 14px; font-size: 16px; border-radius: 10px;
-    border: 1px solid #2f3642; background: #181b21; color: #e6e8ec; width: 100%;
+
+  #clicks { flex: 0 0 auto; display: flex; gap: 10px; }
+  #clicks button {
+    flex: 1; padding: 15px; border-radius: 12px; border: 1px solid var(--line);
+    background: #1f2530; color: var(--fg); font-size: 14px; font-weight: 600;
   }
-  button.primary {
-    padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px;
-    border: none; background: #3d6fd1; color: #fff;
+  #clicks button:active { background: #2b3341; }
+
+  #warn { display: none; background: #34181b; border: 1px solid #5e2a2f; color: #f2b0b5;
+          border-radius: 10px; padding: 10px 12px; font-size: 12px; flex: 0 0 auto; }
+
+  #settings {
+    display: none; position: fixed; inset: auto 10px 10px 10px; z-index: 10;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; gap: 12px; flex-direction: column; max-height: 80vh; overflow-y: auto;
   }
+  #settings.open { display: flex; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .row label { flex: 0 0 150px; font-size: 13px; color: var(--dim); }
+  .row input[type=range] { flex: 1; }
+  .row .val { flex: 0 0 52px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+
+  #pair { display: none; flex-direction: column; gap: 10px; padding: 20px; }
+  #pair input { padding: 14px; font-size: 16px; border-radius: 10px; border: 1px solid var(--line);
+                background: var(--panel); color: var(--fg); }
+  #pair button { padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px;
+                 border: none; background: #3d6fd1; color: #fff; }
 </style>
 </head>
 <body>
@@ -55,97 +89,115 @@
 <header>
   <span class="host" id="host">SwitchDeck</span>
   <span class="pill mid" id="status">nyambungin…</span>
+  <span class="metrics">
+    <span id="lat">— ms</span>
+    <span id="rate">— f/s</span>
+  </span>
+  <button class="gear" id="gear">⚙︎</button>
 </header>
 
 <div id="warn"></div>
 
 <div id="pair">
-  <p style="margin:0;color:#8b93a1;font-size:13px">Tempel token dari terminal Mac (baris <code>config.json</code>), atau buka ulang lewat link lengkap yang dicetak server.</p>
+  <p style="margin:0;color:var(--dim);font-size:13px">Tempel token dari <code>~/.config/switchdeck/config.json</code>, atau buka lewat link lengkap yang dicetak server.</p>
   <input id="token" placeholder="token" autocapitalize="off" autocorrect="off" spellcheck="false">
-  <button class="primary" id="save">Simpan &amp; sambung</button>
+  <button id="save">Simpan &amp; sambung</button>
 </div>
 
-<div id="deck"></div>
+<main>
+  <div id="pad">
+    <span class="badge" id="badge"></span>
+    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag</span>
+  </div>
+  <aside id="deck"></aside>
+</main>
 
-<footer>
-  <span id="latency">—</span>
-  <span id="hint"></span>
-</footer>
+<div id="clicks">
+  <button data-btn="l">Klik Kiri</button>
+  <button data-btn="r">Klik Kanan</button>
+</div>
+
+<div id="settings">
+  <div class="row"><label>Sensitivitas</label><input type="range" id="s-sens" min="0.4" max="3" step="0.1"><span class="val" id="v-sens"></span></div>
+  <div class="row"><label>Akselerasi</label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
+  <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
+  <div class="row"><label>Scroll natural</label><input type="checkbox" id="s-natural"></div>
+  <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
+  <div class="row"><button class="gear" id="close" style="flex:1">Tutup</button></div>
+</div>
 
 <script>
 (function () {
   var STORE = 'switchdeck.token';
-  var statusEl = document.getElementById('status');
-  var deckEl = document.getElementById('deck');
-  var warnEl = document.getElementById('warn');
-  var pairEl = document.getElementById('pair');
-  var ws = null, pingTimer = null, retry = null;
+  var CFG = 'switchdeck.cfg';
 
-  function readToken() {
-    var m = location.hash.match(/t=([a-f0-9]+)/i);
-    if (m) {
-      try { localStorage.setItem(STORE, m[1]); } catch (e) {}
-      // Keep the token out of the visible URL once it is stored.
-      history.replaceState(null, '', location.pathname);
-      return m[1];
-    }
-    try { return localStorage.getItem(STORE); } catch (e) { return null; }
+  var cfg = Object.assign({
+    sens: 1.4, accel: 1.8, scroll: 2.0, natural: true, tapClick: true
+  }, readCfg());
+
+  function readCfg() {
+    try { return JSON.parse(localStorage.getItem(CFG) || '{}'); } catch (e) { return {}; }
+  }
+  function saveCfg() {
+    try { localStorage.setItem(CFG, JSON.stringify(cfg)); } catch (e) {}
+  }
+
+  var el = function (id) { return document.getElementById(id); };
+  var ws = null, pingTimer = null, retry = null;
+  var rtts = [], sentThisSecond = 0, rateWindow = Date.now();
+
+  // ---------- transport ----------
+  function send(frame) {
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify(frame));
+    sentThisSecond += 1;
   }
 
   function setStatus(text, cls) {
-    statusEl.textContent = text;
-    statusEl.className = 'pill ' + cls;
+    el('status').textContent = text;
+    el('status').className = 'pill ' + cls;
   }
 
   function connect(token) {
-    if (!token) {
-      pairEl.style.display = 'flex';
-      setStatus('belum dipasangkan', 'down');
-      return;
-    }
-    pairEl.style.display = 'none';
+    if (!token) { el('pair').style.display = 'flex'; setStatus('belum dipasangkan', 'down'); return; }
+    el('pair').style.display = 'none';
     setStatus('nyambungin…', 'mid');
-
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(proto + '://' + location.host + '/ws?t=' + encodeURIComponent(token));
 
     ws.onopen = function () {
       setStatus('nyambung', 'up');
       clearInterval(pingTimer);
-      pingTimer = setInterval(function () {
-        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
-      }, 2000);
+      // Faster than F1's 2s: this number is the F2 acceptance figure, so it
+      // needs enough samples to make a p95 mean something.
+      pingTimer = setInterval(function () { send({ t: 'ping', ts: Date.now() }); }, 700);
     };
 
     ws.onmessage = function (ev) {
-      var f;
-      try { f = JSON.parse(ev.data); } catch (e) { return; }
-
+      var f; try { f = JSON.parse(ev.data); } catch (e) { return; }
       if (f.t === 'hello') {
-        document.getElementById('host').textContent = f.host;
+        el('host').textContent = f.host;
         renderDeck(f.deck);
         if (f.trusted === false) {
-          warnEl.style.display = 'block';
-          warnEl.textContent = 'Mac belum ngasih izin Accessibility. Tombol bakal kelihatan sukses tapi nggak ada yang kejadian di Mac. Jalanin `make doctor` di sana.';
+          el('warn').style.display = 'block';
+          el('warn').textContent = 'Mac belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
         }
       } else if (f.t === 'pong') {
-        document.getElementById('latency').textContent = (Date.now() - f.ts) + ' ms';
+        pushRtt(Date.now() - f.ts);
       } else if (f.t === 'ack') {
         flash(f.id, 'ok');
       } else if (f.t === 'err') {
         flash(f.id, 'fail');
-        document.getElementById('hint').textContent = f.msg || '';
       }
     };
 
     ws.onclose = function (ev) {
       clearInterval(pingTimer);
-      // 1006 right after an upgrade is what a rejected token looks like here.
-      var rejected = ev.code === 1006 && statusEl.textContent === 'nyambungin…';
+      var rejected = ev.code === 1006 && el('status').textContent === 'nyambungin…';
       setStatus(rejected ? 'token ditolak' : 'putus', 'down');
       if (rejected) {
         try { localStorage.removeItem(STORE); } catch (e) {}
-        pairEl.style.display = 'flex';
+        el('pair').style.display = 'flex';
         return;
       }
       clearTimeout(retry);
@@ -153,35 +205,187 @@
     };
   }
 
+  function pushRtt(ms) {
+    rtts.push(ms);
+    if (rtts.length > 60) rtts.shift();
+    var sorted = rtts.slice().sort(function (a, b) { return a - b; });
+    var p = function (q) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]; };
+    el('lat').textContent = 'p50 ' + p(0.5) + ' / p95 ' + p(0.95) + ' ms';
+  }
+
+  setInterval(function () {
+    var now = Date.now();
+    var secs = (now - rateWindow) / 1000;
+    el('rate').textContent = Math.round(sentThisSecond / secs) + ' f/s';
+    sentThisSecond = 0; rateWindow = now;
+  }, 1000);
+
+  // ---------- deck ----------
   function renderDeck(keys) {
-    deckEl.innerHTML = '';
+    var aside = el('deck');
+    aside.innerHTML = '';
     (keys || []).forEach(function (k) {
       var b = document.createElement('button');
-      b.className = 'key';
-      b.id = 'key-' + k.id;
-      b.innerHTML = '<span>' + k.label + '</span>' +
-                    (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
-      b.addEventListener('click', function () {
-        if (!ws || ws.readyState !== 1) return;
-        ws.send(JSON.stringify({ t: 'macro', id: k.id }));
-      });
-      deckEl.appendChild(b);
+      b.className = 'key'; b.id = 'key-' + k.id;
+      b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+      b.addEventListener('click', function () { send({ t: 'macro', id: k.id }); });
+      aside.appendChild(b);
     });
   }
-
   function flash(id, cls) {
-    var el = document.getElementById('key-' + id);
-    if (!el) return;
-    el.classList.add(cls);
-    setTimeout(function () { el.classList.remove(cls); }, 260);
+    var e = el('key-' + id); if (!e) return;
+    e.classList.add(cls); setTimeout(function () { e.classList.remove(cls); }, 240);
   }
 
-  document.getElementById('save').addEventListener('click', function () {
-    var v = document.getElementById('token').value.trim();
+  // ---------- trackpad ----------
+  var pad = el('pad');
+  var pointers = new Map();
+  var accX = 0, accY = 0, accSX = 0, accSY = 0;   // fractional carry
+  var gestureMax = 0, gestureStart = 0, gestureMoved = 0;
+  var lastTapEnd = 0, dragging = false;
+
+  var TAP_MS = 220;       // longer than this is a press, not a tap
+  var TAP_SLOP = 14;      // css px of wander still counted as a tap
+  var DRAG_GAP_MS = 280;  // tap, then press again this soon = drag
+
+  function gain(speed) {
+    // speed in css px per ms. Slow stays near 1:1 for precision; fast multiplies
+    // so the cursor can cross the screen without lifting a finger.
+    var capped = Math.min(speed, 3);
+    return cfg.sens * (1 + cfg.accel * (capped / 3));
+  }
+
+  pad.addEventListener('pointerdown', function (e) {
+    pad.setPointerCapture(e.pointerId);
+    if (pointers.size === 0) {
+      gestureStart = performance.now();
+      gestureMax = 0; gestureMoved = 0;
+      // A press soon after a tap means drag: hold the button down for the move.
+      if (cfg.tapClick && performance.now() - lastTapEnd < DRAG_GAP_MS) {
+        dragging = true;
+        send({ t: 'b', btn: 'l', d: 1 });
+      }
+    }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
+    gestureMax = Math.max(gestureMax, pointers.size);
+    pad.classList.add('active');
+    updateBadge();
+  });
+
+  pad.addEventListener('pointermove', function (e) {
+    var prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    var now = performance.now();
+    var dx = e.clientX - prev.x;
+    var dy = e.clientY - prev.y;
+    var dt = Math.max(1, now - prev.t);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: now });
+    gestureMoved += Math.abs(dx) + Math.abs(dy);
+
+    if (pointers.size >= 2) {
+      // Two fingers scroll. Halved because both fingers report the same motion
+      // and we would otherwise scroll at double speed.
+      var dir = cfg.natural ? 1 : -1;
+      accSX += (dx * cfg.scroll * dir) / 2;
+      accSY += (dy * cfg.scroll * dir) / 2;
+      return;
+    }
+
+    var speed = Math.hypot(dx, dy) / dt;
+    var g = gain(speed);
+    accX += dx * g;
+    accY += dy * g;
+  }, { passive: true });
+
+  function release(e) {
+    var p = pointers.get(e.pointerId);
+    pointers.delete(e.pointerId);
+    if (pointers.size > 0) { updateBadge(); return; }
+
+    pad.classList.remove('active');
+    var held = performance.now() - gestureStart;
+
+    if (dragging) {
+      send({ t: 'b', btn: 'l', d: 0 });
+      dragging = false;
+    } else if (cfg.tapClick && held < TAP_MS && gestureMoved < TAP_SLOP) {
+      // Two-finger tap is the right-click gesture; one finger is a left click.
+      var button = gestureMax >= 2 ? 'r' : 'l';
+      send({ t: 'b', btn: button, d: 1 });
+      send({ t: 'b', btn: button, d: 0 });
+      lastTapEnd = performance.now();
+    }
+    updateBadge();
+  }
+  pad.addEventListener('pointerup', release);
+  pad.addEventListener('pointercancel', release);
+
+  function updateBadge() {
+    el('badge').textContent = pointers.size ? pointers.size + ' jari' : '';
+    el('padhint').style.opacity = pointers.size ? 0 : 1;
+  }
+
+  // One flush per frame: the tablet reports ~90 Hz, but sending every event
+  // would just queue up frames the Mac cannot consume any faster.
+  function flush() {
+    var ix = Math.trunc(accX), iy = Math.trunc(accY);
+    if (ix || iy) { accX -= ix; accY -= iy; send({ t: 'm', dx: ix, dy: iy }); }
+    var sx = Math.trunc(accSX), sy = Math.trunc(accSY);
+    if (sx || sy) { accSX -= sx; accSY -= sy; send({ t: 's', dx: sx, dy: sy }); }
+    requestAnimationFrame(flush);
+  }
+  requestAnimationFrame(flush);
+
+  // ---------- click strip ----------
+  Array.prototype.forEach.call(document.querySelectorAll('#clicks button'), function (b) {
+    b.addEventListener('click', function () {
+      var btn = b.getAttribute('data-btn');
+      send({ t: 'b', btn: btn, d: 1 });
+      send({ t: 'b', btn: btn, d: 0 });
+    });
+  });
+
+  // ---------- settings ----------
+  function bindRange(id, key, fmt) {
+    var input = el('s-' + id), out = el('v-' + id);
+    input.value = cfg[key];
+    out.textContent = fmt(cfg[key]);
+    input.addEventListener('input', function () {
+      cfg[key] = parseFloat(input.value);
+      out.textContent = fmt(cfg[key]);
+      saveCfg();
+    });
+  }
+  function bindToggle(id, key) {
+    var input = el('s-' + id);
+    input.checked = !!cfg[key];
+    input.addEventListener('change', function () { cfg[key] = input.checked; saveCfg(); });
+  }
+  bindRange('sens', 'sens', function (v) { return v.toFixed(1) + '×'; });
+  bindRange('accel', 'accel', function (v) { return v.toFixed(1); });
+  bindRange('scroll', 'scroll', function (v) { return v.toFixed(1) + '×'; });
+  bindToggle('natural', 'natural');
+  bindToggle('tap', 'tapClick');
+  el('gear').addEventListener('click', function () { el('settings').classList.toggle('open'); });
+  el('close').addEventListener('click', function () { el('settings').classList.remove('open'); });
+
+  // ---------- pairing ----------
+  el('save').addEventListener('click', function () {
+    var v = el('token').value.trim();
     if (!v) return;
     try { localStorage.setItem(STORE, v); } catch (e) {}
     connect(v);
   });
+
+  function readToken() {
+    var m = location.hash.match(/t=([a-f0-9]+)/i);
+    if (m) {
+      try { localStorage.setItem(STORE, m[1]); } catch (e) {}
+      history.replaceState(null, '', location.pathname);
+      return m[1];
+    }
+    try { return localStorage.getItem(STORE); } catch (e) { return null; }
+  }
 
   connect(readToken());
 })();

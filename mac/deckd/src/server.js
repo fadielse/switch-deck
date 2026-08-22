@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws';
 import { lanAddress, loadConfig } from './config.js';
 import { InputBridge } from './input.js';
 import { MACROS, describeMacros } from './macros.js';
+import { toInputFrame } from './sanitize.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
@@ -82,6 +83,14 @@ wss.on('connection', (ws) => {
 
     if (frame.t === 'ping') {
       ws.send(JSON.stringify({ t: 'pong', ts: frame.ts }));
+      return;
+    }
+
+    // Trackpad traffic: high rate, no ack (an ack per move would double the
+    // traffic for no benefit — the cursor moving is the feedback).
+    if (frame.t === 'm' || frame.t === 's' || frame.t === 'b') {
+      const clean = toInputFrame(frame);
+      if (clean) input.send(clean);
       return;
     }
 

@@ -47,6 +47,18 @@ final class Injector {
     private let source: CGEventSource?
     private var heldButtons: Set<MouseButton> = []
 
+    /// Where we believe the cursor is. Reading the live position before every
+    /// move looks safer but is a race: posting faster than the window server
+    /// updates makes two consecutive moves read the same stale point, and one
+    /// of them is lost. At trackpad rates that shows up as motion that sticks.
+    private var virtualPosition: CGPoint?
+    private var lastMoveAt: TimeInterval = 0
+    private var bounds: CGRect?
+
+    /// Long enough that a continuous drag never resyncs mid-stroke, short
+    /// enough that picking up the physical mouse resyncs before the next one.
+    private static let resyncAfter: TimeInterval = 0.2
+
     init() {
         source = CGEventSource(stateID: .hidSystemState)
         // Without this, every synthetic event suppresses real hardware input for
@@ -65,11 +77,46 @@ final class Injector {
 
     // MARK: - Mouse
 
-    /// Relative move. Reads the live cursor position every call so our idea of
-    /// where the cursor is can never drift from the system's.
+    /// Union of every active display, so an accumulated position can be clamped
+    /// to somewhere the cursor can actually be.
+    private func displayBounds() -> CGRect {
+        if let bounds { return bounds }
+        var count: UInt32 = 0
+        CGGetActiveDisplayList(0, nil, &count)
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        CGGetActiveDisplayList(count, &ids, &count)
+        var union = CGRect.null
+        for id in ids { union = union.union(CGDisplayBounds(id)) }
+        let result = union.isNull ? CGDisplayBounds(CGMainDisplayID()) : union
+        bounds = result
+        return result
+    }
+
     func move(dx: Double, dy: Double) {
-        guard let current = CGEvent(source: nil)?.location else { return }
-        let target = CGPoint(x: current.x + dx, y: current.y + dy)
+        // Int64(Double.nan) is a runtime trap in Swift, so a single malformed
+        // frame would take the whole binary down. The server validates too, but
+        // this side must not depend on that.
+        guard dx.isFinite, dy.isFinite else { return }
+        let now = Date().timeIntervalSince1970
+        if virtualPosition == nil || now - lastMoveAt > Injector.resyncAfter {
+            // Idle long enough that the physical mouse may have moved; trust the
+            // system again before starting a new stroke.
+            virtualPosition = CGEvent(source: nil)?.location
+            bounds = nil
+        }
+        guard var target = virtualPosition else { return }
+
+        target.x += dx
+        target.y += dy
+
+        // Clamp, otherwise pushing into an edge keeps accumulating off-screen
+        // and the cursor appears stuck until the movement is undone.
+        let area = displayBounds()
+        target.x = min(max(target.x, area.minX), area.maxX - 1)
+        target.y = min(max(target.y, area.minY), area.maxY - 1)
+
+        virtualPosition = target
+        lastMoveAt = now
 
         let held = heldButtons.first
         let type = held?.dragType ?? .mouseMoved
@@ -88,6 +135,19 @@ final class Injector {
         event.post(tap: .cghidEventTap)
     }
 
+    /// Pixel-unit scrolling, which is what gives smooth trackpad-style motion
+    /// rather than the notched jumps a classic wheel produces.
+    func scroll(dx: Double, dy: Double) {
+        guard dx.isFinite, dy.isFinite else { return }
+        guard let event = CGEvent(scrollWheelEvent2Source: source,
+                                  units: .pixel,
+                                  wheelCount: 2,
+                                  wheel1: Int32(dy.rounded()),
+                                  wheel2: Int32(dx.rounded()),
+                                  wheel3: 0) else { return }
+        event.post(tap: .cghidEventTap)
+    }
+
     func button(_ button: MouseButton, down: Bool) {
         guard let current = CGEvent(source: nil)?.location else { return }
         let type = down ? button.downType : button.upType
@@ -101,6 +161,7 @@ final class Injector {
         event.setIntegerValueField(.mouseEventClickState, value: 1)
         event.post(tap: .cghidEventTap)
 
+        virtualPosition = current
         if down {
             heldButtons.insert(button)
         } else {

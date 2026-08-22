@@ -19,6 +19,26 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
+## Phase F2 — trackpad (in progress)
+
+The client is now a trackpad plus the deck strip. One finger moves and taps to
+click, two fingers scroll and tap for right click, tap-then-hold drags. A
+settings drawer tunes sensitivity, acceleration, scroll speed, natural scroll
+and tap-to-click, all persisted per device.
+
+Two things the phase forced into the injector:
+
+- **The cursor position is tracked internally, not read back per move.** Reading
+  the live position before each move is a race: posting faster than the window
+  server updates makes consecutive moves read the same stale point and one is
+  lost. At 90 Hz that reads as motion that sticks. The internal position resyncs
+  after 200 ms of idle so the physical mouse still wins, and is clamped to the
+  union of active displays so pushing into an edge cannot accumulate off-screen.
+- **Non-finite deltas are rejected on both sides.** `Int64(Double.nan)` traps in
+  Swift, so one malformed frame would kill the binary. `JSON.stringify` turns
+  NaN into `null`, so the server distinguishes an absent field (defaults to 0)
+  from a present-but-null one (drops the frame).
+
 ## Phase F1 — one button, end to end (done)
 
 Closed 2026-08-22: `make verify-copy` watched a planted sentinel get replaced

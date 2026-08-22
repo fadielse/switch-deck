@@ -87,6 +87,9 @@ while let line = readLine(strippingNewline: true) {
     case "m":
         injector.move(dx: frame.dx ?? 0, dy: frame.dy ?? 0)
 
+    case "s":
+        injector.scroll(dx: frame.dx ?? 0, dy: frame.dy ?? 0)
+
     case "b":
         guard let raw = frame.btn, let button = MouseButton(rawValue: raw) else {
             emit(["t": "err", "msg": "unknown button", "btn": frame.btn ?? "nil"])
