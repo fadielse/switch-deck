@@ -19,7 +19,10 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
-## Phase F1 — one button, end to end
+## Phase F1 — one button, end to end (done)
+
+Closed 2026-08-22: `make verify-copy` watched a planted sentinel get replaced
+by text selected on the Mac after a tap on the tablet.
 
 ```sh
 make deckd      # start the server; prints the URL to open on the tablet
