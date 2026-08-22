@@ -98,9 +98,11 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    // Trackpad traffic: high rate, no ack (an ack per move would double the
-    // traffic for no benefit — the cursor moving is the feedback).
-    if (frame.t === 'm' || frame.t === 's' || frame.t === 'b') {
+    // Trackpad and keyboard traffic: high rate, no ack. An ack per keystroke
+    // would double the traffic for no benefit — the character appearing is the
+    // feedback.
+    if (frame.t === 'm' || frame.t === 's' || frame.t === 'b'
+        || frame.t === 'k' || frame.t === 'txt') {
       const clean = toInputFrame(frame);
       if (clean) input.send(clean);
       return;

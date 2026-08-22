@@ -19,7 +19,28 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
-## Phase F2 — trackpad (in progress)
+## Phase F3 — keyboard
+
+A full on-screen keyboard behind a mode tab. Two dispatch paths, deliberately:
+
+- **Typing** sends `{t:'txt'}` with the exact character. It is layout
+  independent — the Mac types what was asked for regardless of its own keyboard
+  layout — and it keeps a shifted-character table out of the Swift side.
+- **Shortcuts** send real keycodes with the modifier physically held. A chord
+  has to arrive as a chord: sending "c" as text while Command is down types a
+  letter instead of copying.
+
+Modifiers are real key events rather than flags on the target key, which is
+what makes Cmd+Tab behave like hardware. Verified: driving keycode 55 down,
+48 down/up, 55 up moves the frontmost application, so posting to
+`.cghidEventTap` was the right call — that was the last open assumption in the
+design notes.
+
+Modifiers are sticky, since holding two fingers on glass is not practical: tap
+latches for one key, tap again locks, tap again releases. Leaving the keyboard
+tab releases anything still held, so a modifier can never be left stuck down.
+
+## Phase F2 — trackpad (done)
 
 The client is now a trackpad plus the deck strip. One finger moves and taps to
 click, two fingers scroll and tap for right click, tap-then-hold drags. A

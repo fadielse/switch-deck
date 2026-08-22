@@ -56,6 +56,27 @@
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
+  .tabs { display: flex; gap: 6px; }
+  .tabs button {
+    padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--dim); font-size: 13px; font-weight: 600;
+  }
+  .tabs button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
+
+  #kb { flex: 1 1 auto; display: none; flex-direction: column; gap: 6px; min-height: 0; }
+  #kb.on { display: flex; }
+  .krow { display: flex; gap: 6px; flex: 1 1 0; min-height: 0; }
+  .kkey {
+    flex: 1 1 0; border-radius: 8px; border: 1px solid #2f3642; background: #1f2530;
+    color: var(--fg); font-size: 15px; display: flex; align-items: center;
+    justify-content: center; padding: 0; min-width: 0;
+  }
+  .kkey:active { background: #2b3341; }
+  .kkey.mod { background: #232936; color: var(--dim); font-size: 16px; }
+  .kkey.mod.once { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
+  .kkey.mod.lock { background: #10331f; border-color: #1d5c37; color: #57d68b; }
+  .kkey.small { font-size: 12px; }
+
   #clicks { flex: 0 0 auto; display: flex; gap: 10px; }
   #clicks button {
     flex: 1; padding: 15px; border-radius: 12px; border: 1px solid var(--line);
@@ -89,6 +110,10 @@
 <header>
   <span class="host" id="host">SwitchDeck</span>
   <span class="pill mid" id="status">nyambungin…</span>
+  <span class="tabs">
+    <button id="tab-pad" class="on">Trackpad</button>
+    <button id="tab-kb">Keyboard</button>
+  </span>
   <span class="metrics">
     <span id="lat">— ms</span>
     <span id="rate">— f/s</span>
@@ -111,6 +136,8 @@
   </div>
   <aside id="deck"></aside>
 </main>
+
+<div id="kb"></div>
 
 <div id="clicks">
   <button data-btn="l">Klik Kiri</button>
@@ -398,6 +425,131 @@
     requestAnimationFrame(flush);
   }
   requestAnimationFrame(flush);
+
+  // ---------- keyboard ----------
+  // Two paths, on purpose:
+  //
+  //   typing    -> {t:'txt'} with the exact character. Layout-independent: the
+  //                Mac types what we asked for regardless of its keyboard
+  //                layout, and we never need a shifted-character table on the
+  //                Swift side.
+  //   shortcuts -> real keycodes with the modifier physically held down. A
+  //                chord has to arrive as a chord; sending "c" as text while
+  //                Command is down would type a letter, not copy.
+  //
+  // Modifiers are real key events rather than just flags on the target key, so
+  // Cmd+Tab behaves like hardware: the switcher appears while Command is held.
+  var MOD_CODE = { cmd: 55, shift: 56, opt: 58, ctrl: 59 };
+  var mods = { cmd: 0, shift: 0, opt: 0, ctrl: 0 };   // 0 off, 1 one-shot, 2 locked
+
+  function ch(l, u, c) { return { k: 'ch', l: l, u: u, c: c }; }
+  function sp(l, c, w, small) { return { k: 'sp', l: l, c: c, w: w, small: small }; }
+  function md(l, m, c, w) { return { k: 'md', l: l, m: m, c: c, w: w }; }
+
+  var ROWS = [
+    [sp('esc', 53, 1, true), sp('F1', 122, 1, true), sp('F2', 120, 1, true), sp('F3', 99, 1, true),
+     sp('F4', 118, 1, true), sp('F5', 96, 1, true), sp('F6', 97, 1, true), sp('F7', 98, 1, true),
+     sp('F8', 100, 1, true), sp('F9', 101, 1, true), sp('F10', 109, 1, true), sp('F11', 103, 1, true),
+     sp('F12', 111, 1, true)],
+    [ch('`', '~', 50), ch('1', '!', 18), ch('2', '@', 19), ch('3', '#', 20), ch('4', '$', 21),
+     ch('5', '%', 23), ch('6', '^', 22), ch('7', '&', 26), ch('8', '*', 28), ch('9', '(', 25),
+     ch('0', ')', 29), ch('-', '_', 27), ch('=', '+', 24), sp('⌫', 51, 1.7)],
+    [sp('⇥', 48, 1.5), ch('q', 'Q', 12), ch('w', 'W', 13), ch('e', 'E', 14), ch('r', 'R', 15),
+     ch('t', 'T', 17), ch('y', 'Y', 16), ch('u', 'U', 32), ch('i', 'I', 34), ch('o', 'O', 31),
+     ch('p', 'P', 35), ch('[', '{', 33), ch(']', '}', 30), ch('\\', '|', 42)],
+    [sp('⇪', 57, 1.8), ch('a', 'A', 0), ch('s', 'S', 1), ch('d', 'D', 2), ch('f', 'F', 3),
+     ch('g', 'G', 5), ch('h', 'H', 4), ch('j', 'J', 38), ch('k', 'K', 40), ch('l', 'L', 37),
+     ch(';', ':', 41), ch("'", '"', 39), sp('⏎', 36, 2.1)],
+    [md('⇧', 'shift', 56, 2.3), ch('z', 'Z', 6), ch('x', 'X', 7), ch('c', 'C', 8), ch('v', 'V', 9),
+     ch('b', 'B', 11), ch('n', 'N', 45), ch('m', 'M', 46), ch(',', '<', 43), ch('.', '>', 47),
+     ch('/', '?', 44), md('⇧', 'shift', 60, 2.3)],
+    [md('⌃', 'ctrl', 59), md('⌥', 'opt', 58), md('⌘', 'cmd', 55, 1.5), sp(' ', 49, 7),
+     md('⌘', 'cmd', 55, 1.5), md('⌥', 'opt', 61), sp('←', 123), sp('↑', 126), sp('↓', 125), sp('→', 124)]
+  ];
+
+  function activeMods() {
+    return Object.keys(mods).filter(function (m) { return mods[m] > 0; });
+  }
+
+  function setMod(name, state) {
+    if (mods[name] === state) return;
+    if (state === 0 && mods[name] > 0) send({ t: 'k', code: MOD_CODE[name], d: 0 });
+    if (state > 0 && mods[name] === 0) send({ t: 'k', code: MOD_CODE[name], d: 1 });
+    mods[name] = state;
+    paintMods();
+  }
+
+  function releaseOneShots() {
+    Object.keys(mods).forEach(function (m) { if (mods[m] === 1) setMod(m, 0); });
+  }
+  function releaseAllMods() {
+    Object.keys(mods).forEach(function (m) { setMod(m, 0); });
+  }
+
+  function paintMods() {
+    Array.prototype.forEach.call(document.querySelectorAll('.kkey.mod'), function (b) {
+      var state = mods[b.getAttribute('data-mod')] || 0;
+      b.classList.toggle('once', state === 1);
+      b.classList.toggle('lock', state === 2);
+    });
+  }
+
+  function pressKey(key) {
+    var flags = activeMods();
+    var chord = mods.cmd || mods.ctrl || mods.opt;
+
+    if (key.k === 'ch' && !chord) {
+      send({ t: 'txt', s: mods.shift ? key.u : key.l });
+    } else {
+      var frame = { t: 'k', code: key.c, d: 1 };
+      if (flags.length) frame.flags = flags;
+      send(frame);
+      send({ t: 'k', code: key.c, d: 0, flags: flags.length ? flags : undefined });
+    }
+    releaseOneShots();
+  }
+
+  function renderKeyboard() {
+    var kb = el('kb');
+    kb.innerHTML = '';
+    ROWS.forEach(function (row) {
+      var r = document.createElement('div');
+      r.className = 'krow';
+      row.forEach(function (key) {
+        var b = document.createElement('button');
+        b.className = 'kkey' + (key.k === 'md' ? ' mod' : '') + (key.small ? ' small' : '');
+        b.style.flexGrow = key.w || 1;
+        b.textContent = key.l;
+        if (key.k === 'md') {
+          b.setAttribute('data-mod', key.m);
+          b.addEventListener('click', function () {
+            // tap = one-shot, tap again = locked, tap again = off
+            setMod(key.m, (mods[key.m] + 1) % 3);
+          });
+        } else {
+          b.addEventListener('click', function () { pressKey(key); });
+        }
+        r.appendChild(b);
+      });
+      kb.appendChild(r);
+    });
+    paintMods();
+  }
+  renderKeyboard();
+
+  // ---------- mode ----------
+  function setMode(name) {
+    var kb = name === 'kb';
+    // Never leave a modifier physically held when the keyboard goes away.
+    if (!kb) releaseAllMods();
+    el('kb').classList.toggle('on', kb);
+    document.querySelector('main').style.display = kb ? 'none' : 'flex';
+    el('clicks').style.display = kb ? 'none' : 'flex';
+    el('tab-kb').classList.toggle('on', kb);
+    el('tab-pad').classList.toggle('on', !kb);
+  }
+  el('tab-pad').addEventListener('click', function () { setMode('pad'); });
+  el('tab-kb').addEventListener('click', function () { setMode('kb'); });
 
   // ---------- click strip ----------
   Array.prototype.forEach.call(document.querySelectorAll('#clicks button'), function (b) {

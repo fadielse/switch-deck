@@ -111,17 +111,32 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(passed.some((f) => f.t === 's' && f.dy === 4), 'frame scroll diteruskan');
   check(passed.some((f) => f.t === 'b' && f.btn === 'r'), 'frame klik kanan diteruskan');
 
+  // --- F3: keyboard ---
+  const beforeKb = readSent().length;
+  good.ws.send(JSON.stringify({ t: 'txt', s: 'halo' }));
+  good.ws.send(JSON.stringify({ t: 'k', code: 55, d: 1 }));
+  good.ws.send(JSON.stringify({ t: 'k', code: 48, d: 1, flags: ['cmd'] }));
+  await wait(250);
+  const kb = readSent().slice(beforeKb);
+  check(kb.some((f) => f.t === 'txt' && f.s === 'halo'), 'frame teks diteruskan');
+  check(kb.some((f) => f.t === 'k' && f.code === 55 && f.d === 1),
+        'modifier dikirim sebagai key beneran', 'ini yang bikin Cmd+Tab kelakuannya kayak hardware');
+  check(kb.some((f) => f.t === 'k' && f.code === 48 && f.flags?.includes('cmd')), 'chord diteruskan utuh');
+
   // --- yang HARUS ditolak ---
   const beforeBad = readSent().length;
   good.ws.send('{"t":"m","dx":null,"dy":1}');           // NaN di sisi Swift = crash
   good.ws.send(JSON.stringify({ t: 'm', dx: 0, dy: 0 })); // no-op, buang saja
   good.ws.send(JSON.stringify({ t: 'b', btn: 'evil', d: 1 }));
-  good.ws.send(JSON.stringify({ t: 'k', code: 8, d: 1 }));
+  good.ws.send(JSON.stringify({ t: 'k', code: 999, d: 1 }));           // di luar jangkauan
+  good.ws.send(JSON.stringify({ t: 'k', code: 8, d: 1, flags: ['evil'] })); // flag ngawur
+  good.ws.send(JSON.stringify({ t: 'txt', s: 'x'.repeat(300) }));      // kepanjangan
+  good.ws.send(JSON.stringify({ t: 'txt', s: '' }));                   // kosong
   good.ws.send(JSON.stringify({ t: 'shell', cmd: 'rm -rf /' }));
   await wait(250);
   const leaked = readSent().slice(beforeBad);
   check(leaked.length === 0, 'frame cacat/terlarang TIDAK diteruskan',
-        leaked.length ? `bocor: ${JSON.stringify(leaked)}` : 'termasuk NaN yang bikin Swift trap, dan keycode yang belum boleh (F3)');
+        leaked.length ? `bocor: ${JSON.stringify(leaked)}` : 'NaN, keycode di luar jangkauan, flag ngawur, teks kepanjangan, shell');
 
   const huge = readSent().length;
   good.ws.send(JSON.stringify({ t: 'm', dx: 1e12, dy: 0 }));
@@ -132,7 +147,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('');
   console.log(failures === 0
-    ? 'RANTAI UTUH: WebSocket -> deckd -> deckd-input (macro F1 + trackpad F2).'
+    ? 'RANTAI UTUH: WebSocket -> deckd -> deckd-input (macro F1, trackpad F2, keyboard F3).'
     : `${failures} cek GAGAL.`);
   done(failures === 0 ? 0 : 1);
 })();
