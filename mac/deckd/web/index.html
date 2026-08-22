@@ -19,6 +19,11 @@
     font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
     background: var(--bg); color: var(--fg);
     touch-action: none; user-select: none; -webkit-user-select: none;
+    /* Long-press on glass raises the browser's own menu — save image, share,
+       print — which lands right on top of key repeat, the one gesture that
+       requires holding. There is nothing on this page to select, share or
+       save: it is a control surface. */
+    -webkit-touch-callout: none;
   }
   header { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
   .host { font-weight: 700; }
@@ -249,6 +254,9 @@
   .note { font-size: 12px; color: var(--dim); min-height: 16px; }
 
   #pair { display: none; flex-direction: column; gap: 10px; padding: 20px; }
+  input, textarea {
+    user-select: text; -webkit-user-select: text; -webkit-touch-callout: default;
+  }
   #pair input {
     padding: 16px; font-size: 34px; letter-spacing: .35em; text-align: center;
     border-radius: 10px; border: 1px solid var(--line);
@@ -370,6 +378,23 @@
   }
 
   var el = function (id) { return document.getElementById(id); };
+
+  // Same reason as -webkit-touch-callout above, for browsers that raise the menu
+  // through this event instead — but NOT over the text fields. Long-pressing an
+  // input to paste a pairing code or an address is exactly what someone should
+  // be able to do, and selection has to keep working inside them.
+  function isTextField(node) {
+    var tag = node && node.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA';
+  }
+
+  document.addEventListener('contextmenu', function (e) {
+    if (!isTextField(e.target)) e.preventDefault();
+  });
+
+  document.addEventListener('selectstart', function (e) {
+    if (!isTextField(e.target)) e.preventDefault();
+  });
   var sentThisSecond = 0, rateWindow = Date.now();
   var minSendGap = 1000 / 60;   // replaced by the active host's real refresh
 
