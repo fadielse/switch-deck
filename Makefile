@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -72,6 +72,11 @@ verify-copy:
 ## Measure what the server itself costs, over loopback and under load.
 latency:
 	@cd mac/deckd && node test/latency.js
+
+## Find out which way of building Control+Up macOS actually acts on.
+## Opens and closes Mission Control a few times; do not touch the Mac while it runs.
+gesture-test: build
+	@node tools/gesture-test.mjs
 
 ## Serve the browser capability page to the tablet.
 serve:
