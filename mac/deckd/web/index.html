@@ -232,6 +232,7 @@
   <span class="pill mid" id="status">connecting</span>
   <span class="hosts" id="hosts"></span>
   <span class="pages" id="pages"></span>
+  <span class="pill down" id="wake" title="wake lock">—</span>
   <span class="metrics">
     <span id="lat">— ms</span>
     <span id="rate">— f/s</span>
@@ -500,6 +501,7 @@
 
     ws.onopen = function () {
       setState(host.id, 'on');
+      holdScreen();
       clearInterval(c.pingTimer);
       c.pingTimer = setInterval(function () {
         if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
@@ -1306,6 +1308,35 @@
   el('kbtoggle').addEventListener('click', function () { setKeyboard(!kbOpen); });
   try { setKeyboard(localStorage.getItem('switchdeck.kb') === '1'); } catch (e) { setKeyboard(false); }
 
+  // ---------- keep the screen awake ----------
+  // The whole reason for HTTPS: Wake Lock needs a secure context. Without it
+  // the tablet dims and sleeps mid-session and the deck stops being a deck.
+  var wakeLock = null;
+
+  function holdScreen() {
+    if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+    if (wakeLock) return;
+    navigator.wakeLock.request('screen').then(function (lock) {
+      wakeLock = lock;
+      lock.addEventListener('release', function () { wakeLock = null; paintWake(); });
+      paintWake();
+    }).catch(function () { wakeLock = null; paintWake(); });
+  }
+
+  // The lock is dropped whenever the page is hidden — switching apps, locking
+  // the tablet — and is not restored on its own, so take it again on return.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') holdScreen();
+  });
+
+  function paintWake() {
+    var el2 = el('wake');
+    if (!el2) return;
+    if (wakeLock) { el2.textContent = 'layar dijaga'; el2.className = 'pill up'; return; }
+    el2.textContent = window.isSecureContext ? 'layar bisa tidur' : 'http — layar bisa tidur';
+    el2.className = 'pill down';
+  }
+
   // ---------- fullscreen ----------
   el('fs').addEventListener('click', function () {
     var root = document.documentElement;
@@ -1573,6 +1604,8 @@
   });
 
   startAll();
+  paintWake();
+  holdScreen();
 })();
 </script>
 </body>
