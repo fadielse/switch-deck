@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 deckd e2e check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -63,6 +63,11 @@ deckd: build
 ## Chain test: does a macro sent over the WebSocket reach deckd-input?
 e2e: build
 	@cd mac/deckd && node test/chain.js
+
+## F1 DoD — plant a sentinel, then watch the clipboard actually change.
+## Run this in a second terminal while `make deckd` is up.
+verify-copy:
+	@node tools/watch-clipboard.js
 
 ## Serve the browser capability page to the tablet.
 serve:
