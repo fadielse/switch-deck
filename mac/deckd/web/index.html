@@ -720,8 +720,10 @@
     }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
     gestureMax = Math.max(gestureMax, pointers.size);
-    if (pointers.size >= 3) {
-      // Three fingers is a system gesture, and it outranks scrolling.
+    if (pointers.size >= 3 && !dragging) {
+      // Three fingers is a system gesture, and it outranks scrolling — except
+      // mid-drag, where switching apps or opening Mission Control would throw
+      // away the selection being made.
       mode = 'gesture';
       gx = 0; gy = 0; gestureFired = false;
       accX = 0; accY = 0; accSX = 0; accSY = 0;
@@ -829,7 +831,22 @@
 
   function release(e) {
     pointers.delete(e.pointerId);
-    if (pointers.size > 0) { updateBadge(); return; }
+
+    if (pointers.size > 0) {
+      // Mid-drag, a second finger is a scroll to reach text that is off screen;
+      // lifting it should hand the remaining finger back to the cursor so the
+      // selection keeps extending. The gesture lock is right for an ordinary
+      // scroll — where releasing to one finger used to make the cursor jump —
+      // but wrong while a button is held down.
+      if (dragging && pointers.size === 1 && mode !== 'move') {
+        mode = 'move';
+        primaryId = pointers.keys().next().value;
+        smoothSpeed = 0;
+        accX = 0; accY = 0;
+      }
+      updateBadge();
+      return;
+    }
 
     pad.classList.remove('active');
     var held = performance.now() - gestureStart;
