@@ -36,20 +36,23 @@
      would otherwise register as a pointer and corrupt the touches that matter.
      The area is inert; only the deck keys inside it opt back in. */
   .palm {
-    flex: 1 1 0; display: flex; flex-direction: column; gap: 8px;
+    /* Narrow on purpose. The palm rest swallows touches entirely, so every
+       pixel it takes is a pixel three fingers cannot land on. Wide enough for
+       the edge of a hand, no wider. */
+    flex: 0.55 1 0; display: flex; flex-direction: column; gap: 8px;
     min-width: 0; overflow-y: auto; pointer-events: none;
   }
   .palm .key { pointer-events: auto; }
 
   #pad {
-    flex: 1.6 1 0; position: relative; border-radius: 14px;
+    flex: 2.9 1 0; position: relative; border-radius: 14px;
     background: #14181f; border: 1px solid var(--line);
     display: flex; align-items: center; justify-content: center;
     color: #4b535f; font-size: 13px; text-align: center;
   }
   #pad.active { border-color: #3d6fd1; background: #161d2b; }
   #pad .badge {
-    position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--dim);
+    position: absolute; top: 10px; left: 12px; font-size: 12px; color: #78a9e8;
     font-variant-numeric: tabular-nums;
   }
 
@@ -492,10 +495,11 @@
       // Fires once per gesture: macOS acts on the shortcut immediately, so
       // repeating it while the fingers keep moving would flip through several
       // spaces from one swipe.
-      if (!gestureFired && (Math.abs(gx) > 70 || Math.abs(gy) > 70)) {
+      if (!gestureFired && (Math.abs(gx) > 55 || Math.abs(gy) > 55)) {
         gestureFired = true;
         fireGesture(gx, gy);
       }
+      updateBadge();
       return;
     }
 
@@ -567,8 +571,19 @@
   pad.addEventListener('pointerup', release);
   pad.addEventListener('pointercancel', release);
 
+  // Live readout while a gesture is in progress. Guessing why three fingers do
+  // nothing is the expensive way to find out; this answers it in one touch.
   function updateBadge() {
-    el('badge').textContent = pointers.size ? pointers.size + ' jari' : '';
+    var text = '';
+    if (pointers.size) {
+      text = pointers.size + ' jari';
+      if (mode) text += ' · ' + mode;
+      if (mode === 'gesture') {
+        text += ' · ' + Math.round(Math.abs(gx) > Math.abs(gy) ? gx : gy) + 'px'
+          + (gestureFired ? ' · TERKIRIM' : ' (ambang 55)');
+      }
+    }
+    el('badge').textContent = text;
     el('padhint').style.opacity = pointers.size ? 0 : 1;
   }
 
