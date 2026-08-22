@@ -79,7 +79,9 @@
     line-height: 1.05;
   }
   .kkey .sub { font-size: 9px; color: var(--dim); letter-spacing: .02em; }
-  .kkey .glyph { font-size: 13px; }
+  .kkey .glyph { font-size: 13px; display: flex; }
+  .kkey .glyph svg { width: 15px; height: 15px; }
+  .krow.fnrow .kkey .glyph svg { width: 14px; height: 14px; }
   .kkey .fnum { font-size: 8px; color: #5b636f; letter-spacing: .04em; }
   .kkey.fnactive .fnum { color: #57d68b; }
   .kkey.fnactive .sub, .kkey.fnactive > span:first-child { opacity: .35; }
@@ -155,7 +157,7 @@
   <aside class="palm" id="deck-l"></aside>
   <div id="pad">
     <span class="badge" id="badge"></span>
-    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag</span>
+    <span id="padhint">1 jari — gerak &amp; tap klik · 2 jari — scroll &amp; tap klik kanan · tap-tahan — drag<br>3 jari — geser kiri/kanan pindah space, ke atas Mission Control, ke bawah App Exposé</span>
   </div>
   <aside class="palm" id="deck-r"></aside>
 </main>
@@ -424,7 +426,8 @@
   var accX = 0, accY = 0, accSX = 0, accSY = 0;   // fractional carry
   var gestureMax = 0, gestureStart = 0, gestureMoved = 0;
   var lastTapEnd = 0, dragging = false;
-  var mode = null;         // null | 'move' | 'scroll' — locked once decided
+  var mode = null;         // null | 'move' | 'scroll' | 'gesture' — locked once decided
+  var gx = 0, gy = 0, gestureFired = false;
   var primaryId = null;    // only the first finger down drives the cursor
   var smoothSpeed = 0;
 
@@ -455,7 +458,12 @@
     }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
     gestureMax = Math.max(gestureMax, pointers.size);
-    if (pointers.size >= 2 && mode === 'move') {
+    if (pointers.size >= 3) {
+      // Three fingers is a system gesture, and it outranks scrolling.
+      mode = 'gesture';
+      gx = 0; gy = 0; gestureFired = false;
+      accX = 0; accY = 0; accSX = 0; accSY = 0;
+    } else if (pointers.size >= 2 && mode === 'move') {
       // A second finger turns the whole gesture into a scroll, and it stays a
       // scroll until every finger is up. Without the lock, lifting one finger
       // first hands the remaining one back to the cursor and it jumps.
@@ -478,6 +486,19 @@
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: now });
     gestureMoved += Math.abs(dx) + Math.abs(dy);
 
+    if (mode === 'gesture') {
+      gx += dx / pointers.size;
+      gy += dy / pointers.size;
+      // Fires once per gesture: macOS acts on the shortcut immediately, so
+      // repeating it while the fingers keep moving would flip through several
+      // spaces from one swipe.
+      if (!gestureFired && (Math.abs(gx) > 70 || Math.abs(gy) > 70)) {
+        gestureFired = true;
+        fireGesture(gx, gy);
+      }
+      return;
+    }
+
     if (mode === 'scroll') {
       // Halved because both fingers report the same motion and we would
       // otherwise scroll at double speed.
@@ -499,18 +520,40 @@
     accY += dy * g;
   }, { passive: true });
 
+  // macOS multi-touch gestures come from the trackpad's own recogniser and are
+  // not reachable through CGEvent, so we send the shortcuts they are bound to
+  // instead. Same result, and it depends on those shortcuts still being enabled
+  // under Keyboard > Shortcuts > Mission Control (they are by default).
+  function fireGesture(dx, dy) {
+    var code;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Content follows the fingers: swiping left moves to the space on the
+      // right, matching how macOS behaves with natural scrolling.
+      var goRight = cfg.natural ? dx < 0 : dx > 0;
+      code = goRight ? 124 : 123;          // → next space  /  ← previous space
+    } else {
+      code = dy < 0 ? 126 : 125;           // ↑ Mission Control  /  ↓ App Exposé
+    }
+    send({ t: 'k', code: 59, d: 1 });                        // Control held for real
+    send({ t: 'k', code: code, d: 1, flags: ['ctrl'] });
+    send({ t: 'k', code: code, d: 0, flags: ['ctrl'] });
+    send({ t: 'k', code: 59, d: 0 });
+    clickSound(true);
+  }
+
   function release(e) {
     pointers.delete(e.pointerId);
     if (pointers.size > 0) { updateBadge(); return; }
 
     pad.classList.remove('active');
     var held = performance.now() - gestureStart;
-    mode = null; primaryId = null;
+    var wasGesture = mode === 'gesture';
+    mode = null; primaryId = null; gestureFired = false;
 
     if (dragging) {
       send({ t: 'b', btn: 'l', d: 0 });
       dragging = false;
-    } else if (cfg.tapClick && held < TAP_MS && gestureMoved < TAP_SLOP) {
+    } else if (cfg.tapClick && !wasGesture && held < TAP_MS && gestureMoved < TAP_SLOP) {
       // A two-finger tap locks into 'scroll' mode on the second finger down,
       // but nothing moved, so it is still a right click rather than a scroll.
       var button = gestureMax >= 2 ? 'r' : 'l';
@@ -605,19 +648,42 @@
   // printed action by default, and the plain F-key when fn is held. Without
   // that there is no way to reach F1-F12 at all, which is what "F1-F12 ga
   // jalan" turned out to mean.
-  function fk(icon, num, fcode, opts) {
-    return Object.assign({ k: 'fn', l: icon, num: 'F' + num, fkey: fcode, w: 1.125 }, opts);
+  // Line icons instead of emoji: colour glyphs at this size read as clutter,
+  // and they render differently on every platform.
+  var SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" stroke-linejoin="round">';
+  var ICONS = {
+    dim: '<circle cx="12" cy="12" r="3.2"/><path d="M12 6v1M12 17v1M6 12h1M17 12h1"/>',
+    bright: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4'
+      + 'M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    mission: '<rect x="3" y="4" width="7" height="7" rx="1"/>'
+      + '<rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="15" width="18" height="5" rx="1"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+    prev: '<path d="M19 5v14l-10-7z"/><path d="M5 5v14"/>',
+    playpause: '<path d="M4 5l8 7-8 7z"/><path d="M16 5v14M20 5v14"/>',
+    next: '<path d="M5 5v14l10-7z"/><path d="M19 5v14"/>',
+    mute: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/>',
+    volDown: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6"/>',
+    volUp: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18.5 6a9 9 0 0 1 0 12"/>',
+    globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5a13 13 0 0 1 0 17 13 13 0 0 1 0-17z"/>'
+  };
+  function icon(name) { return SVG + ICONS[name] + '</svg>'; }
+
+  function fk(iconName, num, fcode, opts) {
+    return Object.assign({ k: 'fn', icon: iconName, num: 'F' + num, fkey: fcode, w: 1.125 }, opts);
   }
 
   var ROWS = [
     [sp('esc', 53, 1.5),
-     fk('🔅', 1, 122, { media: 3 }), fk('🔆', 2, 120, { media: 2 }),
-     fk('▦', 3, 99, { sc: 126, scFlags: ['ctrl'] }),   // Mission Control = ⌃↑
-     fk('🔍', 4, 118, { sc: 49, scFlags: ['cmd'] }),   // Spotlight = ⌘space
-     fk('🎙', 5, 96), fk('🌙', 6, 97),                  // no equivalent: plain F-key only
-     fk('⏮', 7, 98, { media: 18 }), fk('⏯', 8, 100, { media: 16 }),
-     fk('⏭', 9, 101, { media: 17 }), fk('🔇', 10, 109, { media: 7 }),
-     fk('🔉', 11, 103, { media: 1 }), fk('🔊', 12, 111, { media: 0 })],
+     fk('dim', 1, 122, { media: 3 }), fk('bright', 2, 120, { media: 2 }),
+     fk('mission', 3, 99, { sc: 126, scFlags: ['ctrl'] }),   // Mission Control = ⌃↑
+     fk('search', 4, 118, { sc: 49, scFlags: ['cmd'] }),   // Spotlight = ⌘space
+     fk('mic', 5, 96), fk('moon', 6, 97),                  // no equivalent: plain F-key only
+     fk('prev', 7, 98, { media: 18 }), fk('playpause', 8, 100, { media: 16 }),
+     fk('next', 9, 101, { media: 17 }), fk('mute', 10, 109, { media: 7 }),
+     fk('volDown', 11, 103, { media: 1 }), fk('volUp', 12, 111, { media: 0 })],
 
     [ch('`', '~', 50), ch('1', '!', 18), ch('2', '@', 19), ch('3', '#', 20), ch('4', '$', 21),
      ch('5', '%', 23), ch('6', '^', 22), ch('7', '&', 26), ch('8', '*', 28), ch('9', '(', 25),
@@ -636,7 +702,7 @@
      ch('v', 'V', 9), ch('b', 'B', 11), ch('n', 'N', 45), ch('m', 'M', 46), ch(',', '<', 43),
      ch('.', '>', 47), ch('/', '?', 44), md('shift', 'shift', 60, 2.75, '⇧')],
 
-    [{ k: 'fnlock', l: 'fn', w: 1, sub: '🌐' }, md('control', 'ctrl', 59, 1, '⌃'), md('option', 'opt', 58, 1, '⌥'),
+    [{ k: 'fnlock', l: 'fn', w: 1, iconSub: 'globe' }, md('control', 'ctrl', 59, 1, '⌃'), md('option', 'opt', 58, 1, '⌥'),
      md('command', 'cmd', 55, 1.25, '⌘'), sp(' ', 49, 5.5),
      md('command', 'cmd', 55, 1.25, '⌘'), md('option', 'opt', 61, 1, '⌥'),
      { k: 'arrows' }]
@@ -727,7 +793,10 @@
 
   function pressFunctionKey(key) {
     markModsUsed();
-    if (fnOn || (!key.media && !key.sc)) {
+    // `key.media === undefined`, never `!key.media`. NX_KEYTYPE_SOUND_UP is 0,
+    // so the falsy check sent F12 as a plain F-key instead of volume up — which
+    // is why volume did nothing and, with a browser in front, opened DevTools.
+    if (fnOn || (key.media === undefined && key.sc === undefined)) {
       // fn held, or nothing better to send: the plain F-key.
       send({ t: 'k', code: key.fkey, d: 1 });
       send({ t: 'k', code: key.fkey, d: 0 });
@@ -772,15 +841,20 @@
       + (key.k === 'fnlock' ? ' mod fnlock' : '');
     b.style.flexGrow = key.w || 1;
 
-    if (key.sub) {
+    if (key.sub || key.iconSub) {
       var g = document.createElement('span');
       g.className = 'glyph';
-      g.textContent = key.sub;
+      if (key.iconSub) g.innerHTML = icon(key.iconSub); else g.textContent = key.sub;
       b.appendChild(g);
     }
     var label = document.createElement('span');
-    label.className = key.sub || key.l.length > 2 ? 'sub' : '';
-    label.textContent = key.l;
+    if (key.icon) {
+      label.className = 'glyph';
+      label.innerHTML = icon(key.icon);
+    } else {
+      label.className = key.sub || key.iconSub || key.l.length > 2 ? 'sub' : '';
+      label.textContent = key.l;
+    }
     b.appendChild(label);
     key.el = label;
 
