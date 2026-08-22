@@ -46,12 +46,10 @@ const throttle = new Throttle();
 // Under launchd there is no terminal to print to, so the code goes to a file
 // that `make code` reads. Same 0600 as config.json — it is a credential until
 // it is used, and this is the only way to see it once deckd starts at login.
+// Written only after the port is actually held: a server that loses the bind
+// race used to overwrite the file with a code that dies with it, which left
+// `make code` reporting a code no listening server would accept.
 const CODE_FILE = join(dirname(config.path), 'pairing-code');
-try {
-  writeFileSync(CODE_FILE, pairingCode + '\n', { mode: 0o600 });
-} catch (err) {
-  console.error('[deckd] tidak bisa menulis kode pairing:', err.message);
-}
 
 function knownDevice(token) {
   return Object.keys(config.devices).some((known) => sameSecret(known, token));
@@ -224,6 +222,11 @@ wss.on('connection', (ws, req) => {
 const port = Number(process.env.PORT) || config.port;
 
 server.listen(port, () => {
+  try {
+    writeFileSync(CODE_FILE, pairingCode + '\n', { mode: 0o600 });
+  } catch (err) {
+    console.error('[deckd] tidak bisa menulis kode pairing:', err.message);
+  }
   const url = `http://${lanAddress()}:${port}/`;
   console.log(`\n  SwitchDeck — ${config.hostName}`);
   if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);

@@ -2,7 +2,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
-const DIR = join(homedir(), '.config', 'switchdeck');
+// Overridable so tests get their own directory. Without it every `make e2e`
+// wrote device tokens into the real config and clobbered the pairing code file
+// with a code belonging to a server that then exited.
+const DIR = process.env.SWITCHDECK_CONFIG_DIR || join(homedir(), '.config', 'switchdeck');
 const FILE = join(DIR, 'config.json');
 
 /// Decision K5: there is no unauthenticated mode, not even for a first try.

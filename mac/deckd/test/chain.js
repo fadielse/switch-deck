@@ -4,6 +4,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -25,6 +26,9 @@ const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   env: {
     ...process.env,
     PORT: String(PORT),
+    // Its own config directory: the real one holds real device tokens and the
+    // pairing code the user is reading.
+    SWITCHDECK_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'switchdeck-test-')),
     DECKD_INPUT: join(here, 'stub-input.js'),
     STUB_OUT,
   },

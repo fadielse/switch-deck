@@ -2,6 +2,7 @@
 // to the network: same code path, same frame, but over loopback.
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -13,7 +14,10 @@ const PORT = 8801;
 let out = '';
 const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   env: { ...process.env, PORT: String(PORT), DECKD_INPUT: join(here, 'stub-input.js'),
-         STUB_OUT: join(tmpdir(), 'switchdeck-latency.jsonl') },
+         STUB_OUT: join(tmpdir(), 'switchdeck-latency.jsonl'),
+         // Its own config directory: the real one holds real device tokens and
+         // the pairing code the user is reading.
+         SWITCHDECK_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'switchdeck-latency-')) },
   stdio: ['ignore', 'pipe', 'ignore'],
 });
 server.stdout.on('data', (c) => { out += c; });
