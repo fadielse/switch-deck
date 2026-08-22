@@ -404,33 +404,45 @@
 
   // ---------- deck ----------
   // Split across both palm rests so the trackpad stays centred, like a MacBook.
+  // -1 means no page: the palm rests stay empty and the trackpad sits alone.
+  var NO_PAGE = -1;
   var deckPages = [], activePage = 0;
+  try {
+    var savedPage = localStorage.getItem('switchdeck.page');
+    if (savedPage !== null) activePage = parseInt(savedPage, 10);
+  } catch (e) {}
 
   function renderDeck(description) {
     deckPages = (description && description.pages) || [];
-    if (activePage >= deckPages.length) activePage = 0;
+    if (activePage >= deckPages.length) activePage = deckPages.length ? 0 : NO_PAGE;
 
     var tabs = el('pages');
     tabs.innerHTML = '';
-    // One page needs no switcher; more than one does.
-    if (deckPages.length > 1) {
-      deckPages.forEach(function (page, index) {
-        var b = document.createElement('button');
-        b.textContent = page.name;
-        b.className = index === activePage ? 'on' : '';
-        b.addEventListener('pointerdown', function (e) {
-          e.preventDefault();
-          activePage = index;
-          clickSound(true);
-          renderDeck({ pages: deckPages });
-        });
-        tabs.appendChild(b);
+
+    function tab(label, index) {
+      var b = document.createElement('button');
+      b.textContent = label;
+      b.className = index === activePage ? 'on' : '';
+      b.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        activePage = index;
+        try { localStorage.setItem('switchdeck.page', String(index)); } catch (err) {}
+        clickSound(true);
+        renderDeck({ pages: deckPages });
       });
+      tabs.appendChild(b);
     }
+
+    // Always offer the empty option, even with a single page — wanting nothing
+    // beside the trackpad is a choice, not a consequence of having no deck.
+    tab('Kosong', NO_PAGE);
+    deckPages.forEach(function (page, index) { tab(page.name, index); });
 
     var left = el('deck-l'), right = el('deck-r');
     left.innerHTML = ''; right.innerHTML = '';
-    var keys = (deckPages[activePage] && deckPages[activePage].keys) || [];
+    var keys = activePage === NO_PAGE
+      ? []
+      : ((deckPages[activePage] && deckPages[activePage].keys) || []);
     keys.forEach(function (k, index) {
       var aside = index % 2 === 0 ? left : right;
       var b = document.createElement('button');
