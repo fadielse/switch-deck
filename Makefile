@@ -1,0 +1,48 @@
+BIN := mac/deckd-input/.build/release/deckd-input
+PORT ?= 8000
+
+.PHONY: build check prompt type move click cmd-c serve ip clean
+
+build:
+	swift build -c release --package-path mac/deckd-input
+
+## Report whether this binary is allowed to inject input.
+check: build
+	@$(BIN) --check || (echo ">> Accessibility BELUM dikasih. Jalanin: make prompt"; exit 1)
+
+## Opens the system permission dialog. Grant it to the terminal app you run this from.
+prompt: build
+	@$(BIN) --prompt || true
+
+## F0 DoD #1 — text must appear in whatever window has focus.
+type: build
+	@echo '>> Fokus ke TextEdit dalam 3 detik...'
+	@sleep 3
+	@printf '{"t":"txt","s":"halo dari SwitchDeck"}\n' | $(BIN)
+
+## F0 DoD #2 — cursor traces a square.
+move: build
+	@printf '%s\n' \
+	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":10,"dy":0}'; done) \
+	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":0,"dy":10}'; done) \
+	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":-10,"dy":0}'; done) \
+	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":0,"dy":-10}'; done) \
+	  | $(BIN)
+
+click: build
+	@printf '{"t":"b","btn":"l","d":1}\n{"t":"b","btn":"l","d":0}\n' | $(BIN)
+
+## Keycode 8 = "c". Proves the modifier-flag path before F3 needs it.
+cmd-c: build
+	@printf '{"t":"k","code":8,"d":1,"flags":["cmd"]}\n{"t":"k","code":8,"d":0,"flags":["cmd"]}\n' | $(BIN)
+
+## Serve the browser capability page to the tablet.
+serve:
+	@echo ">> Buka di tablet: http://$$(ipconfig getifaddr en0):$(PORT)/"
+	@cd tools/browser-check && python3 -m http.server $(PORT)
+
+ip:
+	@ipconfig getifaddr en0
+
+clean:
+	rm -rf mac/deckd-input/.build

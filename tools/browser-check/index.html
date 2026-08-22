@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>SwitchDeck — Cek Browser Tablet</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: #101216; color: #e6e8ec;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { color: #8b93a1; font-size: 13px; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .card {
+    background: #181b21; border: 1px solid #262a33; border-radius: 10px;
+    padding: 12px 14px; display: flex; justify-content: space-between;
+    align-items: center; gap: 10px;
+  }
+  .card .label { font-size: 14px; }
+  .card .note { color: #8b93a1; font-size: 12px; margin-top: 2px; }
+  .chip {
+    font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .ok   { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
+  .bad  { background: #34181b; color: #f2777f; border: 1px solid #5e2a2f; }
+  .warn { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
+  .info { background: #1b2533; color: #78a9e8; border: 1px solid #2c405c; }
+  #pad {
+    margin: 16px 0; height: 240px; border-radius: 12px;
+    background: #14181f; border: 2px dashed #2f3642;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    color: #8b93a1; font-size: 14px; padding: 16px;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #pad.live { border-color: #3d6fd1; background: #161d2b; color: #cdd6e4; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  button {
+    flex: 1 1 140px; padding: 14px 16px; font-size: 15px; font-weight: 600;
+    border-radius: 10px; border: 1px solid #2f3642; background: #1f2530;
+    color: #e6e8ec; touch-action: manipulation;
+  }
+  button:active { background: #2b3341; }
+  pre {
+    background: #0b0d11; border: 1px solid #262a33; border-radius: 10px;
+    padding: 12px; font-size: 12px; line-height: 1.6; overflow-x: auto;
+    white-space: pre-wrap; word-break: break-word; color: #b9c1cd;
+  }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em;
+       color: #8b93a1; margin: 22px 0 8px; }
+</style>
+</head>
+<body>
+
+<h1>SwitchDeck — Cek Browser Tablet</h1>
+<p class="sub">Fase 0. Tujuannya jawab: browser tablet ini sanggup nggak dipakai jadi trackpad + deck.</p>
+
+<h2>Otomatis</h2>
+<div class="grid" id="auto"></div>
+
+<h2>Tes sentuh</h2>
+<div id="pad">Geser jari di sini, coba juga <b>dua/tiga jari sekaligus</b>.<br>Minimal 3 detik.</div>
+<div class="grid" id="touch"></div>
+
+<h2>Tes tombol</h2>
+<div class="row">
+  <button id="fs">Coba Fullscreen</button>
+  <button id="vib">Coba Getar</button>
+</div>
+<div class="grid" id="manual"></div>
+
+<h2>Ringkasan (screenshot bagian ini)</h2>
+<pre id="summary">…</pre>
+
+<script>
+(function () {
+  var results = {};
+
+  function card(container, label, verdict, value, note) {
+    var el = document.createElement('div');
+    el.className = 'card';
+    var left = document.createElement('div');
+    var l = document.createElement('div');
+    l.className = 'label';
+    l.textContent = label;
+    left.appendChild(l);
+    if (note) {
+      var n = document.createElement('div');
+      n.className = 'note';
+      n.textContent = note;
+      left.appendChild(n);
+    }
+    var chip = document.createElement('span');
+    chip.className = 'chip ' + verdict;
+    chip.textContent = value;
+    el.appendChild(left);
+    el.appendChild(chip);
+    container.appendChild(el);
+    return chip;
+  }
+
+  // ---- otomatis ----
+  var auto = document.getElementById('auto');
+
+  var hasPointer = 'PointerEvent' in window;
+  results.pointerEvents = hasPointer;
+  card(auto, 'Pointer Events', hasPointer ? 'ok' : 'bad', hasPointer ? 'ADA' : 'TIDAK ADA',
+       hasPointer ? null : 'Fatal — trackpad harus pakai jalur lain');
+
+  var coalesced = hasPointer && typeof PointerEvent.prototype.getCoalescedEvents === 'function';
+  results.coalescedEvents = coalesced;
+  card(auto, 'getCoalescedEvents', coalesced ? 'ok' : 'warn', coalesced ? 'ADA' : 'TIDAK ADA',
+       'Kalau ada, gerakan bisa lebih halus dari refresh rate');
+
+  var maxTouch = navigator.maxTouchPoints || 0;
+  results.maxTouchPoints = maxTouch;
+  card(auto, 'maxTouchPoints (lapor OS)', maxTouch >= 3 ? 'ok' : (maxTouch >= 2 ? 'warn' : 'bad'),
+       String(maxTouch), 'Butuh >= 2 buat scroll dua jari');
+
+  var hasFsApi = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  results.fullscreenApi = hasFsApi;
+  card(auto, 'Fullscreen API', hasFsApi ? 'ok' : 'warn', hasFsApi ? 'ADA' : 'TIDAK ADA');
+
+  var hasVib = typeof navigator.vibrate === 'function';
+  results.vibrateApi = hasVib;
+  card(auto, 'Vibration API', hasVib ? 'ok' : 'warn', hasVib ? 'ADA' : 'TIDAK ADA',
+       'Cuma buat haptic tombol deck, opsional');
+
+  var secure = window.isSecureContext;
+  results.secureContext = secure;
+  card(auto, 'Secure context', secure ? 'ok' : 'warn', secure ? 'YA' : 'TIDAK',
+       secure ? null : 'Wajar di http:// — PWA install & Wake Lock nunggu HTTPS di F6');
+
+  var hasWakeLock = 'wakeLock' in navigator;
+  results.wakeLockApi = hasWakeLock;
+  card(auto, 'Wake Lock API', hasWakeLock ? 'ok' : 'warn', hasWakeLock ? 'ADA' : 'TIDAK ADA',
+       hasWakeLock ? 'Layar tablet bisa dijaga biar nggak tidur' : 'Biasanya karena belum HTTPS, cek ulang setelah F6');
+
+  var hasSW = 'serviceWorker' in navigator;
+  results.serviceWorker = hasSW;
+  card(auto, 'Service Worker', hasSW ? 'ok' : 'warn', hasSW ? 'ADA' : 'TIDAK ADA', 'Buat PWA offline nanti');
+
+  results.screen = window.innerWidth + 'x' + window.innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x';
+  card(auto, 'Ukuran viewport', 'info', results.screen);
+
+  results.ua = navigator.userAgent;
+
+  // ---- tes sentuh ----
+  var pad = document.getElementById('pad');
+  var touchBox = document.getElementById('touch');
+  var chipPointers = card(touchBox, 'Jari barengan terdeteksi', 'info', '0', 'Coba taruh 3 jari di pad');
+  var chipRate = card(touchBox, 'Rate pointermove', 'info', '— Hz', 'Target: >= 60 Hz');
+  var chipScroll = card(touchBox, 'touch-action: none', 'info', 'belum diuji', 'Halaman harus DIAM saat jari digeser');
+  var chipType = card(touchBox, 'pointerType', 'info', '—');
+
+  var active = {}, maxPointers = 0, moveCount = 0, firstMove = 0, lastMove = 0;
+  var scrollAtStart = null, scrolled = false;
+
+  pad.addEventListener('pointerdown', function (e) {
+    pad.classList.add('live');
+    active[e.pointerId] = true;
+    var n = Object.keys(active).length;
+    if (n > maxPointers) {
+      maxPointers = n;
+      chipPointers.textContent = String(maxPointers);
+      chipPointers.className = 'chip ' + (maxPointers >= 3 ? 'ok' : maxPointers >= 2 ? 'warn' : 'info');
+    }
+    chipType.textContent = e.pointerType;
+    if (scrollAtStart === null) scrollAtStart = window.scrollY;
+    pad.setPointerCapture && pad.setPointerCapture(e.pointerId);
+  });
+
+  pad.addEventListener('pointermove', function (e) {
+    if (!active[e.pointerId]) return;
+    var now = performance.now();
+    if (!firstMove) firstMove = now;
+    lastMove = now;
+    moveCount += (coalesced && e.getCoalescedEvents) ? e.getCoalescedEvents().length : 1;
+    if (window.scrollY !== scrollAtStart) scrolled = true;
+    var span = lastMove - firstMove;
+    if (span > 500) {
+      var hz = Math.round(moveCount / (span / 1000));
+      results.pointerRateHz = hz;
+      chipRate.textContent = hz + ' Hz';
+      chipRate.className = 'chip ' + (hz >= 60 ? 'ok' : hz >= 30 ? 'warn' : 'bad');
+    }
+  }, { passive: true });
+
+  function release(e) {
+    delete active[e.pointerId];
+    if (!Object.keys(active).length) {
+      pad.classList.remove('live');
+      results.maxPointersSeen = maxPointers;
+      results.pageScrolledDuringDrag = scrolled;
+      chipScroll.textContent = scrolled ? 'GAGAL (halaman ikut geser)' : 'OK (halaman diam)';
+      chipScroll.className = 'chip ' + (scrolled ? 'bad' : 'ok');
+      render();
+    }
+  }
+  pad.addEventListener('pointerup', release);
+  pad.addEventListener('pointercancel', release);
+
+  // ---- tes tombol ----
+  var manual = document.getElementById('manual');
+  var chipFs = card(manual, 'Fullscreen beneran jalan', 'info', 'belum diuji');
+  var chipVibResult = card(manual, 'Getar beneran kerasa', 'info', 'belum diuji', 'Jawab sendiri: kerasa atau nggak');
+
+  document.getElementById('fs').addEventListener('click', function () {
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) {
+      chipFs.textContent = 'API TIDAK ADA';
+      chipFs.className = 'chip bad';
+      results.fullscreenWorks = false;
+      render();
+      return;
+    }
+    Promise.resolve(req.call(el)).then(function () {
+      chipFs.textContent = 'JALAN';
+      chipFs.className = 'chip ok';
+      results.fullscreenWorks = true;
+      render();
+    }).catch(function (err) {
+      chipFs.textContent = 'DITOLAK';
+      chipFs.className = 'chip bad';
+      results.fullscreenWorks = 'ditolak: ' + err.name;
+      render();
+    });
+  });
+
+  document.getElementById('vib').addEventListener('click', function () {
+    if (!hasVib) {
+      chipVibResult.textContent = 'API TIDAK ADA';
+      chipVibResult.className = 'chip bad';
+      results.vibrateCalled = false;
+    } else {
+      navigator.vibrate([40, 60, 40]);
+      chipVibResult.textContent = 'DIPANGGIL — kerasa?';
+      chipVibResult.className = 'chip warn';
+      results.vibrateCalled = true;
+    }
+    render();
+  });
+
+  function render() {
+    document.getElementById('summary').textContent = JSON.stringify(results, null, 2);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
