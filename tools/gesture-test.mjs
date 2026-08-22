@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// Settles what three-finger gestures actually need, by trying the three ways a
-// chord can be built and reporting which one macOS acts on. Mission Control is
-// the probe because it is observable: when it opens, the frontmost app becomes
-// the Dock.
+// Sweeps the two variables that could explain why system hotkeys ignore our
+// synthetic events — which state the event claims to come from, and where it is
+// injected — and finishes with a shell fallback that does not use keystrokes at
+// all. Mission Control is the probe because it is observable without Screen
+// Recording permission: when it opens, the frontmost app becomes the Dock.
 import { spawn, execSync } from 'node:child_process';
 
 const BIN = 'mac/deckd-input/.build/release/deckd-input';
 const CTRL = 59, UP = 126, ESC = 53;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const front = () => {
   try {
@@ -16,77 +18,79 @@ const front = () => {
   } catch { return '?'; }
 };
 
-const child = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'inherit'] });
-const send = (f) => child.stdin.write(JSON.stringify(f) + '\n');
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function openChild(env) {
+  const child = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'inherit'], env: { ...process.env, ...env } });
+  return {
+    child,
+    send: (f) => child.stdin.write(JSON.stringify(f) + '\n'),
+    kill: () => child.kill()
+  };
+}
 
-const VARIANTS = [
-  {
-    name: 'A  modifier ditahan + flags di panah',
-    note: 'yang dipakai client sekarang',
-    run: async () => {
-      send({ t: 'k', code: CTRL, d: 1 }); await wait(70);
-      send({ t: 'k', code: UP, d: 1, flags: ['ctrl'] }); await wait(60);
-      send({ t: 'k', code: UP, d: 0, flags: ['ctrl'] }); await wait(60);
-      send({ t: 'k', code: CTRL, d: 0 });
-    }
-  },
-  {
-    name: 'B  modifier ditahan, panah TANPA flags',
-    note: 'kalau ini yang jalan, berarti set flags manual justru merusak',
-    run: async () => {
-      send({ t: 'k', code: CTRL, d: 1 }); await wait(70);
-      send({ t: 'k', code: UP, d: 1 }); await wait(60);
-      send({ t: 'k', code: UP, d: 0 }); await wait(60);
-      send({ t: 'k', code: CTRL, d: 0 });
-    }
-  },
-  {
-    name: 'C  flags saja, modifier tidak ditekan',
-    note: 'cara paling sederhana; kalau ini jalan, semua kerumitan tadi sia-sia',
-    run: async () => {
-      send({ t: 'k', code: UP, d: 1, flags: ['ctrl'] }); await wait(60);
-      send({ t: 'k', code: UP, d: 0, flags: ['ctrl'] });
-    }
-  }
+async function tryChord(env) {
+  const io = openChild(env);
+  await wait(350);
+  io.send({ t: 'k', code: CTRL, d: 1 }); await wait(70);
+  io.send({ t: 'k', code: UP, d: 1, flags: ['ctrl'] }); await wait(60);
+  io.send({ t: 'k', code: UP, d: 0, flags: ['ctrl'] }); await wait(60);
+  io.send({ t: 'k', code: CTRL, d: 0 });
+  await wait(1100);
+  const result = front();
+  io.send({ t: 'k', code: ESC, d: 1 });
+  io.send({ t: 'k', code: ESC, d: 0 });
+  await wait(800);
+  io.kill();
+  return result;
+}
+
+const CASES = [
+  { label: 'source hid      + tap hid       (dipakai sekarang)', env: {} },
+  { label: 'source combined + tap hid',       env: { DECKD_SOURCE: 'combined' } },
+  { label: 'source none     + tap hid',       env: { DECKD_SOURCE: 'none' } },
+  { label: 'source hid      + tap session',   env: { DECKD_TAP: 'session' } },
+  { label: 'source combined + tap session',   env: { DECKD_SOURCE: 'combined', DECKD_TAP: 'session' } },
+  { label: 'source hid      + tap annotated', env: { DECKD_TAP: 'annotated' } }
 ];
 
 (async () => {
-  await wait(400);
-  console.log('');
-  console.log('  Menguji 3 cara membentuk Control+Up. Jangan sentuh Mac selama ~10 detik.');
-  console.log('');
+  console.log('\n  Menyapu kombinasi sumber event x titik suntik.');
+  console.log('  Jangan sentuh Mac selama ~25 detik.\n');
 
-  const results = [];
-  for (const variant of VARIANTS) {
-    const before = front();
-    await variant.run();
-    await wait(1100);
-    const after = front();
-    const opened = after !== before && /dock/i.test(after);
-    results.push(opened);
-
-    console.log(`  ${opened ? 'JALAN     ' : 'tidak     '} ${variant.name}`);
-    console.log(`             ${before} -> ${after}`);
-    console.log(`             ${variant.note}`);
-    console.log('');
-
-    // close Mission Control again before the next attempt
-    send({ t: 'k', code: ESC, d: 1 });
-    send({ t: 'k', code: ESC, d: 0 });
-    await wait(900);
+  let winner = null;
+  for (const c of CASES) {
+    const after = await tryChord(c.env);
+    const ok = /dock/i.test(after);
+    if (ok && !winner) winner = c;
+    console.log(`  ${ok ? 'JALAN  ' : 'tidak  '} ${c.label}   -> ${after}`);
   }
 
-  console.log('  ' + '-'.repeat(64));
-  if (results.some(Boolean)) {
-    console.log('  Chord-nya SAMPAI. Berarti masalahnya di sisi client (deteksi gesture),');
-    console.log('  dan badge di trackpad yang akan menunjukkan di mana.');
+  // No keystroke involved at all: launch the app that IS Mission Control.
+  console.log('');
+  const before = front();
+  try { execSync('open -a "Mission Control"'); } catch (e) { console.log('  (open gagal:', e.message.trim(), ')'); }
+  await wait(1200);
+  const afterOpen = front();
+  const openWorks = /dock/i.test(afterOpen);
+  console.log(`  ${openWorks ? 'JALAN  ' : 'tidak  '} open -a "Mission Control"   ${before} -> ${afterOpen}`);
+  const io = openChild({});
+  await wait(300);
+  io.send({ t: 'k', code: ESC, d: 1 });
+  io.send({ t: 'k', code: ESC, d: 0 });
+  await wait(700);
+  io.kill();
+
+  console.log('\n  ' + '-'.repeat(66));
+  if (winner) {
+    console.log(`  Ketemu: ${winner.label.trim()}`);
+    console.log('  Client tinggal dipindah ke kombinasi ini.');
+  } else if (openWorks) {
+    console.log('  Tidak ada kombinasi keystroke yang jalan — system hotkey macOS');
+    console.log('  memang mengabaikan event sintetis. Tapi `open -a` JALAN, jadi');
+    console.log('  gesture bisa memakai jalur itu untuk Mission Control.');
   } else {
-    console.log('  Tidak satu pun jalan. Berarti bukan cara membentuk chord-nya:');
-    console.log('  shortcut Mission Control kemungkinan dinonaktifkan atau dipetakan ulang');
-    console.log('  di System Settings > Keyboard > Shortcuts > Mission Control.');
+    console.log('  Tidak ada yang jalan, termasuk `open -a`. Berarti bukan soal cara');
+    console.log('  mengirim — ada yang lain di Mac ini yang memblokir Mission Control.');
   }
   console.log('');
-  child.kill();
   process.exit(0);
 })();

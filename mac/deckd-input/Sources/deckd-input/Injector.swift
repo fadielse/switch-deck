@@ -78,8 +78,29 @@ final class Injector {
         lastKeyEventAt = Date().timeIntervalSince1970
     }
 
+    /// Which state the synthesised events claim to come from, and where they are
+    /// injected. Both are fixed in normal use; the environment overrides exist
+    /// because system hotkeys (Mission Control, spaces) ignore our events and
+    /// these are the two variables that could plausibly explain it.
+    private static func configuredSource() -> CGEventSource? {
+        switch ProcessInfo.processInfo.environment["DECKD_SOURCE"] {
+        case "combined": return CGEventSource(stateID: .combinedSessionState)
+        case "private": return CGEventSource(stateID: .privateState)
+        case "none": return nil
+        default: return CGEventSource(stateID: .hidSystemState)
+        }
+    }
+
+    static let tap: CGEventTapLocation = {
+        switch ProcessInfo.processInfo.environment["DECKD_TAP"] {
+        case "session": return .cgSessionEventTap
+        case "annotated": return .cgAnnotatedSessionEventTap
+        default: return .cghidEventTap
+        }
+    }()
+
     init() {
-        source = CGEventSource(stateID: .hidSystemState)
+        source = Injector.configuredSource()
         // Without this, every synthetic event suppresses real hardware input for
         // 0.25s — the Mac's own trackpad feels stuck while the tablet is moving
         // the cursor. Costs nothing to disable, painful to debug later.
@@ -151,7 +172,7 @@ final class Injector {
         // Figma pan) gets it wrong. Setting the position alone is not enough.
         event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx.rounded()))
         event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy.rounded()))
-        event.post(tap: .cghidEventTap)
+        event.post(tap: Injector.tap)
     }
 
     /// Pixel-unit scrolling, which is what gives smooth trackpad-style motion
@@ -164,7 +185,7 @@ final class Injector {
                                   wheel1: Int32(dy.rounded()),
                                   wheel2: Int32(dx.rounded()),
                                   wheel3: 0) else { return }
-        event.post(tap: .cghidEventTap)
+        event.post(tap: Injector.tap)
     }
 
     func button(_ button: MouseButton, down: Bool) {
@@ -178,7 +199,7 @@ final class Injector {
 
         // Some apps ignore clicks whose click state is left at 0.
         event.setIntegerValueField(.mouseEventClickState, value: 1)
-        event.post(tap: .cghidEventTap)
+        event.post(tap: Injector.tap)
 
         virtualPosition = current
         if down {
@@ -198,7 +219,7 @@ final class Injector {
         if !flags.isEmpty {
             event.flags = flags
         }
-        event.post(tap: .cghidEventTap)
+        event.post(tap: Injector.tap)
     }
 
     /// Types arbitrary text without needing a keycode table — this is the path
@@ -223,7 +244,7 @@ final class Injector {
                     event.keyboardSetUnicodeString(stringLength: buffer.count,
                                                    unicodeString: buffer.baseAddress)
                 }
-                event.post(tap: .cghidEventTap)
+                event.post(tap: Injector.tap)
             }
             index += chunkSize
         }
@@ -245,7 +266,7 @@ final class Injector {
                                              subtype: 8,
                                              data1: data1,
                                              data2: -1) else { return }
-        event.cgEvent?.post(tap: .cghidEventTap)
+        event.cgEvent?.post(tap: Injector.tap)
     }
 
     static func parseFlags(_ names: [String]?) -> CGEventFlags {
