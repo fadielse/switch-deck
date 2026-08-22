@@ -19,6 +19,24 @@ tools/browser-check/  Standalone page to probe what the tablet's browser support
 
 `deckd` (the Bun/Node server) and the web client arrive in F1.
 
+## Phase F5 — more than one Mac
+
+The tablet holds a socket to every host and sends to whichever is active.
+Decision K6 rejected the alternative — one Mac relaying to the other — because
+it makes one machine a single point of failure for both and adds a hop of
+latency. Keeping all sockets open is also what makes switching instant: each
+connection caches its own deck, so a switch redraws from memory rather than
+waiting for a round trip.
+
+Add a Mac from the settings drawer with its address and its six-digit code.
+Pairing a second host is a cross-origin request, so `/pair` answers preflight
+and allows any origin — safe because the code is the guard and it is throttled.
+
+Each host chip carries a status dot, so a machine that has dropped is visible
+before you switch to it and wonder why nothing moves. Deck, latency figures,
+Accessibility warning and the send-rate cap all follow the active host, since
+the cap belongs to that Mac's refresh rate rather than the tablet's.
+
 ## Phase F7 — always on
 
 ```sh

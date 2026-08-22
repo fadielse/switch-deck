@@ -65,6 +65,22 @@
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
+  .hosts { display: flex; gap: 5px; }
+  .hosts button {
+    padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  /* A dot per host, so a machine that has dropped is visible before you switch
+     to it and wonder why nothing moves. */
+  .hosts button::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: #5b636f;
+  }
+  .hosts button.host-on::before { background: #57d68b; }
+  .hosts button.host-connecting::before { background: #e2b356; }
+  .hosts button.host-rejected::before { background: #f2777f; }
+  .hosts button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
+
   .pages { display: flex; gap: 5px; }
   .pages button {
     padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
@@ -144,6 +160,7 @@
 <header>
   <span class="host" id="host">SwitchDeck</span>
   <span class="pill mid" id="status">connecting</span>
+  <span class="hosts" id="hosts"></span>
   <span class="pages" id="pages"></span>
   <span class="metrics">
     <span id="lat">— ms</span>
@@ -184,12 +201,25 @@
   <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
   <div class="row"><label>Scroll natural</label><input type="checkbox" id="s-natural"></div>
   <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
+  <div class="row" style="align-items:flex-start">
+    <label>Mac lain<br><span style="font-size:11px">alamat + kode 6 digit dari Mac itu</span></label>
+    <span style="flex:1;display:flex;flex-direction:column;gap:6px">
+      <span style="display:flex;gap:6px">
+        <input id="h-addr" placeholder="192.168.1.50:8777" autocapitalize="off" spellcheck="false"
+               style="flex:2;padding:10px;font-size:14px;letter-spacing:0;text-align:left">
+        <input id="h-code" inputmode="numeric" maxlength="6" placeholder="000000"
+               style="flex:1;padding:10px;font-size:14px;letter-spacing:.1em">
+        <button class="gear" id="h-add">Tambah</button>
+      </span>
+      <span id="h-msg" style="font-size:12px;min-height:16px;color:var(--dim)"></span>
+      <span id="h-list" style="display:flex;flex-direction:column;gap:4px"></span>
+    </span>
+  </div>
   <div class="row"><button class="gear" id="close" style="flex:1">Tutup</button></div>
 </div>
 
 <script>
 (function () {
-  var STORE = 'switchdeck.token';
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
@@ -204,9 +234,8 @@
   }
 
   var el = function (id) { return document.getElementById(id); };
-  var ws = null, pingTimer = null, retry = null;
-  var rtts = [], sentThisSecond = 0, rateWindow = Date.now();
-  var minSendGap = 1000 / 60;   // replaced by the Mac's real refresh on hello
+  var sentThisSecond = 0, rateWindow = Date.now();
+  var minSendGap = 1000 / 60;   // replaced by the active host's real refresh
 
   // ---------- click sound ----------
   // The tablet has no haptic motor, so touch feedback has to be audible. The
@@ -317,47 +346,85 @@
     play(ctx, ctx.currentTime, deep, level);
   }
 
-  // ---------- transport ----------
+  // ---------- transport: one connection per host ----------
+  //
+  // Decision K6: the tablet holds a socket to every host and sends to the
+  // active one. The alternative — one Mac relaying to the other — was rejected
+  // because it makes one machine a single point of failure for both and adds a
+  // hop of latency. Keeping every socket open also makes switching instant:
+  // the deck is already cached, so nothing has to be fetched on the switch.
+  var HOSTS = 'switchdeck.hosts';
+  var hosts = [];          // [{ id, name, url, token }]
+  var conns = {};          // id -> { ws, state, deck, rtts, pingTimer, retry }
+  var activeId = null;
+
+  function loadHosts() {
+    try { hosts = JSON.parse(localStorage.getItem(HOSTS) || '[]'); } catch (e) { hosts = []; }
+    if (!Array.isArray(hosts)) hosts = [];
+  }
+  function saveHosts() {
+    try { localStorage.setItem(HOSTS, JSON.stringify(hosts)); } catch (e) {}
+  }
+
+  function conn(id) {
+    if (!conns[id]) conns[id] = { ws: null, state: 'off', deck: null, rtts: [], pingTimer: null, retry: null };
+    return conns[id];
+  }
+
   function send(frame) {
-    if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify(frame));
+    var c = activeId && conns[activeId];
+    if (!c || !c.ws || c.ws.readyState !== 1) return;
+    c.ws.send(JSON.stringify(frame));
     sentThisSecond += 1;
   }
 
-  function setStatus(text, cls) {
-    el('status').textContent = text;
-    el('status').className = 'pill ' + cls;
+  function setState(id, state) {
+    conn(id).state = state;
+    renderHosts();
+    if (id === activeId) paintStatus();
   }
 
-  function connect(token) {
-    if (!token) { el('pair').style.display = 'flex'; setStatus('not paired', 'down'); return; }
-    el('pair').style.display = 'none';
-    setStatus('connecting', 'mid');
+  function paintStatus() {
+    var c = activeId && conns[activeId];
+    var state = c ? c.state : 'off';
+    var label = { on: 'connected', connecting: 'connecting', off: 'disconnected',
+                  rejected: 'pairing required' }[state] || state;
+    el('status').textContent = label;
+    el('status').className = 'pill ' + (state === 'on' ? 'up' : state === 'connecting' ? 'mid' : 'down');
+  }
+
+  function connectHost(host) {
+    var c = conn(host.id);
+    if (c.ws) { try { c.ws.close(); } catch (e) {} }
+    setState(host.id, 'connecting');
+
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(proto + '://' + location.host + '/ws?t=' + encodeURIComponent(token));
+    var ws = new WebSocket(proto + '://' + host.url + '/ws?t=' + encodeURIComponent(host.token));
+    c.ws = ws;
 
     ws.onopen = function () {
-      setStatus('connected', 'up');
-      startPing();
+      setState(host.id, 'on');
+      clearInterval(c.pingTimer);
+      c.pingTimer = setInterval(function () {
+        if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
+      }, cfg.keepalive);
     };
 
     ws.onmessage = function (ev) {
       var f; try { f = JSON.parse(ev.data); } catch (e) { return; }
+
       if (f.t === 'hello') {
-        el('host').textContent = f.host;
-        // No point sending motion faster than the Mac can draw the cursor: the
-        // extra packets cost airtime on a loaded link and main-thread time here,
-        // and land on a frame that is never rendered.
-        if (f.refreshHz > 0) minSendGap = 1000 / f.refreshHz;
-        renderDeck(f.deck);
-        if (f.trusted === false) {
-          el('warn').style.display = 'block';
-          el('warn').textContent = 'Mac belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
-        }
+        if (f.host && f.host !== host.name) { host.name = f.host; saveHosts(); }
+        c.deck = f.deck;
+        c.trusted = f.trusted;
+        if (f.refreshHz > 0) c.refreshHz = f.refreshHz;
+        if (host.id === activeId) adoptHost(host.id);
+        renderHosts();
       } else if (f.t === 'deck') {
-        renderDeck(f.deck);          // config diedit, tidak perlu reconnect
+        c.deck = f.deck;
+        if (host.id === activeId) renderDeck(c.deck);
       } else if (f.t === 'pong') {
-        pushRtt(Date.now() - f.ts);
+        pushRtt(host.id, Date.now() - f.ts);
       } else if (f.t === 'ack') {
         flash(f.id, 'ok');
       } else if (f.t === 'err') {
@@ -366,45 +433,82 @@
     };
 
     ws.onclose = function (ev) {
-      clearInterval(pingTimer);
-      var rejected = ev.code === 1006 && el('status').textContent === 'connecting';
-      setStatus(rejected ? 'pairing required' : 'disconnected', 'down');
-      if (rejected) {
-        try { localStorage.removeItem(STORE); } catch (e) {}
-        el('pair').style.display = 'flex';
-        return;
-      }
-      clearTimeout(retry);
-      retry = setTimeout(function () { connect(token); }, 1500);
+      clearInterval(c.pingTimer);
+      // 1006 straight after the upgrade is what a refused token looks like.
+      var refused = ev.code === 1006 && c.state === 'connecting';
+      setState(host.id, refused ? 'rejected' : 'off');
+      if (refused) return;
+      clearTimeout(c.retry);
+      c.retry = setTimeout(function () { connectHost(host); }, 1500);
     };
   }
 
-  // Doubles as a keepalive. Latency measured while idle was far worse than
-  // under load (p95 438 ms idle vs 135 ms active), which is backwards for a
-  // congested link and is the signature of the tablet's wifi radio dozing
-  // between packets. A steady trickle keeps it awake; the packets are ~30 bytes
-  // so the only real cost is battery.
-  function startPing() {
-    clearInterval(pingTimer);
-    pingTimer = setInterval(function () {
-      send({ t: 'ping', ts: Date.now() });
-    }, cfg.keepalive);
+  /// Everything that follows the active host: deck, warning banner, and the
+  /// send rate cap, which belongs to that Mac's refresh rate rather than ours.
+  function adoptHost(id) {
+    var c = conn(id);
+    if (c.refreshHz > 0) minSendGap = 1000 / c.refreshHz;
+    renderDeck(c.deck || { pages: [] });
+    el('warn').style.display = c.trusted === false ? 'block' : 'none';
+    if (c.trusted === false) {
+      el('warn').textContent = 'Mac ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
+    }
+    paintStatus();
+    paintLatency();
   }
 
-  function pushRtt(ms) {
-    rtts.push(ms);
-    if (rtts.length > 60) rtts.shift();
-    var sorted = rtts.slice().sort(function (a, b) { return a - b; });
+  function setActive(id) {
+    if (activeId === id) return;
+    activeId = id;
+    try { localStorage.setItem('switchdeck.active', id); } catch (e) {}
+    adoptHost(id);
+    renderHosts();
+  }
+
+  function renderHosts() {
+    var box = el('hosts');
+    box.innerHTML = '';
+    if (hosts.length < 2) return;   // one host needs no switcher
+    hosts.forEach(function (h) {
+      var c = conn(h.id);
+      var b = document.createElement('button');
+      b.className = (h.id === activeId ? 'on ' : '') + 'host-' + c.state;
+      b.textContent = h.name || h.url;
+      b.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        clickSound(true);
+        setActive(h.id);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function pushRtt(id, ms) {
+    var c = conn(id);
+    c.rtts.push(ms);
+    if (c.rtts.length > 60) c.rtts.shift();
+    if (id === activeId) paintLatency();
+  }
+
+  function paintLatency() {
+    var c = activeId && conns[activeId];
+    if (!c || !c.rtts.length) { el('lat').textContent = '— ms'; return; }
+    var sorted = c.rtts.slice().sort(function (a, b) { return a - b; });
     var p = function (q) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]; };
-    el('lat').textContent = 'p50 ' + p(0.5) + ' / p95 ' + p(0.95) + ' ms (' + rtts.length + ')';
+    el('lat').textContent = 'p50 ' + p(0.5) + ' / p95 ' + p(0.95) + ' ms (' + c.rtts.length + ')';
   }
 
-  setInterval(function () {
-    var now = Date.now();
-    var secs = (now - rateWindow) / 1000;
-    el('rate').textContent = Math.round(sentThisSecond / secs) + ' f/s';
-    sentThisSecond = 0; rateWindow = now;
-  }, 1000);
+  function startAll() {
+    loadHosts();
+    if (!hosts.length) { el('pair').style.display = 'flex'; paintStatus(); return; }
+    el('pair').style.display = 'none';
+    var saved = null;
+    try { saved = localStorage.getItem('switchdeck.active'); } catch (e) {}
+    activeId = hosts.some(function (h) { return h.id === saved; }) ? saved : hosts[0].id;
+    hosts.forEach(connectHost);
+    renderHosts();
+    adoptHost(activeId);
+  }
 
   // ---------- deck ----------
   // Split across both palm rests so the trackpad stays centred, like a MacBook.
@@ -1129,19 +1233,61 @@
   el('s-keepalive').addEventListener('change', function () { if (ws && ws.readyState === 1) startPing(); });
   bindToggle('natural', 'natural');
   bindToggle('tap', 'tapClick');
-  el('gear').addEventListener('click', function () { el('settings').classList.toggle('open'); });
+  function renderHostList() {
+    var box = el('h-list');
+    box.innerHTML = '';
+    hosts.forEach(function (h) {
+      var row = document.createElement('span');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;font-size:13px';
+      var name = document.createElement('span');
+      name.style.cssText = 'flex:1;color:var(--fg)';
+      name.textContent = (h.name || h.url) + '  ·  ' + h.url;
+      var del = document.createElement('button');
+      del.className = 'gear';
+      del.textContent = 'Hapus';
+      del.addEventListener('click', function () {
+        var c = conns[h.id];
+        if (c) { clearTimeout(c.retry); clearInterval(c.pingTimer); if (c.ws) try { c.ws.close(); } catch (e) {} }
+        delete conns[h.id];
+        hosts = hosts.filter(function (x) { return x.id !== h.id; });
+        saveHosts();
+        if (activeId === h.id) activeId = hosts.length ? hosts[0].id : null;
+        renderHostList();
+        renderHosts();
+        if (activeId) adoptHost(activeId); else location.reload();
+      });
+      row.appendChild(name); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  el('h-add').addEventListener('click', function () {
+    var addr = el('h-addr').value.trim();
+    var code = el('h-code').value.replace(/\D/g, '');
+    if (!addr) { el('h-msg').textContent = 'alamatnya belum diisi'; return; }
+    if (code.length !== 6) { el('h-msg').textContent = 'kodenya 6 angka'; return; }
+    if (!/:\d+$/.test(addr)) addr += ':8777';   // port default, biar nggak perlu diketik
+    pair(addr, code, el('h-msg')).then(function (ok) {
+      if (ok) { el('h-addr').value = ''; el('h-code').value = ''; renderHostList(); }
+    });
+  });
+
+  el('gear').addEventListener('click', function () {
+    el('settings').classList.toggle('open');
+    if (el('settings').classList.contains('open')) renderHostList();
+  });
   el('close').addEventListener('click', function () { el('settings').classList.remove('open'); });
 
   // ---------- pairing ----------
   // The six-digit code is exchanged once for a long device token. The code is
-  // short enough to read off a screen; the token is what actually guards the
-  // connection from then on.
-  function pair(code) {
-    var msg = el('pairmsg');
-    msg.style.color = 'var(--dim)';
-    msg.textContent = 'memeriksa…';
+  // short enough to read off a screen; the token is what guards the connection
+  // from then on.
+  function pair(address, code, msgEl) {
+    var base = 'http://' + address;
+    msgEl.style.color = 'var(--dim)';
+    msgEl.textContent = 'memeriksa…';
 
-    fetch('/pair', {
+    return fetch(base + '/pair', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code: code })
@@ -1149,37 +1295,47 @@
       return res.json().then(function (body) { return { status: res.status, body: body }; });
     }).then(function (r) {
       if (r.status === 200 && r.body.token) {
-        try { localStorage.setItem(STORE, r.body.token); } catch (e) {}
-        msg.textContent = '';
-        el('code').value = '';
-        connect(r.body.token);
-        return;
+        var existing = hosts.filter(function (h) { return h.url === address; })[0];
+        if (existing) {
+          existing.token = r.body.token;
+          existing.name = r.body.host || existing.name;
+        } else {
+          hosts.push({
+            id: 'h' + Date.now() + Math.floor(Math.random() * 1000),
+            name: r.body.host || address,
+            url: address,
+            token: r.body.token
+          });
+        }
+        saveHosts();
+        msgEl.textContent = '';
+        el('pair').style.display = 'none';
+        startAll();
+        return true;
       }
-      msg.style.color = '#f2777f';
-      msg.textContent = r.status === 429
+      msgEl.style.color = '#f2777f';
+      msgEl.textContent = r.status === 429
         ? 'terlalu banyak percobaan, tunggu ' + r.body.retryAfter + ' detik'
         : 'kode salah';
+      return false;
     }).catch(function () {
-      msg.style.color = '#f2777f';
-      msg.textContent = 'tidak bisa menghubungi Mac';
+      msgEl.style.color = '#f2777f';
+      msgEl.textContent = 'tidak bisa menghubungi ' + address;
+      return false;
     });
   }
 
   el('save').addEventListener('click', function () {
     var v = el('code').value.replace(/\D/g, '');
-    if (v.length === 6) pair(v);
+    if (v.length === 6) pair(location.host, v, el('pairmsg'));
   });
   el('code').addEventListener('input', function () {
     var v = el('code').value.replace(/\D/g, '');
     el('code').value = v;
-    if (v.length === 6) pair(v);   // no reason to make them press a button too
+    if (v.length === 6) pair(location.host, v, el('pairmsg'));
   });
 
-  function readToken() {
-    try { return localStorage.getItem(STORE); } catch (e) { return null; }
-  }
-
-  connect(readToken());
+  startAll();
 })();
 </script>
 </body>

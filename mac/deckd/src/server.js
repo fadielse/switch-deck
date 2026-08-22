@@ -73,11 +73,26 @@ function readBody(req) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
+  // The tablet loads its page from one host but must be able to pair with the
+  // others, which is a cross-origin request. Opening this up is safe because
+  // the code is the guard and it is throttled: a page that tried to guess would
+  // get three attempts and then be made to wait, from a single address.
+  if (url.pathname === '/pair' && req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'POST',
+      'access-control-allow-headers': 'content-type',
+      'access-control-max-age': '600'
+    });
+    res.end();
+    return;
+  }
+
   if (url.pathname === '/pair' && req.method === 'POST') {
     const address = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
     const wait = throttle.retryAfter(address);
     if (wait > 0) {
-      res.writeHead(429, { 'content-type': 'application/json' });
+      res.writeHead(429, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       res.end(JSON.stringify({ retryAfter: Math.ceil(wait / 1000) }));
       return;
     }
@@ -87,7 +102,7 @@ const server = createServer(async (req, res) => {
     if (!sameSecret(code, pairingCode)) {
       const failures = throttle.fail(address);
       console.log(`[deckd] pairing gagal dari ${address} (percobaan ke-${failures})`);
-      res.writeHead(401, { 'content-type': 'application/json' });
+      res.writeHead(401, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       res.end(JSON.stringify({ error: 'kode salah' }));
       return;
     }
@@ -96,8 +111,8 @@ const server = createServer(async (req, res) => {
     const token = newToken();
     rememberDevice(config, token, address);
     console.log(`[deckd] device baru dipasangkan dari ${address}`);
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ token }));
+    res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+    res.end(JSON.stringify({ token, host: config.hostName }));
     return;
   }
 
