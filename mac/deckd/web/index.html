@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>SwitchDeck</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#101216">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
   :root {
     color-scheme: dark;
@@ -284,6 +287,15 @@
         <h3>Suara</h3>
         <div class="row"><label>Jenis</label><span class="picker" id="s-sound"></span></div>
         <div class="row"><label>Volume<small>0 = mati</small></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
+      </section>
+
+      <section>
+        <h3>Pasang ke layar depan</h3>
+        <div class="row" id="installrow" style="display:none">
+          <label>SwitchDeck sebagai aplikasi<small>tanpa bar browser, buka lewat ikon</small></label>
+          <button class="gear" id="install" style="flex:1">Pasang</button>
+        </div>
+        <p class="note" id="installnote"></p>
       </section>
 
       <section>
@@ -1342,6 +1354,35 @@
   el('kbtoggle').addEventListener('click', function () { setKeyboard(!kbOpen); });
   try { setKeyboard(localStorage.getItem('switchdeck.kb') === '1'); } catch (e) { setKeyboard(false); }
 
+  // ---------- install to home screen ----------
+  // Only offered over a secure context, because that is the only place a
+  // browser will accept an install. Chrome fires this instead of prompting on
+  // its own, so without holding on to it the option simply disappears.
+  var installPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installPrompt = e;
+    paintInstall();
+  });
+  window.addEventListener('appinstalled', function () {
+    installPrompt = null;
+    paintInstall();
+  });
+
+  function paintInstall() {
+    var row = el('installrow');
+    if (!row) return;
+    var standalone = window.matchMedia('(display-mode: standalone)').matches;
+    row.style.display = (installPrompt && !standalone) ? 'flex' : 'none';
+  }
+
+  if ('serviceWorker' in navigator) {
+    // Registration only succeeds in a secure context; failing is fine and means
+    // the app simply is not installable from this origin.
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+
   // ---------- keep the screen awake ----------
   // The whole reason for HTTPS: Wake Lock needs a secure context. Without it
   // the tablet dims and sleeps mid-session and the deck stops being a deck.
@@ -1525,6 +1566,25 @@
     });
   }
 
+  el('install').addEventListener('click', function () {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(function () { installPrompt = null; paintInstall(); });
+  });
+
+  function paintInstallNote() {
+    var note = el('installnote');
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      note.textContent = 'Sudah terpasang — ini lagi jalan sebagai aplikasi.';
+    } else if (!window.isSecureContext) {
+      note.innerHTML = 'Perlu HTTPS. Buka <code>/setup</code> untuk pasang sertifikatnya dulu.';
+    } else if (!installPrompt) {
+      note.textContent = 'Browser belum menawarkan pemasangan. Coba lewat menu ⋮ → Add to Home screen.';
+    } else {
+      note.textContent = '';
+    }
+  }
+
   el('h-add').addEventListener('click', function () {
     var addr = el('h-addr').value.trim();
     var code = el('h-code').value.replace(/\D/g, '');
@@ -1543,6 +1603,8 @@
     if (!open) return;
     renderHostList();
     renderDeviceList();
+    paintInstall();
+    paintInstallNote();
     el('h-msg').style.color = 'var(--dim)';
     el('h-msg').innerHTML = HOST_HINT;   // reset dari pesan error sebelumnya
   }

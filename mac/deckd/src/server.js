@@ -177,6 +177,21 @@ const handler = async (req, res) => {
        res.end(JSON.stringify({ ok: true, trusted: input.trusted, front: input.front ?? null }));
     return;
   }
+  // Static assets for the installable app. A short, explicit list rather than a
+  // directory server: nothing else in web/ should be reachable.
+  const STATIC = {
+    '/manifest.webmanifest': 'application/manifest+json',
+    '/sw.js': 'text/javascript',
+    '/icons/icon-192.png': 'image/png',
+    '/icons/icon-512.png': 'image/png',
+    '/icons/icon-maskable-512.png': 'image/png'
+  };
+  if (STATIC[url.pathname]) {
+    res.writeHead(200, { 'content-type': STATIC[url.pathname], 'cache-control': 'no-cache' });
+    res.end(readFileSync(join(here, '..', 'web', url.pathname.slice(1))));
+    return;
+  }
+
   if (url.pathname === '/') {
     // Read per request, and forbid caching. Reading once at startup meant every
     // client tweak needed a server restart, and without no-store the tablet

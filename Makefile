@@ -84,6 +84,10 @@ latency: deps
 gesture-test: build
 	@node tools/gesture-test.mjs
 
+## Regenerate the app icons (they are committed; this is only for changing them).
+icons:
+	@node scripts/make-icons.mjs
+
 ## Issue a local CA and a LAN certificate, so the tablet gets a secure context
 ## (Wake Lock, install to home screen). Restart deckd afterwards.
 cert:
