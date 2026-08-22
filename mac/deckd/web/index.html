@@ -120,6 +120,7 @@
 <div id="settings">
   <div class="row"><label>Sensitivitas</label><input type="range" id="s-sens" min="0.4" max="3" step="0.1"><span class="val" id="v-sens"></span></div>
   <div class="row"><label>Akselerasi</label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
+  <div class="row"><label>Kehalusan gerak</label><input type="range" id="s-smooth" min="0.25" max="1" step="0.05"><span class="val" id="v-smooth"></span></div>
   <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
   <div class="row"><label>Scroll natural</label><input type="checkbox" id="s-natural"></div>
   <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
@@ -132,7 +133,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, natural: true, tapClick: true
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 0.55, natural: true, tapClick: true
   }, readCfg());
 
   function readCfg() {
@@ -347,13 +348,30 @@
     el('padhint').style.opacity = pointers.size ? 0 : 1;
   }
 
-  // One flush per frame: the tablet reports ~90 Hz, but sending every event
-  // would just queue up frames the Mac cannot consume any faster.
+  // One flush per frame. The tablet samples at ~93 Hz and animation frames run
+  // at ~90 Hz — close but not locked, so frames alternate between catching two
+  // pointer events and none. Emitting the raw accumulation reproduces that beat
+  // as big-nothing-big steps, which is what a long fast swipe looked like.
+  //
+  // So emit a fraction of what is pending and leave the rest for the next
+  // frame. Distance is conserved exactly (the remainder stays in the buffer,
+  // which also carries sub-pixel motion), bursts get spread over a couple of
+  // frames, and the cost is one or two frames of lag. cfg.smooth = 1 opts out.
+  function drain(pending, take) {
+    var out = pending * take;
+    var whole = Math.trunc(out);
+    return whole;
+  }
+
   function flush() {
-    var ix = Math.trunc(accX), iy = Math.trunc(accY);
+    var take = pointers.size ? cfg.smooth : 1;   // no finger down: land it now
+
+    var ix = drain(accX, take), iy = drain(accY, take);
     if (ix || iy) { accX -= ix; accY -= iy; send({ t: 'm', dx: ix, dy: iy }); }
-    var sx = Math.trunc(accSX), sy = Math.trunc(accSY);
+
+    var sx = drain(accSX, take), sy = drain(accSY, take);
     if (sx || sy) { accSX -= sx; accSY -= sy; send({ t: 's', dx: sx, dy: sy }); }
+
     requestAnimationFrame(flush);
   }
   requestAnimationFrame(flush);
@@ -386,6 +404,7 @@
   bindRange('sens', 'sens', function (v) { return v.toFixed(1) + '×'; });
   bindRange('accel', 'accel', function (v) { return v.toFixed(1); });
   bindRange('scroll', 'scroll', function (v) { return v.toFixed(1) + '×'; });
+  bindRange('smooth', 'smooth', function (v) { return v >= 1 ? 'mentah' : v.toFixed(2); });
   bindToggle('natural', 'natural');
   bindToggle('tap', 'tapClick');
   el('gear').addEventListener('click', function () { el('settings').classList.toggle('open'); });

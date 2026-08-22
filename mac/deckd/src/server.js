@@ -32,7 +32,7 @@ function tokenMatches(candidate) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-const page = readFileSync(join(here, '..', 'web', 'index.html'));
+const pagePath = join(here, '..', 'web', 'index.html');
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -42,8 +42,15 @@ const server = createServer((req, res) => {
     return;
   }
   if (url.pathname === '/') {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(page);
+    // Read per request, and forbid caching. Reading once at startup meant every
+    // client tweak needed a server restart, and without no-store the tablet
+    // happily kept serving the previous build back to itself — between them
+    // that is a long time spent testing code that is not running.
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store, must-revalidate',
+    });
+    res.end(readFileSync(pagePath));
     return;
   }
   res.writeHead(404).end('not found');
