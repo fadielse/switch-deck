@@ -940,14 +940,12 @@
         sendChord([55, 56], 48, ['cmd', 'shift']); clickSound(true); return '⌘⇧⇥ app sebelumnya';
       }
 
-      // Moving between desktops. Whether macOS acts on a synthetic Control+arrow
-      // could not be determined from here — nothing available can observe which
-      // space is showing — so this is the default because it is what was asked
-      // for, and the setting exists so a Mac that ignores it is one tap from
-      // the app switcher instead.
-      sendChord(59, forward ? 124 : 123, ['ctrl']);
+      // Not a synthetic keystroke: macOS ignores those for its own Mission
+      // Control shortcuts. This goes through System Events on the Mac, which
+      // reaches them by a different route.
+      send({ t: 'sys', id: forward ? 'space-right' : 'space-left' });
       clickSound(true);
-      return forward ? '⌃→ desktop berikutnya' : '⌃← desktop sebelumnya';
+      return forward ? 'desktop berikutnya' : 'desktop sebelumnya';
     }
 
     if (dy < 0) {
@@ -955,9 +953,9 @@
       clickSound(true);
       return 'Mission Control';
     }
-    send({ t: 'sys', id: 'launchpad' });
+    send({ t: 'sys', id: 'app-expose' });
     clickSound(true);
-    return 'Launchpad';
+    return 'App Exposé';
   }
 
   function release(e) {

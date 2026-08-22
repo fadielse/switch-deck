@@ -14,7 +14,17 @@ const ACTIONS = {
   // Verified: mission-control. The other two follow the same pattern and are
   // very likely fine, but have not been seen working — say so rather than
   // assume it.
-  'spotlight': ['open', ['-a', '/System/Library/CoreServices/Spotlight.app']]
+  'spotlight': ['open', ['-a', '/System/Library/CoreServices/Spotlight.app']],
+
+  // Moving between desktops goes through System Events, not CGEvent. macOS
+  // ignores synthetic keystrokes for its own Mission Control shortcuts — tried
+  // with six combinations of event source and injection point, and confirmed by
+  // hand — but AppleScript reaches the same shortcuts through the accessibility
+  // path, which does work. It needs Automation permission for whatever runs
+  // deckd, which is granted separately from Accessibility.
+  'space-left': ['osascript', ['-e', 'tell application "System Events" to key code 123 using control down']],
+  'space-right': ['osascript', ['-e', 'tell application "System Events" to key code 124 using control down']],
+  'app-expose': ['osascript', ['-e', 'tell application "System Events" to key code 125 using control down']]
 };
 
 export function runSystemAction(id) {
