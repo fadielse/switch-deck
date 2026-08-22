@@ -13,6 +13,14 @@ LOGDIR="$HOME/.config/switchdeck"
 
 mkdir -p "$HOME/Library/LaunchAgents" "$LOGDIR"
 
+# Install deckd's Node dependencies FIRST. launchd runs node headless with
+# KeepAlive, so a missing 'ws' does not fail loudly — it crash-loops silently,
+# and because the pairing code is only written once the server listens, `make
+# code` stays empty with no obvious cause. Installing before the load means the
+# agent comes up clean on the first try.
+echo "  Memasang dependency deckd (npm)..."
+( cd "$REPO/mac/deckd" && npm install --no-audit --no-fund )
+
 cat > "$PLIST" <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

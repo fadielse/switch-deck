@@ -1,10 +1,16 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
+.PHONY: build deps doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
+
+## Install deckd's Node dependencies (ws). Idempotent — a no-op once installed,
+## so it is cheap to depend on. Without this the server crash-loops on a missing
+## 'ws' and never writes the pairing code, so `make code` stays empty.
+deps:
+	@cd mac/deckd && npm install --no-audit --no-fund
 
 ## Explain exactly which app needs the Accessibility grant, and why.
 doctor: build
@@ -57,11 +63,11 @@ cmd-c: build
 	@printf '{"t":"k","code":8,"d":1,"flags":["cmd"]}\n{"t":"k","code":8,"d":0,"flags":["cmd"]}\n' | $(BIN)
 
 ## Run the SwitchDeck server (F1). Prints the URL to open on the tablet.
-deckd: build
+deckd: build deps
 	@cd mac/deckd && npm start
 
 ## Chain test: does a macro sent over the WebSocket reach deckd-input?
-e2e: build
+e2e: build deps
 	@cd mac/deckd && node test/chain.js
 
 ## F1 DoD — plant a sentinel, then watch the clipboard actually change.
@@ -70,7 +76,7 @@ verify-copy:
 	@node tools/watch-clipboard.mjs
 
 ## Measure what the server itself costs, over loopback and under load.
-latency:
+latency: deps
 	@cd mac/deckd && node test/latency.js
 
 ## Find out which way of building Control+Up macOS actually acts on.
