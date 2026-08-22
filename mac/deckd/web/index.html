@@ -243,6 +243,9 @@
   var accX = 0, accY = 0, accSX = 0, accSY = 0;   // fractional carry
   var gestureMax = 0, gestureStart = 0, gestureMoved = 0;
   var lastTapEnd = 0, dragging = false;
+  var mode = null;         // null | 'move' | 'scroll' — locked once decided
+  var primaryId = null;    // only the first finger down drives the cursor
+  var smoothSpeed = 0;
 
   var TAP_MS = 220;       // longer than this is a press, not a tap
   var TAP_SLOP = 14;      // css px of wander still counted as a tap
@@ -260,6 +263,9 @@
     if (pointers.size === 0) {
       gestureStart = performance.now();
       gestureMax = 0; gestureMoved = 0;
+      mode = 'move';
+      primaryId = e.pointerId;
+      smoothSpeed = 0;
       // A press soon after a tap means drag: hold the button down for the move.
       if (cfg.tapClick && performance.now() - lastTapEnd < DRAG_GAP_MS) {
         dragging = true;
@@ -268,6 +274,13 @@
     }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
     gestureMax = Math.max(gestureMax, pointers.size);
+    if (pointers.size >= 2 && mode === 'move') {
+      // A second finger turns the whole gesture into a scroll, and it stays a
+      // scroll until every finger is up. Without the lock, lifting one finger
+      // first hands the remaining one back to the cursor and it jumps.
+      mode = 'scroll';
+      accX = 0; accY = 0;
+    }
     pad.classList.add('active');
     updateBadge();
   });
@@ -278,38 +291,47 @@
     var now = performance.now();
     var dx = e.clientX - prev.x;
     var dy = e.clientY - prev.y;
-    var dt = Math.max(1, now - prev.t);
+    // Floor the gap well above 1 ms: at 90 Hz a stray 1 ms timestamp turns a
+    // normal step into an implausible speed.
+    var dt = Math.max(4, now - prev.t);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: now });
     gestureMoved += Math.abs(dx) + Math.abs(dy);
 
-    if (pointers.size >= 2) {
-      // Two fingers scroll. Halved because both fingers report the same motion
-      // and we would otherwise scroll at double speed.
+    if (mode === 'scroll') {
+      // Halved because both fingers report the same motion and we would
+      // otherwise scroll at double speed.
       var dir = cfg.natural ? 1 : -1;
       accSX += (dx * cfg.scroll * dir) / 2;
       accSY += (dy * cfg.scroll * dir) / 2;
       return;
     }
 
+    if (e.pointerId !== primaryId) return;
+
+    // Raw per-event speed is noisy, and a noisy speed slams the gain between its
+    // floor and ceiling frame to frame — which feels like the cursor twitching.
+    // Smooth it so the gain moves gradually.
     var speed = Math.hypot(dx, dy) / dt;
-    var g = gain(speed);
+    smoothSpeed = smoothSpeed * 0.7 + speed * 0.3;
+    var g = gain(smoothSpeed);
     accX += dx * g;
     accY += dy * g;
   }, { passive: true });
 
   function release(e) {
-    var p = pointers.get(e.pointerId);
     pointers.delete(e.pointerId);
     if (pointers.size > 0) { updateBadge(); return; }
 
     pad.classList.remove('active');
     var held = performance.now() - gestureStart;
+    mode = null; primaryId = null;
 
     if (dragging) {
       send({ t: 'b', btn: 'l', d: 0 });
       dragging = false;
     } else if (cfg.tapClick && held < TAP_MS && gestureMoved < TAP_SLOP) {
-      // Two-finger tap is the right-click gesture; one finger is a left click.
+      // A two-finger tap locks into 'scroll' mode on the second finger down,
+      // but nothing moved, so it is still a right click rather than a scroll.
       var button = gestureMax >= 2 ? 'r' : 'l';
       send({ t: 'b', btn: button, d: 1 });
       send({ t: 'b', btn: button, d: 0 });
