@@ -63,7 +63,7 @@
 <div class="grid" id="auto"></div>
 
 <h2>Tes sentuh</h2>
-<div id="pad">Geser jari di sini, coba juga <b>dua/tiga jari sekaligus</b>.<br>Minimal 3 detik.</div>
+<div id="pad">Buat rate: geser <b>SATU jari</b> terus-menerus, minimal 3 detik.<br>Habis itu baru coba 2-3 jari buat cek multi-touch.</div>
 <div class="grid" id="touch"></div>
 
 <h2>Tes tombol</h2>
@@ -153,24 +153,32 @@
   var pad = document.getElementById('pad');
   var touchBox = document.getElementById('touch');
   var chipPointers = card(touchBox, 'Jari barengan terdeteksi', 'info', '0', 'Coba taruh 3 jari di pad');
-  var chipRate = card(touchBox, 'Rate pointermove', 'info', '— Hz', 'Target: >= 60 Hz');
+  var chipRate = card(touchBox, 'Rate pointermove', 'info', '— Hz', 'Pakai SATU jari, geser terus 3 detik. Target >= 60 Hz');
   var chipScroll = card(touchBox, 'touch-action: none', 'info', 'belum diuji', 'Halaman harus DIAM saat jari digeser');
   var chipType = card(touchBox, 'pointerType', 'info', '—');
 
   var active = {}, maxPointers = 0, moveCount = 0, firstMove = 0, lastMove = 0;
   var scrollAtStart = null, scrolled = false;
+  var gesturePointers = 0, bestSingleHz = 0;
 
   pad.addEventListener('pointerdown', function (e) {
     pad.classList.add('live');
+    // Reset per gesture. Without this the span keeps growing across separate
+    // drags and the reported rate collapses toward zero.
+    if (!Object.keys(active).length) {
+      moveCount = 0; firstMove = 0; lastMove = 0;
+      gesturePointers = 0;
+      scrollAtStart = window.scrollY;
+    }
     active[e.pointerId] = true;
     var n = Object.keys(active).length;
+    if (n > gesturePointers) gesturePointers = n;
     if (n > maxPointers) {
       maxPointers = n;
       chipPointers.textContent = String(maxPointers);
       chipPointers.className = 'chip ' + (maxPointers >= 3 ? 'ok' : maxPointers >= 2 ? 'warn' : 'info');
     }
     chipType.textContent = e.pointerType;
-    if (scrollAtStart === null) scrollAtStart = window.scrollY;
     pad.setPointerCapture && pad.setPointerCapture(e.pointerId);
   });
 
@@ -184,9 +192,18 @@
     var span = lastMove - firstMove;
     if (span > 500) {
       var hz = Math.round(moveCount / (span / 1000));
-      results.pointerRateHz = hz;
-      chipRate.textContent = hz + ' Hz';
-      chipRate.className = 'chip ' + (hz >= 60 ? 'ok' : hz >= 30 ? 'warn' : 'bad');
+      // Only a one-finger drag is comparable to how the trackpad will be used;
+      // extra fingers multiply the event count and inflate the number.
+      if (gesturePointers === 1 && hz > bestSingleHz) {
+        bestSingleHz = hz;
+        results.pointerRateHz = hz;
+      }
+      results.lastGestureHz = hz;
+      results.lastGestureFingers = gesturePointers;
+      chipRate.textContent = (bestSingleHz || hz) + ' Hz'
+        + (gesturePointers > 1 ? ' (' + gesturePointers + ' jari: ' + hz + ')' : '');
+      var judged = bestSingleHz || hz;
+      chipRate.className = 'chip ' + (judged >= 60 ? 'ok' : judged >= 30 ? 'warn' : 'bad');
     }
   }, { passive: true });
 
@@ -238,10 +255,11 @@
       chipVibResult.className = 'chip bad';
       results.vibrateCalled = false;
     } else {
-      navigator.vibrate([40, 60, 40]);
-      chipVibResult.textContent = 'DIPANGGIL — kerasa?';
-      chipVibResult.className = 'chip warn';
+      var accepted = navigator.vibrate([40, 60, 40]);
       results.vibrateCalled = true;
+      results.vibrateReturned = accepted;
+      chipVibResult.textContent = accepted ? 'DITERIMA — kerasa nggak?' : 'DITOLAK browser';
+      chipVibResult.className = 'chip warn';
     }
     render();
   });

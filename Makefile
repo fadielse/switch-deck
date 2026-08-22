@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build doctor selftest wait-trust check prompt type move click cmd-c serve ip clean
+.PHONY: build doctor selftest wait-trust r1 check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -41,6 +41,15 @@ move: build
 	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":-10,"dy":0}'; done) \
 	  $$(for i in $$(seq 1 20); do echo '{"t":"m","dx":0,"dy":-10}'; done) \
 	  | $(BIN)
+
+## R1 check — opens the pointer-lock page, then feeds it known deltas.
+## Lock the pointer during the countdown; the page grades itself.
+r1: build
+	@open tools/delta-check/index.html
+	@echo ">> Klik halaman yang barusan kebuka buat KUNCI POINTER. Gerakan mulai 8 detik lagi..."
+	@sleep 8
+	@printf '%s\n' $$(for i in $$(seq 1 30); do echo '{"t":"m","dx":7,"dy":5}'; done) | $(BIN)
+	@echo ">> Selesai. Lihat vonis di halaman itu, lalu tekan Esc."
 
 click: build
 	@printf '{"t":"b","btn":"l","d":1}\n{"t":"b","btn":"l","d":0}\n' | $(BIN)

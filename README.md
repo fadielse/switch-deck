@@ -64,11 +64,14 @@ make serve      # serve the browser check page to the tablet on your LAN
 Still needs a human:
 
 - [x] Injection path proven end to end — `make selftest`, 4/4
-- [x] Browser check run on the Huawei tablet (Chrome/Android, 153 Hz pointer
-      rate, `touch-action: none` holds, 5 touch points)
-- [ ] **R1** — open something that reads raw deltas (Blender, a game, Figma pan)
-      and confirm the movement is correct there. The delta fields are proven
-      present; how an app interprets them is not.
+- [x] Browser check run on the Huawei tablet (Chrome/Android, `touch-action:
+      none` holds, 5 touch points, fullscreen works)
+- [ ] Re-run the browser check with a single finger — the first two runs used
+      a rate counter that spanned multiple gestures, so the Hz figure is not
+      trustworthy yet
+- [ ] **R1** — `make r1`, lock the pointer on the page it opens, and let it
+      grade itself. The delta fields are proven present in the event stream;
+      how an app interprets them is not.
 
 ## Protocol (stdin, JSON Lines)
 

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwitchDeck — Cek R1 (delta relatif)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; padding:24px; font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif;
+         background:#101216; color:#e6e8ec; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  .sub { color:#8b93a1; font-size:13px; margin:0 0 18px; }
+  #lock { display:block; width:100%; padding:28px; font-size:17px; font-weight:600;
+          border-radius:12px; border:2px dashed #3d6fd1; background:#161d2b; color:#cdd6e4;
+          text-align:center; }
+  #lock.locked { border-style:solid; border-color:#1d5c37; background:#10331f; color:#57d68b; }
+  .hint { font-weight:400; font-size:13px; display:block; margin-top:6px; opacity:.8; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:18px 0; }
+  .box { background:#181b21; border:1px solid #262a33; border-radius:10px; padding:12px 14px; }
+  .box .k { color:#8b93a1; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  .box .v { font-size:22px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
+  #verdict { padding:16px; border-radius:10px; font-weight:700; font-size:16px; margin:18px 0; }
+  .wait { background:#1b2533; color:#78a9e8; border:1px solid #2c405c; }
+  .pass { background:#10331f; color:#57d68b; border:1px solid #1d5c37; }
+  .fail { background:#34181b; color:#f2777f; border:1px solid #5e2a2f; }
+  pre { background:#0b0d11; border:1px solid #262a33; border-radius:10px; padding:12px;
+        font-size:12px; max-height:200px; overflow:auto; color:#b9c1cd; }
+  code { background:#0b0d11; padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<h1>Cek R1 — delta relatif</h1>
+<p class="sub">Halaman ini dibuka <b>di Mac</b>, bukan di tablet. Pointer Lock bikin browser baca
+<code>movementX/Y</code> — angka mentah yang sama persis yang dibaca game dan Blender.</p>
+
+<button id="lock">Klik di sini buat kunci pointer
+  <span class="hint">lalu jalanin <code>make move</code> di terminal — Esc buat keluar</span>
+</button>
+
+<div class="stats">
+  <div class="box"><div class="k">Event diterima</div><div class="v" id="count">0</div></div>
+  <div class="box"><div class="k">movementX terakhir</div><div class="v" id="lastx">—</div></div>
+  <div class="box"><div class="k">movementY terakhir</div><div class="v" id="lasty">—</div></div>
+  <div class="box"><div class="k">Total geser</div><div class="v" id="sum">0, 0</div></div>
+</div>
+
+<div id="verdict" class="wait">Nunggu gerakan… kunci pointer dulu, lalu jalanin <code>make move</code> atau <code>make r1</code>.</div>
+
+<pre id="log">(belum ada event)</pre>
+
+<script>
+(function () {
+  var btn = document.getElementById('lock');
+  var label = btn.childNodes[0];
+  var count = 0, sumX = 0, sumY = 0, probeHits = 0, entries = [];
+  // make move / make r1 mengirim langkah (7, 5) — sama seperti make selftest.
+  var PROBE_X = 7, PROBE_Y = 5;
+
+  btn.addEventListener('click', function () { btn.requestPointerLock(); });
+
+  document.addEventListener('pointerlockchange', function () {
+    var locked = document.pointerLockElement === btn;
+    btn.classList.toggle('locked', locked);
+    label.textContent = locked
+      ? 'POINTER TERKUNCI — jalanin `make move` sekarang'
+      : 'Klik di sini buat kunci pointer';
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (document.pointerLockElement !== btn) return;
+    var mx = e.movementX, my = e.movementY;
+    if (mx === 0 && my === 0) return;
+
+    count++;
+    sumX += mx; sumY += my;
+    if (Math.abs(mx) === PROBE_X && Math.abs(my) === PROBE_Y) probeHits++;
+
+    document.getElementById('count').textContent = count;
+    document.getElementById('lastx').textContent = mx;
+    document.getElementById('lasty').textContent = my;
+    document.getElementById('sum').textContent = sumX + ', ' + sumY;
+
+    entries.unshift('movementX=' + mx + '  movementY=' + my);
+    if (entries.length > 40) entries.pop();
+    document.getElementById('log').textContent = entries.join('\n');
+
+    var v = document.getElementById('verdict');
+    if (probeHits >= 5) {
+      v.className = 'pass';
+      v.innerHTML = 'LULUS — delta relatif kebaca benar (' + probeHits + ' event persis ' +
+                    PROBE_X + '/' + PROBE_Y + ').<br>R1 ditutup: app yang baca raw delta dapat angka yang bener.';
+    } else if (count > 10) {
+      v.className = 'fail';
+      v.innerHTML = 'GERAKAN KEBACA TAPI ANGKANYA NGGAK COCOK.<br>Harusnya ada event ' +
+                    PROBE_X + '/' + PROBE_Y + '. Pastikan yang jalan <code>make move</code>, ' +
+                    'dan trackpad fisik nggak ikut kesenggol.';
+    }
+  });
+})();
+</script>
+</body>
+</html>
