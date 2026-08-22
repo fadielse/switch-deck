@@ -161,10 +161,8 @@ enum Selftest {
         print("")
         if failures == 0 {
             print("SEMUA LULUS.")
-            print("Jalur injeksi kebukti lengkap: mouse, delta relatif, keycode, dan teks unicode.")
-            print("Sisa yang masih butuh mata manusia: gerakan kerasa BENAR di app yang baca raw")
-            print("delta (Blender / game / pan Figma). Field-nya sudah kebukti ada di event stream,")
-            print("tapi apakah app-nya menafsirkan dengan benar cuma bisa dilihat langsung.")
+            print("Jalur injeksi kebukti: mouse, delta relatif, keycode, teks unicode, scroll.")
+            print("R1 sudah ditutup terpisah lewat `make r1` (probe pergi-pulang jumlahnya nol).")
         } else {
             print("\(failures) tes GAGAL.")
         }
