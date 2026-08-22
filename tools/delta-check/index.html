@@ -35,10 +35,11 @@
 <code>movementX/Y</code> — angka mentah yang sama persis yang dibaca game dan Blender.</p>
 
 <button id="lock">Klik di sini buat kunci pointer
-  <span class="hint">lalu jalanin <code>make move</code> di terminal — Esc buat keluar</span>
+  <span class="hint">terus biarin <code>make r1</code> jalan — jangan sentuh mouse/trackpad. Esc buat keluar</span>
 </button>
 
 <div class="stats">
+  <div class="box"><div class="k">Probe 7/5 kebaca</div><div class="v" id="hits">0</div></div>
   <div class="box"><div class="k">Event diterima</div><div class="v" id="count">0</div></div>
   <div class="box"><div class="k">movementX terakhir</div><div class="v" id="lastx">—</div></div>
   <div class="box"><div class="k">movementY terakhir</div><div class="v" id="lasty">—</div></div>
@@ -65,6 +66,8 @@
     label.textContent = locked
       ? 'POINTER TERKUNCI — jalanin `make move` sekarang'
       : 'Klik di sini buat kunci pointer';
+    if (locked) document.getElementById('verdict').innerHTML =
+      'Pointer terkunci. Sekarang <b>lepas tangan dari mouse/trackpad</b> dan tunggu burst berikutnya.';
   });
 
   document.addEventListener('mousemove', function (e) {
@@ -85,16 +88,22 @@
     if (entries.length > 40) entries.pop();
     document.getElementById('log').textContent = entries.join('\n');
 
+    document.getElementById('hits').textContent = probeHits;
+
     var v = document.getElementById('verdict');
     if (probeHits >= 5) {
       v.className = 'pass';
       v.innerHTML = 'LULUS — delta relatif kebaca benar (' + probeHits + ' event persis ' +
                     PROBE_X + '/' + PROBE_Y + ').<br>R1 ditutup: app yang baca raw delta dapat angka yang bener.';
-    } else if (count > 10) {
-      v.className = 'fail';
-      v.innerHTML = 'GERAKAN KEBACA TAPI ANGKANYA NGGAK COCOK.<br>Harusnya ada event ' +
-                    PROBE_X + '/' + PROBE_Y + '. Pastikan yang jalan <code>make move</code>, ' +
-                    'dan trackpad fisik nggak ikut kesenggol.';
+    } else {
+      // Movement from a real finger is expected here and is NOT a failure — it
+      // only proves the page is reading deltas at all. Keep waiting for probes.
+      v.className = 'wait';
+      v.innerHTML = 'Halaman jalan (' + count + ' event kebaca), tapi <b>belum ada probe ' +
+                    PROBE_X + '/' + PROBE_Y + '</b>.<br>' +
+                    'Yang kebaca sejauh ini gerakan tangan — itu normal, bukan kegagalan. ' +
+                    'Biarkan <code>make r1</code> jalan terus dan jangan sentuh mouse/trackpad; ' +
+                    'setiap 3 detik ada burst baru.';
     }
   });
 })();

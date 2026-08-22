@@ -24,6 +24,23 @@ if arguments.contains("--prompt") {
     exit(trusted ? 0 : 1)
 }
 
+if arguments.contains("--r1-emit") {
+    // Repeating bursts, not one shot: the user needs time to click into the
+    // page and grab the pointer lock, and a single burst makes that a race.
+    let probe = Injector()
+    let bursts = 6
+    FileHandle.standardError.write("Kunci pointer di halaman delta-check sekarang.\n".data(using: .utf8)!)
+    for burst in 1 ... bursts {
+        FileHandle.standardError.write("  burst \(burst)/\(bursts) — 3 detik lagi...\n".data(using: .utf8)!)
+        sleep(3)
+        // Out and back, so the cursor ends where it started.
+        for _ in 0 ..< 20 { probe.move(dx: 7, dy: 5); usleep(8_000) }
+        for _ in 0 ..< 20 { probe.move(dx: -7, dy: -5); usleep(8_000) }
+    }
+    FileHandle.standardError.write("Selesai. Baca vonis di halaman itu.\n".data(using: .utf8)!)
+    exit(0)
+}
+
 if arguments.contains("--selftest") {
     exit(Selftest.run())
 }

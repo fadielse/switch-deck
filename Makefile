@@ -46,10 +46,8 @@ move: build
 ## Lock the pointer during the countdown; the page grades itself.
 r1: build
 	@open tools/delta-check/index.html
-	@echo ">> Klik halaman yang barusan kebuka buat KUNCI POINTER. Gerakan mulai 8 detik lagi..."
-	@sleep 8
-	@printf '%s\n' $$(for i in $$(seq 1 30); do echo '{"t":"m","dx":7,"dy":5}'; done) | $(BIN)
-	@echo ">> Selesai. Lihat vonis di halaman itu, lalu tekan Esc."
+	@echo ">> Klik halaman yang kebuka buat KUNCI POINTER. Ada 6 burst, santai."
+	@$(BIN) --r1-emit
 
 click: build
 	@printf '{"t":"b","btn":"l","d":1}\n{"t":"b","btn":"l","d":0}\n' | $(BIN)
