@@ -491,7 +491,10 @@
     if (c.ws) { try { c.ws.close(); } catch (e) {} }
     setState(host.id, 'connecting');
 
-    var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    // Per host, not per page: with two Macs one may have a certificate and the
+    // other may not, and guessing from the page's own scheme gets the second
+    // one wrong every time.
+    var proto = host.secure ? 'wss' : 'ws';
     var ws = new WebSocket(proto + '://' + host.url + '/ws?t=' + encodeURIComponent(host.token));
     c.ws = ws;
 
@@ -1493,29 +1496,52 @@
   // The six-digit code is exchanged once for a long device token. The code is
   // short enough to read off a screen; the token is what guards the connection
   // from then on.
+  // Which scheme to speak to a host. The page's own host must use the page's own
+  // scheme — hardcoding http meant an https page tried to reach itself over
+  // http, which is the wrong port and blocked as mixed content besides. Another
+  // Mac is tried both ways, since it may or may not have a certificate.
+  function pairBases(address) {
+    if (address === location.host) return [location.protocol + '//' + address];
+    return location.protocol === 'https:'
+      ? ['https://' + address, 'http://' + address]
+      : ['http://' + address, 'https://' + address];
+  }
+
+  function postPair(bases, code) {
+    var attempt = function (i) {
+      if (i >= bases.length) return Promise.reject(new Error('unreachable'));
+      return fetch(bases[i] + '/pair', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      }).then(function (res) {
+        return res.json().then(function (body) {
+          // Remember which scheme actually answered, so the socket uses it too.
+          return { status: res.status, body: body, secure: bases[i].indexOf('https') === 0 };
+        });
+      }).catch(function () { return attempt(i + 1); });
+    };
+    return attempt(0);
+  }
+
   function pair(address, code, msgEl) {
-    var base = 'http://' + address;
     msgEl.style.color = 'var(--dim)';
     msgEl.textContent = 'memeriksa…';
 
-    return fetch(base + '/pair', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code: code })
-    }).then(function (res) {
-      return res.json().then(function (body) { return { status: res.status, body: body }; });
-    }).then(function (r) {
+    return postPair(pairBases(address), code).then(function (r) {
       if (r.status === 200 && r.body.token) {
         var existing = hosts.filter(function (h) { return h.url === address; })[0];
         if (existing) {
           existing.token = r.body.token;
-          existing.name = r.body.host || existing.name;
+          existing.name = existing.custom ? existing.name : (r.body.host || existing.name);
+          existing.secure = r.secure;
         } else {
           hosts.push({
             id: 'h' + Date.now() + Math.floor(Math.random() * 1000),
             name: r.body.host || address,
             url: address,
-            token: r.body.token
+            token: r.body.token,
+            secure: r.secure
           });
         }
         saveHosts();
