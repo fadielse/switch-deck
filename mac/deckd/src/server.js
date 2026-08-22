@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer as createHttp } from 'node:http';
+import { createServer as createHttps } from 'node:https';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -11,6 +12,7 @@ import { Deck } from './deck.js';
 import { runAction } from './actions.js';
 import { toInputFrame } from './sanitize.js';
 import { runSystemAction } from './system.js';
+import { loadTls, serveCaAndRedirect } from './tls.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
@@ -68,7 +70,9 @@ function readBody(req) {
   });
 }
 
-const server = createServer(async (req, res) => {
+const tls = loadTls(config.path);
+
+const handler = async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
   // The tablet loads its page from one host but must be able to pair with the
@@ -132,7 +136,9 @@ const server = createServer(async (req, res) => {
     return;
   }
   res.writeHead(404).end('not found');
-});
+};
+
+const server = tls ? createHttps(tls.options, handler) : createHttp(handler);
 
 const wss = new WebSocketServer({ noServer: true });
 
@@ -234,11 +240,22 @@ server.listen(port, () => {
   } catch (err) {
     console.error('[deckd] tidak bisa menulis kode pairing:', err.message);
   }
-  const url = `http://${lanAddress()}:${port}/`;
+  const scheme = tls ? 'https' : 'http';
+  const url = `${scheme}://${lanAddress()}:${port}/`;
   console.log(`\n  SwitchDeck — ${config.hostName}`);
   if (config.isNew) console.log(`  config baru dibuat di ${config.path}`);
   const total = deck.describe().pages.reduce((n, p) => n + p.keys.length, 0);
   console.log(`  deck: ${total} tombol dari ${deck.path}${deck.isNew ? ' (baru dibuat)' : ''}`);
+  if (tls) {
+    serveCaAndRedirect({
+      port: port + 1, httpsPort: port, caPath: tls.caPath, address: lanAddress()
+    });
+    console.log(`  HTTPS aktif. Sertifikat CA: http://${lanAddress()}:${port + 1}/ca.crt`);
+  } else {
+    console.log('  HTTP biasa — layar tablet bakal tidur sendiri (butuh HTTPS).');
+    console.log('  Jalankan `make cert` lalu restart untuk mengaktifkan HTTPS.');
+  }
+
   const paired = Object.keys(config.devices).length;
   console.log(`\n  Buka di tablet:  ${url}`);
   console.log(`  Kode pairing:    ${pairingCode}`);

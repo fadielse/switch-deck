@@ -84,6 +84,11 @@ latency: deps
 gesture-test: build
 	@node tools/gesture-test.mjs
 
+## Issue a local CA and a LAN certificate, so the tablet gets a secure context
+## (Wake Lock, install to home screen). Restart deckd afterwards.
+cert:
+	@./scripts/make-cert.sh
+
 ## Run deckd at login, and bring it back if it dies.
 install: build
 	@./scripts/install-agent.sh
