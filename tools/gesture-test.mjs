@@ -1,50 +1,43 @@
 #!/usr/bin/env node
-// Sweeps the two variables that could explain why system hotkeys ignore our
-// synthetic events — which state the event claims to come from, and where it is
-// injected — and finishes with a shell fallback that does not use keystrokes at
-// all. Mission Control is the probe because it is observable without Screen
-// Recording permission: when it opens, the frontmost app becomes the Dock.
-import { spawn, execSync } from 'node:child_process';
+// Asks you what you saw, because nothing here can see it.
+//
+// Earlier versions of this test judged Mission Control by whether lsappinfo
+// reported the Dock as frontmost. It does not: Mission Control is a Dock-owned
+// overlay and the front application is unchanged, so the probe reported failure
+// for `open -a "Mission Control"` — a command that cannot fail. Screen
+// Recording permission is not granted, so there is no way to look at the screen
+// from here either. You are sitting in front of it; you are the instrument.
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
 
 const BIN = 'mac/deckd-input/.build/release/deckd-input';
 const CTRL = 59, UP = 126, ESC = 53;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const front = () => {
-  try {
-    const asn = execSync('lsappinfo front', { encoding: 'utf8' }).trim();
-    return execSync(`lsappinfo info -only name ${asn}`, { encoding: 'utf8' })
-      .trim().replace(/.*=/, '').replace(/"/g, '');
-  } catch { return '?'; }
-};
+const rl = createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q) => new Promise((r) => rl.question(q, (a) => r(a.trim().toLowerCase())));
 
-function openChild(env) {
+function open(env) {
   const child = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'inherit'], env: { ...process.env, ...env } });
-  return {
-    child,
-    send: (f) => child.stdin.write(JSON.stringify(f) + '\n'),
-    kill: () => child.kill()
-  };
+  return { send: (f) => child.stdin.write(JSON.stringify(f) + '\n'), kill: () => child.kill() };
 }
 
-async function tryChord(env) {
-  const io = openChild(env);
+async function fire(env) {
+  const io = open(env);
   await wait(350);
   io.send({ t: 'k', code: CTRL, d: 1 }); await wait(70);
   io.send({ t: 'k', code: UP, d: 1, flags: ['ctrl'] }); await wait(60);
   io.send({ t: 'k', code: UP, d: 0, flags: ['ctrl'] }); await wait(60);
   io.send({ t: 'k', code: CTRL, d: 0 });
-  await wait(1100);
-  const result = front();
+  await wait(1200);
   io.send({ t: 'k', code: ESC, d: 1 });
   io.send({ t: 'k', code: ESC, d: 0 });
-  await wait(800);
+  await wait(600);
   io.kill();
-  return result;
 }
 
 const CASES = [
-  { label: 'source hid      + tap hid       (dipakai sekarang)', env: {} },
+  { label: 'source hid      + tap hid  (dipakai client sekarang)', env: {} },
   { label: 'source combined + tap hid',       env: { DECKD_SOURCE: 'combined' } },
   { label: 'source none     + tap hid',       env: { DECKD_SOURCE: 'none' } },
   { label: 'source hid      + tap session',   env: { DECKD_TAP: 'session' } },
@@ -53,44 +46,34 @@ const CASES = [
 ];
 
 (async () => {
-  console.log('\n  Menyapu kombinasi sumber event x titik suntik.');
-  console.log('  Jangan sentuh Mac selama ~25 detik.\n');
+  console.log('\n  LIHAT LAYAR MAC, jangan terminal ini.');
+  console.log('  Tiap percobaan: Control+Up dikirim, ditunggu sedetik, lalu ditutup Esc.');
+  console.log('  Yang dicari: semua window melebar jadi grid (Mission Control).\n');
+  await ask('  Enter kalau siap... ');
 
-  let winner = null;
   for (const c of CASES) {
-    const after = await tryChord(c.env);
-    const ok = /dock/i.test(after);
-    if (ok && !winner) winner = c;
-    console.log(`  ${ok ? 'JALAN  ' : 'tidak  '} ${c.label}   -> ${after}`);
+    console.log(`\n  -> ${c.label}`);
+    await wait(700);
+    await fire(c.env);
+    const answer = await ask('     Mission Control kebuka? (y/n) ');
+    if (answer.startsWith('y')) {
+      console.log('\n  ' + '-'.repeat(60));
+      console.log(`  KETEMU: ${c.label.trim()}`);
+      console.log('  Chord-nya sampai. Kalau gesture di tablet masih diam,');
+      console.log('  masalahnya di sisi client — baca badge di pojok trackpad.');
+      if (Object.keys(c.env).length) {
+        console.log('\n  Kombinasi ini BUKAN default. Jalankan deckd dengan:');
+        console.log('    ' + Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ') + ' make deckd');
+      }
+      console.log('');
+      rl.close(); process.exit(0);
+    }
   }
 
-  // No keystroke involved at all: launch the app that IS Mission Control.
+  console.log('\n  ' + '-'.repeat(60));
+  console.log('  Tidak ada kombinasi keystroke yang jalan.');
+  console.log('  Berarti macOS memang mengabaikan event sintetis untuk hotkey ini,');
+  console.log('  dan gesture harus lewat jalur lain — bukan lewat shortcut.');
   console.log('');
-  const before = front();
-  try { execSync('open -a "Mission Control"'); } catch (e) { console.log('  (open gagal:', e.message.trim(), ')'); }
-  await wait(1200);
-  const afterOpen = front();
-  const openWorks = /dock/i.test(afterOpen);
-  console.log(`  ${openWorks ? 'JALAN  ' : 'tidak  '} open -a "Mission Control"   ${before} -> ${afterOpen}`);
-  const io = openChild({});
-  await wait(300);
-  io.send({ t: 'k', code: ESC, d: 1 });
-  io.send({ t: 'k', code: ESC, d: 0 });
-  await wait(700);
-  io.kill();
-
-  console.log('\n  ' + '-'.repeat(66));
-  if (winner) {
-    console.log(`  Ketemu: ${winner.label.trim()}`);
-    console.log('  Client tinggal dipindah ke kombinasi ini.');
-  } else if (openWorks) {
-    console.log('  Tidak ada kombinasi keystroke yang jalan — system hotkey macOS');
-    console.log('  memang mengabaikan event sintetis. Tapi `open -a` JALAN, jadi');
-    console.log('  gesture bisa memakai jalur itu untuk Mission Control.');
-  } else {
-    console.log('  Tidak ada yang jalan, termasuk `open -a`. Berarti bukan soal cara');
-    console.log('  mengirim — ada yang lain di Mac ini yang memblokir Mission Control.');
-  }
-  console.log('');
-  process.exit(0);
+  rl.close(); process.exit(1);
 })();
