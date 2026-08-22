@@ -36,16 +36,13 @@
      would otherwise register as a pointer and corrupt the touches that matter.
      The area is inert; only the deck keys inside it opt back in. */
   .palm {
-    /* Narrow on purpose. The palm rest swallows touches entirely, so every
-       pixel it takes is a pixel three fingers cannot land on. Wide enough for
-       the edge of a hand, no wider. */
-    flex: 0.55 1 0; display: flex; flex-direction: column; gap: 8px;
+    flex: 1 1 0; display: flex; flex-direction: column; gap: 8px;
     min-width: 0; overflow-y: auto; pointer-events: none;
   }
   .palm .key { pointer-events: auto; }
 
   #pad {
-    flex: 2.9 1 0; position: relative; border-radius: 14px;
+    flex: 1.6 1 0; position: relative; border-radius: 14px;
     background: #14181f; border: 1px solid var(--line);
     display: flex; align-items: center; justify-content: center;
     color: #4b535f; font-size: 13px; text-align: center;

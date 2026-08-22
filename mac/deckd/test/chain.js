@@ -73,16 +73,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(200);
   const hello = good.frames.find((f) => f.t === 'hello');
   check(!!hello, 'dapat frame hello');
-  check(Array.isArray(hello?.deck) && hello.deck.some((k) => k.id === 'copy'),
-        'deck berisi tombol copy');
+  check(Array.isArray(hello?.deck), 'hello bawa daftar deck',
+        `${hello?.deck?.length ?? 0} tombol — kosong sampai F4 mendesain deck-nya`);
 
   good.ws.send(JSON.stringify({ t: 'ping', ts: 12345 }));
   await wait(150);
   check(good.frames.some((f) => f.t === 'pong' && f.ts === 12345), 'ping dibalas pong');
-
-  good.ws.send(JSON.stringify({ t: 'macro', id: 'copy' }));
-  await wait(300);
-  check(good.frames.some((f) => f.t === 'ack' && f.id === 'copy'), 'macro di-ack');
 
   good.ws.send(JSON.stringify({ t: 'macro', id: 'rm-rf-slash' }));
   await wait(200);
@@ -93,12 +89,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     ? readFileSync(STUB_OUT, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
     : []);
 
-  const afterMacro = readSent();
-  const downFrame = afterMacro.find((f) => f.t === 'k' && f.code === 8 && f.d === 1);
-  const upFrame = afterMacro.find((f) => f.t === 'k' && f.code === 8 && f.d === 0);
-  check(!!downFrame && !!upFrame, 'deckd-input nerima keydown + keyup untuk C');
-  check(downFrame?.flags?.includes('cmd'), 'frame bawa modifier cmd', 'jadi beneran ⌘C');
-  check(afterMacro.length === 2, 'macro cuma bikin 2 frame', `dapat ${afterMacro.length}`);
+  // Jalur macro -> frame TIDAK tercakup lagi sejak tombol Copy dihapus: tabel
+  // macro-nya kosong. Cakupannya balik di F4 begitu ada macro sungguhan.
+  check(readSent().length === 0, 'tabel macro kosong, nol frame diteruskan',
+        'jalur macro->frame nganggur sampai F4');
 
   // --- F2: trackpad frames lewat jalur pass-through yang divalidasi ---
   const before = readSent().length;
