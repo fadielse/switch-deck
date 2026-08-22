@@ -319,6 +319,7 @@
         <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
         <div class="row"><label>Scroll natural<small>konten ikut arah jari</small></label><input type="checkbox" id="s-natural"></div>
         <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
+        <div class="row"><label>Geser 3 jari kiri/kanan<small>kalau pindah desktop tidak jalan, cek System Settings → Keyboard → Shortcuts → Mission Control</small></label><span class="picker" id="s-swipe"></span></div>
       </section>
 
       <section>
@@ -367,7 +368,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', natural: true, tapClick: true
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', swipe: 'space', natural: true, tapClick: true
   }, readCfg());
 
   function readCfg() {
@@ -931,15 +932,24 @@
   function fireGesture(dx, dy) {
     if (Math.abs(dx) > Math.abs(dy)) {
       var forward = cfg.natural ? dx < 0 : dx > 0;
-      if (forward) {
-        sendChord(55, 48, ['cmd']);                    // ⌘⇥  next app
-        clickSound(true);
-        return '⌘⇥ app berikutnya';
+
+      if (cfg.swipe === 'app') {
+        // Command+Tab is verified to work — the Dock handles it through a path
+        // that does accept synthetic events.
+        if (forward) { sendChord(55, 48, ['cmd']); clickSound(true); return '⌘⇥ app berikutnya'; }
+        sendChord([55, 56], 48, ['cmd', 'shift']); clickSound(true); return '⌘⇧⇥ app sebelumnya';
       }
-      sendChord([55, 56], 48, ['cmd', 'shift']);       // ⌘⇧⇥ previous app
+
+      // Moving between desktops. Whether macOS acts on a synthetic Control+arrow
+      // could not be determined from here — nothing available can observe which
+      // space is showing — so this is the default because it is what was asked
+      // for, and the setting exists so a Mac that ignores it is one tap from
+      // the app switcher instead.
+      sendChord(59, forward ? 124 : 123, ['ctrl']);
       clickSound(true);
-      return '⌘⇧⇥ app sebelumnya';
+      return forward ? '⌃→ desktop berikutnya' : '⌃← desktop sebelumnya';
     }
+
     if (dy < 0) {
       send({ t: 'sys', id: 'mission-control' });
       clickSound(true);
@@ -1508,6 +1518,23 @@
   bindRange('click', 'click', function (v) { return v === 0 ? 'mati' : Math.round(v * 100) + '%'; });
   // Preview as it is dragged, otherwise the slider is guesswork.
   el('s-click').addEventListener('input', function () { clickSound(false); });
+
+  (function buildSwipePicker() {
+    var names = { space: 'Pindah desktop', app: 'Ganti app' };
+    var box = el('s-swipe');
+    Object.keys(names).forEach(function (key) {
+      var b = document.createElement('button');
+      b.textContent = names[key];
+      b.className = cfg.swipe === key ? 'on' : '';
+      b.addEventListener('click', function () {
+        cfg.swipe = key;
+        saveCfg();
+        Array.prototype.forEach.call(box.children, function (c) { c.classList.remove('on'); });
+        b.classList.add('on');
+      });
+      box.appendChild(b);
+    });
+  })();
 
   (function buildSoundPicker() {
     var names = { tik: 'Tik', thock: 'Thock', pop: 'Pop', tipis: 'Tipis' };
