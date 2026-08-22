@@ -30,10 +30,10 @@ async function fire(env) {
   io.send({ t: 'k', code: UP, d: 0, flags: ['ctrl'] }); await wait(60);
   io.send({ t: 'k', code: CTRL, d: 0 });
   await wait(1200);
-  io.send({ t: 'k', code: ESC, d: 1 });
-  io.send({ t: 'k', code: ESC, d: 0 });
-  await wait(600);
   io.kill();
+  // Deliberately NOT closing it here. The previous version sent Escape after
+  // 1.2s to leave a clean screen for the next attempt, which made Mission
+  // Control flash open and vanish — and that flash got read as "did not work".
 }
 
 const CASES = [
@@ -55,7 +55,7 @@ const CASES = [
     console.log(`\n  -> ${c.label}`);
     await wait(700);
     await fire(c.env);
-    const answer = await ask('     Mission Control kebuka? (y/n) ');
+    const answer = await ask('     Mission Control kebuka? (y/n, tutup sendiri pakai Esc dulu) ');
     if (answer.startsWith('y')) {
       console.log('\n  ' + '-'.repeat(60));
       console.log(`  KETEMU: ${c.label.trim()}`);
