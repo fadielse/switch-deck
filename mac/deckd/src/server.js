@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
-import { isTailscaleAddress, lanAddress, loadConfig, rememberDevice } from './config.js';
-import { Throttle, newCode, newToken, sameSecret } from './pairing.js';
+import { forgetDevice, isTailscaleAddress, lanAddress, loadConfig, rememberDevice } from './config.js';
+import { Throttle, newCode, newToken, publicId, sameSecret } from './pairing.js';
 import { InputBridge } from './input.js';
 import { Deck } from './deck.js';
 import { runAction } from './actions.js';
@@ -55,6 +55,26 @@ const CODE_FILE = join(dirname(config.path), 'pairing-code');
 
 function knownDevice(token) {
   return Object.keys(config.devices).some((known) => sameSecret(known, token));
+}
+
+function matchingToken(token) {
+  return Object.keys(config.devices).find((known) => sameSecret(known, token)) ?? null;
+}
+
+function describeDevices(currentToken) {
+  return Object.entries(config.devices).map(([token, info]) => ({
+    id: publicId(token),
+    name: info.name,
+    pairedAt: info.pairedAt,
+    current: token === currentToken
+  }));
+}
+
+function broadcastDevices() {
+  for (const client of wss.clients) {
+    if (client.readyState !== 1) continue;
+    client.send(JSON.stringify({ t: 'devices', devices: describeDevices(client.deckToken) }));
+  }
 }
 
 const pagePath = join(here, '..', 'web', 'index.html');
@@ -113,6 +133,9 @@ const handler = async (req, res) => {
     const token = newToken();
     rememberDevice(config, token, address);
     console.log(`[deckd] device baru dipasangkan dari ${address}`);
+    // Tell anyone already connected, or the settings list stays stale until
+    // they happen to reconnect.
+    broadcastDevices();
     res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
     res.end(JSON.stringify({ token, host: config.hostName }));
     return;
@@ -155,7 +178,11 @@ server.on('upgrade', (req, socket, head) => {
   // Blueprint K2: mouse frames are tiny and frequent, so Nagle would batch them
   // into visible lag. Set from day one rather than as an F2 optimisation.
   socket.setNoDelay(true);
-  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  const token = matchingToken(url.searchParams.get('t'));
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    ws.deckToken = token;   // so this socket can be hung up when it is revoked
+    wss.emit('connection', ws, req);
+  });
 });
 
 wss.on('connection', (ws, req) => {
@@ -174,6 +201,7 @@ wss.on('connection', (ws, req) => {
     // Told to the client so it can say so, rather than leaving the latency to
     // be blamed on the wifi.
     lanUrl: viaTailscale ? `http://${lanAddress()}:${port}/` : null,
+    devices: describeDevices(ws.deckToken),
     trusted: input.trusted,
     refreshHz: input.refreshHz,
     deck: deck.describe(),
@@ -208,6 +236,23 @@ wss.on('connection', (ws, req) => {
       ws.send(JSON.stringify(ok
         ? { t: 'ack', id: frame.id }
         : { t: 'err', id: frame.id, msg: 'aksi sistem tidak dikenal' }));
+      return;
+    }
+
+    if (frame.t === 'revoke') {
+      const dropped = forgetDevice(config, (token) => publicId(token) === frame.id);
+      if (!dropped) {
+        ws.send(JSON.stringify({ t: 'err', id: frame.id, msg: 'device tidak dikenal' }));
+        return;
+      }
+      console.log(`[deckd] device dicabut: ${frame.id}`);
+      // Hang up anything that device still has open, or it would keep working
+      // until it happened to reconnect.
+      for (const client of wss.clients) {
+        if (client.deckToken === dropped) client.close(4001, 'revoked');
+      }
+      broadcastDevices();
+      ws.send(JSON.stringify({ t: 'ack', id: frame.id }));
       return;
     }
 

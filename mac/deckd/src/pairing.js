@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 /// A six-digit code is a million possibilities, which is nothing to a machine
 /// on the same wifi. It is only safe because of two things here: it is
@@ -13,6 +13,12 @@ export function newCode() {
     value = randomBytes(4).readUInt32BE(0);
   } while (value >= 4294000000);
   return String(value % 1000000).padStart(6, '0');
+}
+
+/// A stable public handle for a device, so the tablet can name one to revoke
+/// without ever being shown another device's token.
+export function publicId(token) {
+  return createHash('sha256').update(String(token)).digest('hex').slice(0, 10);
 }
 
 export function newToken() {

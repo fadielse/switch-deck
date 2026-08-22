@@ -301,6 +301,12 @@
         <div id="h-list" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
+      <section>
+        <h3>Device yang dipasangkan</h3>
+        <p class="note">Tablet atau HP yang boleh mengendalikan Mac aktif. Mencabut langsung memutus koneksinya.</p>
+        <div id="d-list" style="display:flex;flex-direction:column;gap:7px"></div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -507,8 +513,13 @@
         c.trusted = f.trusted;
         if (f.refreshHz > 0) c.refreshHz = f.refreshHz;
         c.lanUrl = f.lanUrl || null;
+        c.devices = f.devices || [];
+        if (host.id === activeId) renderDeviceList();
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'devices') {
+        c.devices = f.devices || [];
+        if (host.id === activeId) renderDeviceList();
       } else if (f.t === 'deck') {
         c.deck = f.deck;
         if (host.id === activeId) renderDeck(c.deck);
@@ -1403,6 +1414,49 @@
     });
   }
 
+  function renderDeviceList() {
+    var box = el('d-list');
+    if (!box) return;
+    var c = activeId && conns[activeId];
+    var list = (c && c.devices) || [];
+    box.innerHTML = '';
+
+    if (!list.length) {
+      var empty = document.createElement('p');
+      empty.className = 'note';
+      empty.textContent = 'belum ada';
+      box.appendChild(empty);
+      return;
+    }
+
+    list.forEach(function (d) {
+      var row = document.createElement('div');
+      row.className = 'hostrow';
+
+      var who = document.createElement('div');
+      who.className = 'who';
+      var when = (d.pairedAt || '').slice(0, 10);
+      who.innerHTML = '<div>' + d.name + (d.current ? ' <span style="color:#57d68b">· ini</span>' : '')
+        + '</div><div class="where">dipasangkan ' + when + '</div>';
+
+      var del = document.createElement('button');
+      del.className = 'iconbtn';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', 'cabut');
+      del.addEventListener('click', function () {
+        // Revoking the device you are using is allowed — it is the fastest way
+        // to undo a pairing you did not mean to make — but it should not happen
+        // by a stray tap.
+        if (d.current && !confirm('Ini device yang lagi kamu pakai. Cabut dan putus sekarang?')) return;
+        send({ t: 'revoke', id: d.id });
+      });
+
+      row.appendChild(who);
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
   el('h-add').addEventListener('click', function () {
     var addr = el('h-addr').value.trim();
     var code = el('h-code').value.replace(/\D/g, '');
@@ -1420,6 +1474,7 @@
     el('settings').classList.toggle('open', open);
     if (!open) return;
     renderHostList();
+    renderDeviceList();
     el('h-msg').style.color = 'var(--dim)';
     el('h-msg').innerHTML = HOST_HINT;   // reset dari pesan error sebelumnya
   }

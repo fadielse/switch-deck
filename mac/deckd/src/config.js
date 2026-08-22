@@ -44,6 +44,18 @@ export function loadConfig() {
   return { port: 8777, devices: {}, ...config, hostName: config.hostName || machineName(), path: FILE, isNew: false };
 }
 
+/// Removes a device by its public handle. Returns the token that was dropped,
+/// so the caller can hang up whatever that device still has open — a revoked
+/// device that keeps its existing socket is not actually revoked.
+export function forgetDevice(config, matches) {
+  const token = Object.keys(config.devices).find(matches);
+  if (!token) return null;
+  delete config.devices[token];
+  const { path, isNew, hostName, ...persisted } = config;
+  writeFileSync(FILE, JSON.stringify(persisted, null, 2) + '\n', { mode: 0o600 });
+  return token;
+}
+
 /// Records a freshly paired device. Rewrites the whole file because it is a few
 /// lines and a partial write here would lock everything out.
 export function rememberDevice(config, token, name) {

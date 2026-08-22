@@ -173,6 +173,31 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(good.frames.some((f) => f.t === 'err' && f.id === 'rm -rf /'),
         'aksi sistem ngawur ditolak', 'tablet cuma boleh kirim id, bukan perintah');
 
+  // --- cabut device ---
+  const helloDevices = hello?.devices ?? [];
+  check(helloDevices.length > 0 && helloDevices.some((d) => d.current),
+        'hello bawa daftar device, dan menandai yang sedang dipakai');
+  check(helloDevices.every((d) => !/^[0-9a-f]{40,}$/.test(d.id)),
+        'device dikenali lewat id pendek, BUKAN token', 'tablet tidak pernah lihat token device lain');
+
+  // Pair a second device so there is one to revoke that is not this connection.
+  await pair(code);
+  await wait(250);
+  const latest = () => (good.frames.filter((f) => f.t === 'devices').pop() ?? { devices: helloDevices }).devices;
+  const listBefore = latest();
+  const victim = listBefore.find((d) => !d.current);
+  check(!!victim, 'ada device kedua untuk dicabut', `${listBefore.length} device terdaftar`);
+  if (victim) {
+    good.ws.send(JSON.stringify({ t: 'revoke', id: victim.id }));
+    await wait(350);
+    const listAfter = latest();
+    check(listAfter.length < listBefore.length && !listAfter.some((d) => d.id === victim.id),
+          'device dicabut hilang dari daftar', `${listBefore.length} -> ${listAfter.length}`);
+  }
+  good.ws.send(JSON.stringify({ t: 'revoke', id: 'tidakada' }));
+  await wait(200);
+  check(good.frames.some((f) => f.t === 'err' && f.id === 'tidakada'), 'cabut id ngawur ditolak');
+
   // --- yang HARUS ditolak ---
   const beforeBad = readSent().length;
   good.ws.send('{"t":"m","dx":null,"dy":1}');           // NaN di sisi Swift = crash
