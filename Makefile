@@ -67,7 +67,7 @@ e2e: build
 ## F1 DoD — plant a sentinel, then watch the clipboard actually change.
 ## Run this in a second terminal while `make deckd` is up.
 verify-copy:
-	@node tools/watch-clipboard.js
+	@node tools/watch-clipboard.mjs
 
 ## Serve the browser capability page to the tablet.
 serve:
