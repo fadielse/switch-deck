@@ -206,8 +206,13 @@
     display: flex; gap: 10px; align-items: center; font-size: 13px;
     padding: 7px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
   }
-  .hostrow .who { flex: 1; }
-  .hostrow .where { color: var(--dim); font-size: 12px; }
+  .hostrow .who { flex: 1; min-width: 0; }
+  .hostrow .hostname {
+    width: 100%; padding: 5px 8px; font-size: 14px; color: var(--fg);
+    background: #12151b; border: 1px solid #262a33; border-radius: 7px;
+  }
+  .hostrow .hostname:focus { outline: none; border-color: #3d6fd1; }
+  .hostrow .where { color: var(--dim); font-size: 12px; padding: 3px 2px 0; }
   .note { font-size: 12px; color: var(--dim); min-height: 16px; }
 
   #pair { display: none; flex-direction: column; gap: 10px; padding: 20px; }
@@ -496,7 +501,8 @@
       var f; try { f = JSON.parse(ev.data); } catch (e) { return; }
 
       if (f.t === 'hello') {
-        if (f.host && f.host !== host.name) { host.name = f.host; saveHosts(); }
+        // A name the user typed wins over whatever the Mac calls itself.
+        if (f.host && !host.custom && f.host !== host.name) { host.name = f.host; saveHosts(); }
         c.deck = f.deck;
         c.trusted = f.trusted;
         if (f.refreshHz > 0) c.refreshHz = f.refreshHz;
@@ -550,7 +556,9 @@
   function renderHosts() {
     var box = el('hosts');
     box.innerHTML = '';
-    if (hosts.length < 2) return;   // one host needs no switcher
+    // Even a single host gets a chip: knowing which Mac is being driven matters
+    // more than saving a few pixels, and it was showing an IP before.
+    if (!hosts.length) return;
     hosts.forEach(function (h) {
       var c = conn(h.id);
       var b = document.createElement('button');
@@ -1324,7 +1332,27 @@
 
       var who = document.createElement('div');
       who.className = 'who';
-      who.innerHTML = '<div>' + (h.name || h.url) + '</div><div class="where">' + h.url + '</div>';
+
+      var nameInput = document.createElement('input');
+      nameInput.className = 'hostname';
+      nameInput.value = h.name || h.url;
+      nameInput.placeholder = 'kasih nama';
+      nameInput.setAttribute('spellcheck', 'false');
+      nameInput.addEventListener('change', function () {
+        var v = nameInput.value.trim();
+        h.name = v || h.url;
+        h.custom = !!v;          // stop the Mac's own name overwriting it later
+        nameInput.value = h.name;
+        saveHosts();
+        renderHosts();
+      });
+
+      var where = document.createElement('div');
+      where.className = 'where';
+      where.textContent = h.url;
+
+      who.appendChild(nameInput);
+      who.appendChild(where);
 
       var del = document.createElement('button');
       del.className = 'iconbtn';

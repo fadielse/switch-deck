@@ -1,10 +1,27 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { homedir, hostname, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
 // Overridable so tests get their own directory. Without it every `make e2e`
 // wrote device tokens into the real config and clobbered the pairing code file
 // with a code belonging to a server that then exited.
+/// os.hostname() can be the IP address, depending on how the machine got its
+/// name from DHCP — which is exactly what happened here, and why the tablet was
+/// showing "192.168.1.213" as a host label. macOS keeps the friendly name
+/// somewhere else.
+function machineName() {
+  for (const key of ['ComputerName', 'LocalHostName']) {
+    try {
+      const value = execFileSync('scutil', ['--get', key], { encoding: 'utf8' }).trim();
+      if (value) return value;
+    } catch { /* fall through */ }
+  }
+  return hostname();
+}
+
+const looksLikeAddress = (name) => /^\d{1,3}(\.\d{1,3}){3}$/.test(String(name ?? ''));
+
 const DIR = process.env.SWITCHDECK_CONFIG_DIR || join(homedir(), '.config', 'switchdeck');
 const FILE = join(DIR, 'config.json');
 
@@ -13,24 +30,25 @@ const FILE = join(DIR, 'config.json');
 export function loadConfig() {
   if (!existsSync(FILE)) {
     mkdirSync(DIR, { recursive: true });
-    const created = {
-      port: 8777,
-      hostName: hostname().replace(/\.local$/, ''),
-      devices: {},
-    };
+    // hostName is not persisted: it is derived every start, so a machine that
+    // gets renamed does not keep announcing its old name forever. Setting it in
+    // the file by hand still wins.
+    const created = { port: 8777, devices: {} };
     // Device tokens are credentials: each one lets a device type into this Mac.
     writeFileSync(FILE, JSON.stringify(created, null, 2) + '\n', { mode: 0o600 });
     return { ...created, path: FILE, isNew: true };
   }
   const config = JSON.parse(readFileSync(FILE, 'utf8'));
-  return { port: 8777, hostName: hostname(), devices: {}, ...config, path: FILE, isNew: false };
+  // An older config may have the IP baked in from when hostname() was trusted.
+  if (looksLikeAddress(config.hostName)) delete config.hostName;
+  return { port: 8777, devices: {}, ...config, hostName: config.hostName || machineName(), path: FILE, isNew: false };
 }
 
 /// Records a freshly paired device. Rewrites the whole file because it is a few
 /// lines and a partial write here would lock everything out.
 export function rememberDevice(config, token, name) {
   config.devices[token] = { name, pairedAt: new Date().toISOString() };
-  const { path, isNew, ...persisted } = config;
+  const { path, isNew, hostName, ...persisted } = config;
   writeFileSync(FILE, JSON.stringify(persisted, null, 2) + '\n', { mode: 0o600 });
 }
 
