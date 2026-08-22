@@ -28,7 +28,10 @@
   .gear { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
           background: var(--panel); color: var(--fg); font-size: 13px; }
 
-  main { flex: 1 1 auto; display: flex; gap: 10px; min-height: 0; }
+  /* Both panels stay mounted. Opening the keyboard shrinks the trackpad
+     instead of replacing it, so the deck never leaves the screen. */
+  main { flex: 1 1 0; display: flex; gap: 10px; min-height: 0; }
+  #kb.on + #clicks { display: none; }
 
   #pad {
     flex: 1 1 auto; position: relative; border-radius: 14px;
@@ -56,14 +59,9 @@
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
-  .tabs { display: flex; gap: 6px; }
-  .tabs button {
-    padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--panel); color: var(--dim); font-size: 13px; font-weight: 600;
-  }
-  .tabs button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
+  #kbtoggle.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
 
-  #kb { flex: 1 1 auto; display: none; flex-direction: column; gap: 5px; min-height: 0; }
+  #kb { flex: 1.7 1 0; display: none; flex-direction: column; gap: 5px; min-height: 0; }
   #kb.on { display: flex; }
   /* Magic Keyboard proportions: every row is 15 units wide, and the function
      row sits at roughly two-thirds height like the real thing. */
@@ -122,14 +120,11 @@
 <header>
   <span class="host" id="host">SwitchDeck</span>
   <span class="pill mid" id="status">nyambungin…</span>
-  <span class="tabs">
-    <button id="tab-pad" class="on">Trackpad</button>
-    <button id="tab-kb">Keyboard</button>
-  </span>
   <span class="metrics">
     <span id="lat">— ms</span>
     <span id="rate">— f/s</span>
   </span>
+  <button class="gear" id="kbtoggle" title="keyboard">⌨</button>
   <button class="gear" id="gear">⚙︎</button>
 </header>
 
@@ -643,19 +638,22 @@
   }
   renderKeyboard();
 
-  // ---------- mode ----------
-  function setMode(name) {
-    var kb = name === 'kb';
-    // Never leave a modifier physically held when the keyboard goes away.
-    if (!kb) releaseAllMods();
-    el('kb').classList.toggle('on', kb);
-    document.querySelector('main').style.display = kb ? 'none' : 'flex';
-    el('clicks').style.display = kb ? 'none' : 'flex';
-    el('tab-kb').classList.toggle('on', kb);
-    el('tab-pad').classList.toggle('on', !kb);
+  // ---------- keyboard drawer ----------
+  var kbOpen = false;
+
+  function setKeyboard(open) {
+    kbOpen = open;
+    // Never leave a modifier physically held down on the Mac when the keyboard
+    // goes away — there would be no way to release it from here.
+    if (!open) releaseAllMods();
+    el('kb').classList.toggle('on', open);
+    el('clicks').style.display = open ? 'none' : 'flex';
+    el('kbtoggle').classList.toggle('on', open);
+    try { localStorage.setItem('switchdeck.kb', open ? '1' : '0'); } catch (e) {}
   }
-  el('tab-pad').addEventListener('click', function () { setMode('pad'); });
-  el('tab-kb').addEventListener('click', function () { setMode('kb'); });
+
+  el('kbtoggle').addEventListener('click', function () { setKeyboard(!kbOpen); });
+  try { setKeyboard(localStorage.getItem('switchdeck.kb') === '1'); } catch (e) { setKeyboard(false); }
 
   // ---------- click strip ----------
   Array.prototype.forEach.call(document.querySelectorAll('#clicks button'), function (b) {
