@@ -112,6 +112,12 @@
   .row { display: flex; align-items: center; gap: 12px; }
   .row label { flex: 0 0 150px; font-size: 13px; color: var(--dim); }
   .row input[type=range] { flex: 1; }
+  .picker { flex: 1; display: flex; gap: 6px; }
+  .picker button {
+    flex: 1; padding: 10px 4px; border-radius: 8px; border: 1px solid var(--line);
+    background: #1f2530; color: var(--dim); font-size: 13px;
+  }
+  .picker button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
   .row .val { flex: 0 0 52px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 
   #pair { display: none; flex-direction: column; gap: 10px; padding: 20px; }
@@ -159,7 +165,8 @@
   <div class="row"><label>Akselerasi</label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
   <div class="row"><label>Ping / keepalive<br><span style="font-size:11px">kecil = radio wifi tetap bangun, boros baterai</span></label><input type="range" id="s-keepalive" min="40" max="1000" step="20"><span class="val" id="v-keepalive"></span></div>
   <div class="row"><label>Kehalusan gerak<br><span style="font-size:11px">(1.00 = mentah)</span></label><input type="range" id="s-smooth" min="0.25" max="1" step="0.05"><span class="val" id="v-smooth"></span></div>
-  <div class="row"><label>Suara ketik<br><span style="font-size:11px">0 = mati</span></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
+  <div class="row"><label>Jenis suara</label><span class="picker" id="s-sound"></span></div>
+  <div class="row"><label>Volume suara<br><span style="font-size:11px">0 = mati</span></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
   <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
   <div class="row"><label>Scroll natural</label><input type="checkbox" id="s-natural"></div>
   <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
@@ -172,7 +179,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, natural: true, tapClick: true
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', natural: true, tapClick: true
   }, readCfg());
 
   function readCfg() {
@@ -199,43 +206,101 @@
       var Ctor = window.AudioContext || window.webkitAudioContext;
       if (!Ctor) return null;
       audio = new Ctor();
-      // ~25 ms of noise with a cubic decay — the decay is what stops it
-      // sounding like static and makes it read as a tick.
-      var length = Math.floor(audio.sampleRate * 0.025);
+      // Flat noise, 120 ms. The decay is applied per sound by a gain envelope
+      // rather than baked into the buffer, so one buffer serves every preset.
+      var length = Math.floor(audio.sampleRate * 0.12);
       noise = audio.createBuffer(1, length, audio.sampleRate);
       var data = noise.getChannelData(0);
-      for (var i = 0; i < length; i += 1) {
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3);
-      }
+      for (var i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
     }
     // Mobile browsers start suspended until a gesture; every caller is one.
     if (audio.state === 'suspended') audio.resume();
     return audio;
   }
 
-  function clickSound(deep) {
-    if (!cfg.click) return;
-    var ctx = ensureAudio();
-    if (!ctx) return;
+  // Each preset is a different synthesis approach, not the same click at a
+  // different pitch — that is what makes them actually sound distinct.
+  var SOUNDS = {
+    tik: function (ctx, at, deep, vol) {
+      // Noise through a narrow bandpass: a dry typewriter tick.
+      shapedNoise(ctx, at, {
+        type: 'bandpass', freq: (deep ? 1250 : 2100) * jitter(), q: 1.1,
+        decay: 0.025, vol: vol
+      });
+    },
+    thock: function (ctx, at, deep, vol) {
+      // Muffled noise plus a low sine body: a mechanical keyboard thock.
+      shapedNoise(ctx, at, {
+        type: 'lowpass', freq: (deep ? 520 : 780) * jitter(), q: 0.7,
+        decay: 0.055, vol: vol * 0.9
+      });
+      tone(ctx, at, {
+        from: deep ? 105 : 135, to: deep ? 70 : 90,
+        decay: 0.07, vol: vol * 0.55
+      });
+    },
+    pop: function (ctx, at, deep, vol) {
+      // A falling sine with no noise at all: the soft bubble of a phone keypad.
+      tone(ctx, at, {
+        from: (deep ? 700 : 920) * jitter(), to: deep ? 230 : 330,
+        decay: 0.06, vol: vol
+      });
+    },
+    tipis: function (ctx, at, deep, vol) {
+      // Very short and very high: barely there, for quiet rooms.
+      shapedNoise(ctx, at, {
+        type: 'highpass', freq: (deep ? 2600 : 3800) * jitter(), q: 0.8,
+        decay: 0.009, vol: vol * 0.8
+      });
+    }
+  };
 
+  // A touch of randomness per press, so a fast run of keys does not sound like
+  // one note repeating.
+  function jitter() { return 0.92 + Math.random() * 0.16; }
+
+  function shapedNoise(ctx, at, opt) {
     var source = ctx.createBufferSource();
     source.buffer = noise;
 
     var filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    // Wide keys get a lower tick, like a real keyboard. The jitter keeps a fast
-    // run of keys from sounding like one machine gun note.
-    var base = deep ? 1250 : 2100;
-    filter.frequency.value = base * (0.92 + Math.random() * 0.16);
-    filter.Q.value = 1.1;
+    filter.type = opt.type;
+    filter.frequency.value = opt.freq;
+    filter.Q.value = opt.q;
 
     var gain = ctx.createGain();
-    gain.gain.value = cfg.click * (deep ? 1.15 : 1);
+    gain.gain.setValueAtTime(opt.vol, at);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + opt.decay);
 
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    source.start();
+    source.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    source.start(at);
+    source.stop(at + opt.decay + 0.01);
+  }
+
+  function tone(ctx, at, opt) {
+    var osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(opt.from, at);
+    osc.frequency.exponentialRampToValueAtTime(opt.to, at + opt.decay);
+
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(opt.vol, at);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + opt.decay);
+
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + opt.decay + 0.01);
+  }
+
+  function clickSound(deep) {
+    if (!cfg.click) return;
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    var play = SOUNDS[cfg.sound] || SOUNDS.tik;
+    // Floor the level: exponentialRampToValueAtTime cannot start from zero, and
+    // a preset that scales the volume down could otherwise ramp upward.
+    var level = Math.max(cfg.click * (deep ? 1.15 : 1), 0.002);
+    play(ctx, ctx.currentTime, deep, level);
   }
 
   // ---------- transport ----------
@@ -862,8 +927,26 @@
   bindRange('smooth', 'smooth', function (v) { return v >= 1 ? 'mentah' : v.toFixed(2); });
   bindRange('keepalive', 'keepalive', function (v) { return v + 'ms'; });
   bindRange('click', 'click', function (v) { return v === 0 ? 'mati' : Math.round(v * 100) + '%'; });
-  // Preview the change as it is dragged, otherwise the slider is guesswork.
+  // Preview as it is dragged, otherwise the slider is guesswork.
   el('s-click').addEventListener('input', function () { clickSound(false); });
+
+  (function buildSoundPicker() {
+    var names = { tik: 'Tik', thock: 'Thock', pop: 'Pop', tipis: 'Tipis' };
+    var box = el('s-sound');
+    Object.keys(names).forEach(function (key) {
+      var b = document.createElement('button');
+      b.textContent = names[key];
+      b.className = cfg.sound === key ? 'on' : '';
+      b.addEventListener('click', function () {
+        cfg.sound = key;
+        saveCfg();
+        Array.prototype.forEach.call(box.children, function (c) { c.classList.remove('on'); });
+        b.classList.add('on');
+        clickSound(false);   // hear it immediately
+      });
+      box.appendChild(b);
+    });
+  })();
   el('s-keepalive').addEventListener('change', function () { if (ws && ws.readyState === 1) startPing(); });
   bindToggle('natural', 'natural');
   bindToggle('tap', 'tapClick');
