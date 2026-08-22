@@ -159,6 +159,7 @@
   <div class="row"><label>Akselerasi</label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
   <div class="row"><label>Ping / keepalive<br><span style="font-size:11px">kecil = radio wifi tetap bangun, boros baterai</span></label><input type="range" id="s-keepalive" min="40" max="1000" step="20"><span class="val" id="v-keepalive"></span></div>
   <div class="row"><label>Kehalusan gerak<br><span style="font-size:11px">(1.00 = mentah)</span></label><input type="range" id="s-smooth" min="0.25" max="1" step="0.05"><span class="val" id="v-smooth"></span></div>
+  <div class="row"><label>Suara ketik<br><span style="font-size:11px">0 = mati</span></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
   <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
   <div class="row"><label>Scroll natural</label><input type="checkbox" id="s-natural"></div>
   <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
@@ -171,7 +172,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, natural: true, tapClick: true
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, natural: true, tapClick: true
   }, readCfg());
 
   function readCfg() {
@@ -185,6 +186,57 @@
   var ws = null, pingTimer = null, retry = null;
   var rtts = [], sentThisSecond = 0, rateWindow = Date.now();
   var minSendGap = 1000 / 60;   // replaced by the Mac's real refresh on hello
+
+  // ---------- click sound ----------
+  // The tablet has no haptic motor, so touch feedback has to be audible. The
+  // sound is synthesised rather than shipped as a file: one short noise burst
+  // through a bandpass filter, which is what a key tick actually is. Keeps the
+  // page self-contained and costs nothing to load.
+  var audio = null, noise = null;
+
+  function ensureAudio() {
+    if (!audio) {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      audio = new Ctor();
+      // ~25 ms of noise with a cubic decay — the decay is what stops it
+      // sounding like static and makes it read as a tick.
+      var length = Math.floor(audio.sampleRate * 0.025);
+      noise = audio.createBuffer(1, length, audio.sampleRate);
+      var data = noise.getChannelData(0);
+      for (var i = 0; i < length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3);
+      }
+    }
+    // Mobile browsers start suspended until a gesture; every caller is one.
+    if (audio.state === 'suspended') audio.resume();
+    return audio;
+  }
+
+  function clickSound(deep) {
+    if (!cfg.click) return;
+    var ctx = ensureAudio();
+    if (!ctx) return;
+
+    var source = ctx.createBufferSource();
+    source.buffer = noise;
+
+    var filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    // Wide keys get a lower tick, like a real keyboard. The jitter keeps a fast
+    // run of keys from sounding like one machine gun note.
+    var base = deep ? 1250 : 2100;
+    filter.frequency.value = base * (0.92 + Math.random() * 0.16);
+    filter.Q.value = 1.1;
+
+    var gain = ctx.createGain();
+    gain.gain.value = cfg.click * (deep ? 1.15 : 1);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+  }
 
   // ---------- transport ----------
   function send(frame) {
@@ -287,6 +339,7 @@
         e.preventDefault();
         b.setPointerCapture(e.pointerId);
         b.classList.add('down');
+        clickSound(true);
         send({ t: 'macro', id: k.id });
       });
       ['pointerup', 'pointercancel'].forEach(function (name) {
@@ -396,6 +449,7 @@
       // A two-finger tap locks into 'scroll' mode on the second finger down,
       // but nothing moved, so it is still a right click rather than a scroll.
       var button = gestureMax >= 2 ? 'r' : 'l';
+      clickSound(true);
       send({ t: 'b', btn: button, d: 1 });
       send({ t: 'b', btn: button, d: 0 });
       lastTapEnd = performance.now();
@@ -711,10 +765,11 @@
       e.preventDefault();
       b.setPointerCapture(e.pointerId);
       b.classList.add('down');
+      clickSound(key.k === 'md' || key.k === 'caps' || key.k === 'fnlock' || (key.w || 1) >= 1.5);
       act();
       if (!repeats) return;
       delayTimer = setTimeout(function () {
-        repeatTimer = setInterval(act, 45);
+        repeatTimer = setInterval(function () { clickSound(true); act(); }, 45);
       }, 450);
     });
 
@@ -806,6 +861,9 @@
   bindRange('scroll', 'scroll', function (v) { return v.toFixed(1) + '×'; });
   bindRange('smooth', 'smooth', function (v) { return v >= 1 ? 'mentah' : v.toFixed(2); });
   bindRange('keepalive', 'keepalive', function (v) { return v + 'ms'; });
+  bindRange('click', 'click', function (v) { return v === 0 ? 'mati' : Math.round(v * 100) + '%'; });
+  // Preview the change as it is dragged, otherwise the slider is guesswork.
+  el('s-click').addEventListener('input', function () { clickSound(false); });
   el('s-keepalive').addEventListener('change', function () { if (ws && ws.readyState === 1) startPing(); });
   bindToggle('natural', 'natural');
   bindToggle('tap', 'tapClick');
