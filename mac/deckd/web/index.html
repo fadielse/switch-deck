@@ -413,6 +413,21 @@
   .desk .m .n { font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; }
   .desk .arrow { color: #4b535f; font-size: 11px; }
 
+  .cliprow { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0; }
+  .cliprow button { flex: 0 0 auto; }
+  .cliprow .lbl { font-size: 12px; color: #6b7280; align-self: center; margin-right: 2px; }
+  #clip-held { font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+               word-break: break-all; color: var(--dim); }
+
+  .statrow {
+    display: flex; gap: 10px; align-items: baseline; font-size: 12px;
+    padding: 8px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
+  }
+  .statrow .nm { font-weight: 700; color: var(--fg); flex: 0 0 auto; }
+  .statrow .facts { flex: 1; color: var(--dim); font-variant-numeric: tabular-nums;
+                    display: flex; gap: 10px; flex-wrap: wrap; }
+  .statrow .busy { color: #e2b356; }
+
   .hostpos {
     flex: 0 0 auto; width: 20px; text-align: center; font-size: 11px;
     color: #6b7280; font-variant-numeric: tabular-nums;
@@ -543,6 +558,20 @@
         <p class="note">Susunan di meja, kiri ke kanan — ini yang dipakai "nyeberang di tepi layar". Geser pakai ◀ ▶ di tiap baris.</p>
         <div class="desk" id="desk"></div>
         <div id="h-list" style="display:flex;flex-direction:column;gap:7px"></div>
+      </section>
+
+      <section>
+        <h3>Papan klip antar mesin</h3>
+        <p class="note">Selalu manual — tidak ada yang tersalin sendiri. Isinya cuma disimpan di memori tablet, tidak pernah ditulis ke penyimpanan dan tidak pernah masuk log.</p>
+        <div class="cliprow" id="clip-take"></div>
+        <p class="note" id="clip-held">Belum ada yang diambil.</p>
+        <div class="cliprow" id="clip-put"></div>
+      </section>
+
+      <section>
+        <h3>Status mesin</h3>
+        <p class="note">Cuma diminta selagi panel ini terbuka — tidak ada yang disampel di belakang layar.</p>
+        <div id="statlist" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
       <section>
@@ -978,6 +1007,15 @@
         }
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'clip') {
+        clipHeld = f.s || '';
+        renderClip();
+      } else if (f.t === 'clipok') {
+        renderClip();
+      } else if (f.t === 'stat') {
+        c.stat = f;
+        c.trusted = f.trusted;
+        if (el('settings').classList.contains('open')) renderStats();
       } else if (f.t === 'inputerr') {
         // The Mac's injector refused a frame. Almost always means its binary is
         // older than the client that is talking to it.
@@ -1999,6 +2037,157 @@
   }
   renderKeyboard();
 
+  // ---------- clipboard courier (N3) ----------
+  //
+  // Explicit both ways, never automatic (KM4). Automatic clipboard sync
+  // between machines is a privacy trap dressed as convenience: password
+  // managers put passwords on the clipboard, and copying those to another
+  // machine unasked is a leak nobody sees until it is too late.
+  //
+  // Held in a plain variable: not localStorage, not sessionStorage. It should
+  // not survive a reload, and it should never touch disk.
+  var clipHeld = null, clipFrom = '';
+
+  function clipTake() {
+    var c = activeId && conns[activeId];
+    if (!c || c.state !== 'on') return;
+    clipFrom = (activeHost() && (activeHost().name || activeHost().url)) || '';
+    c.ws.send(JSON.stringify({ t: 'clipget' }));
+  }
+
+  function clipPut(hostId) {
+    if (clipHeld === null) return;
+    var c = conns[hostId];
+    if (!c || c.state !== 'on' || !c.ws) return;
+    c.ws.send(JSON.stringify({ t: 'clipset', s: clipHeld }));
+  }
+
+  function renderClip() {
+    var take = el('clip-take'), put = el('clip-put'), held = el('clip-held');
+    take.innerHTML = ''; put.innerHTML = '';
+
+    var lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = 'Ambil dari:';
+    take.appendChild(lbl);
+    hosts.forEach(function (h) {
+      var b = document.createElement('button');
+      b.className = 'gear';
+      b.textContent = h.name || h.url;
+      var c = conns[h.id];
+      b.disabled = !c || c.state !== 'on';
+      b.addEventListener('click', function () {
+        setActive(h.id);
+        clipTake();
+      });
+      take.appendChild(b);
+    });
+
+    if (clipHeld === null) {
+      held.textContent = 'Belum ada yang diambil.';
+    } else if (!clipHeld.length) {
+      held.textContent = 'Papan klip ' + clipFrom + ' kosong.';
+    } else {
+      var preview = clipHeld.slice(0, 70).replace(/\s+/g, ' ');
+      held.textContent = 'Dari ' + clipFrom + ' · ' + clipHeld.length + ' karakter · "'
+        + preview + (clipHeld.length > 70 ? '…' : '') + '"';
+    }
+
+    var lbl2 = document.createElement('span');
+    lbl2.className = 'lbl';
+    lbl2.textContent = 'Taruh ke:';
+    put.appendChild(lbl2);
+    hosts.forEach(function (h) {
+      var b = document.createElement('button');
+      b.className = 'gear';
+      b.textContent = h.name || h.url;
+      var c = conns[h.id];
+      b.disabled = clipHeld === null || !clipHeld.length || !c || c.state !== 'on';
+      b.addEventListener('click', function () {
+        clipPut(h.id);
+        b.textContent = (h.name || h.url) + ' ✓';
+        setTimeout(function () { b.textContent = h.name || h.url; }, 1200);
+      });
+      put.appendChild(b);
+    });
+
+    var forget = document.createElement('button');
+    forget.className = 'gear';
+    forget.textContent = 'Lupakan';
+    forget.disabled = clipHeld === null;
+    forget.addEventListener('click', function () {
+      clipHeld = null; clipFrom = '';
+      renderClip();
+    });
+    put.appendChild(forget);
+  }
+
+  // ---------- status of every machine (N5) ----------
+  //
+  // Asked for, never sampled in the background (KM6). A page nobody is looking
+  // at must cost nothing — that lesson was paid for once already.
+  var statTimer = null;
+
+  function pollStats() {
+    hosts.forEach(function (h) {
+      var c = conns[h.id];
+      if (c && c.ws && c.ws.readyState === 1) c.ws.send(JSON.stringify({ t: 'stat' }));
+    });
+  }
+
+  function statsRunning(on) {
+    clearInterval(statTimer);
+    statTimer = null;
+    if (!on) return;
+    pollStats();
+    statTimer = setInterval(pollStats, 3000);
+  }
+
+  function renderStats() {
+    var box = el('statlist');
+    box.innerHTML = '';
+    if (!hosts.length) { box.textContent = '—'; return; }
+    hosts.forEach(function (h) {
+      var c = conns[h.id] || {};
+      var row = document.createElement('div');
+      row.className = 'statrow';
+      var facts = [];
+      if (c.state !== 'on') {
+        facts.push(STATE_LABEL[c.state] || 'putus');
+      } else {
+        var st = c.stat;
+        facts.push(c.front && c.front.app ? c.front.app : (st && st.front) || 'app? ');
+        if (st) {
+          // Load per core is the number that means the same thing on a 4-core
+          // laptop and a 12-core desktop.
+          var per = st.cores ? st.load / st.cores : st.load;
+          facts.push('beban ' + st.load.toFixed(2) + (st.cores ? ' (' + Math.round(per * 100) + '%)' : ''));
+          facts.push('RAM ' + Math.round((st.memTotal - st.memFree) / 1024) + '/' + Math.round(st.memTotal / 1024) + ' GB');
+          facts.push('nyala ' + Math.round(st.uptime / 3600) + ' jam');
+        }
+        if (c.rtts && c.rtts.length) {
+          var sorted = c.rtts.slice().sort(function (a, b) { return a - b; });
+          facts.push(sorted[Math.floor(sorted.length * 0.5)] + ' ms');
+        }
+        if (!c.trusted) facts.push('BELUM diizinkan');
+      }
+      row.innerHTML = '<span class="dot state-' + (c.state || 'off') + '"></span>'
+        + '<span class="nm"></span><span class="facts"></span>';
+      row.querySelector('.nm').textContent = h.name || h.url;
+      var f = row.querySelector('.facts');
+      facts.forEach(function (t) {
+        var sp = document.createElement('span');
+        // Amber past 70% per core: that is the point at which "which machine
+        // is busy" stops being a curiosity and starts being the answer.
+        if (/^beban/.test(t) && c.stat && c.stat.cores
+            && c.stat.load / c.stat.cores > 0.7) sp.className = 'busy';
+        sp.textContent = t;
+        f.appendChild(sp);
+      });
+      box.appendChild(row);
+    });
+  }
+
   // ---------- cursor handover between machines ----------
   //
   // The Mac reports that a movement was thrown away because the screen ran out
@@ -2477,9 +2666,12 @@
 
   function openSettings(open) {
     el('settings').classList.toggle('open', open);
+    statsRunning(open);
     if (!open) return;
     renderHostList();
     renderDeviceList();
+    renderClip();
+    renderStats();
     paintStatus();
     paintLatency();
     paintWake();

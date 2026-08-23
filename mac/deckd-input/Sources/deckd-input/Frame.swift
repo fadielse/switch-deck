@@ -31,6 +31,9 @@ struct Frame: Decodable {
     let side: String?
     let v: Double?
 
+    // clipboard courier: max characters to read back
+    let limit: Int?
+
     // latency probe echo value
     let ts: Double?
 }

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer as createHttp } from 'node:http';
 import { createServer as createHttps } from 'node:https';
+import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -31,6 +32,7 @@ const deck = new Deck({
 });
 
 let frontTimer = null;
+let clipWaiting = null;
 
 // Long enough that ordinary pauses while working do not trigger it, short
 // enough that coming back to the desk does.
@@ -58,6 +60,17 @@ const input = new InputBridge(binary, {
     for (const client of wss.clients) {
       if (client.readyState === 1) client.send(payload);
     }
+  },
+  // Whoever asked for the clipboard gets the answer, and nobody else. One
+  // pending request at a time is enough for something a person taps by hand,
+  // and it means a stale reply can never be handed to a different tablet.
+  onClip: (frame) => {
+    const waiting = clipWaiting;
+    clipWaiting = null;
+    if (!waiting || waiting.readyState !== 1) return;
+    waiting.send(JSON.stringify(frame.t === 'clipok'
+      ? { t: 'clipok', n: frame.n }
+      : { t: 'clip', s: frame.s ?? '', empty: !!frame.empty }));
   },
   onInputError: (err) => {
     const payload = JSON.stringify({ t: 'inputerr', msg: err.msg, type: err.type });
@@ -306,7 +319,8 @@ wss.on('connection', (ws, req) => {
     // feedback.
     if (frame.t === 'm' || frame.t === 's' || frame.t === 'b'
         || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media'
-        || frame.t === 'warp') {
+        || frame.t === 'warp' || frame.t === 'clipget' || frame.t === 'clipset') {
+      if (frame.t === 'clipget' || frame.t === 'clipset') clipWaiting = ws;
       // Touching the tablet after a spell of quiet is someone coming back to
       // the desk, so wake the screen rather than making them find the mouse.
       // Rate-limited to the gap that suggests a return, not to every frame.
@@ -320,6 +334,25 @@ wss.on('connection', (ws, req) => {
     }
 
     // Like macros: an id from a fixed table, never a command from the tablet.
+    // N5: what this machine is doing. Answered only when asked — nothing here
+    // samples on a timer, so a status page nobody is looking at costs nothing
+    // (KM6). os.loadavg and os.freemem are Node's own, so this stays honest
+    // about K10: no macOS-only call leaks into the router.
+    if (frame.t === 'stat') {
+      const load = os.loadavg();
+      ws.send(JSON.stringify({
+        t: 'stat',
+        load: Math.round(load[0] * 100) / 100,
+        cores: os.cpus().length,
+        memFree: Math.round(os.freemem() / 1048576),
+        memTotal: Math.round(os.totalmem() / 1048576),
+        uptime: Math.round(os.uptime()),
+        front: input.front ? input.front.app : null,
+        trusted: input.trusted
+      }));
+      return;
+    }
+
     if (frame.t === 'sys') {
       const ok = runSystemAction(frame.id);
       ws.send(JSON.stringify(ok

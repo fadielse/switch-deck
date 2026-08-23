@@ -246,6 +246,19 @@ func readStdin() {
         }
         injector.media(Int32(code), down: (frame.d ?? 1) == 1)
 
+    case "clipget":
+        // Never logged, here or anywhere upstream: the clipboard is where
+        // password managers put passwords.
+        if let text = injector.clipboardRead(limit: frame.limit ?? 16384) {
+            emit(["t": "clip", "s": text])
+        } else {
+            emit(["t": "clip", "s": "", "empty": true])
+        }
+
+    case "clipset":
+        injector.clipboardWrite(frame.s ?? "")
+        emit(["t": "clipok", "n": (frame.s ?? "").count])
+
     case "warp":
         injector.warp(side: frame.side ?? "", ratio: frame.v ?? 0.5)
 

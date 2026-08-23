@@ -5,12 +5,13 @@ import { createInterface } from 'node:readline';
 /// the far side of this pipe (decision K10), so this file never learns what a
 /// CGEvent is.
 export class InputBridge {
-  constructor(binaryPath, { onStatus, onFront, onEdge, onInputError } = {}) {
+  constructor(binaryPath, { onStatus, onFront, onEdge, onInputError, onClip } = {}) {
     this.binaryPath = binaryPath;
     this.onStatus = onStatus ?? (() => {});
     this.onFront = onFront ?? (() => {});
     this.onEdge = onEdge ?? (() => {});
     this.onInputError = onInputError ?? (() => {});
+    this.onClip = onClip ?? (() => {});
     this.child = null;
     this.trusted = null;
     this.refreshHz = 60;
@@ -34,6 +35,10 @@ export class InputBridge {
       } else if (frame.t === 'front') {
         this.front = { app: frame.app, bundle: frame.bundle };
         this.onFront(this.front);
+      } else if (frame.t === 'clip' || frame.t === 'clipok') {
+        // Deliberately not logged. The clipboard is where password managers
+        // put passwords, and a console line is a file on somebody's disk.
+        this.onClip(frame);
       } else if (frame.t === 'edge') {
         // The cursor is pressed against an edge and motion is being thrown
         // away. Only the tablet knows what is next to this machine, so it

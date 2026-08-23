@@ -186,6 +186,39 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(allKeys.find((k) => k.id === 'blank-host')?.host === undefined,
         'host kosong/spasi dibuang, bukan diteruskan sebagai nama palsu');
 
+  // --- N3: kurir papan klip ---
+  const beforeClip = readSent().length;
+  const seenClip = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'clipget' }));
+  await wait(300);
+  const clip = good.frames.slice(seenClip).find((f) => f.t === 'clip');
+  check(clip?.s === 'halo dari mesin sebelah — ünïcode ✓',
+        'papan klip terbaca dan sampai utuh ke tablet', 'termasuk unicode');
+
+  const seenOk = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 'ditaruh ke mesin ini' }));
+  // Ditolak: kosong, dan lebih besar dari batas.
+  good.ws.send(JSON.stringify({ t: 'clipset', s: '' }));
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 'x'.repeat(16385) }));
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 42 }));
+  await wait(300);
+  check(good.frames.slice(seenOk).some((f) => f.t === 'clipok' && f.n === 20),
+        'papan klip ditulis ke mesin tujuan');
+  const clipSent = readSent().slice(beforeClip).filter((f) => f.t === 'clipset');
+  check(clipSent.length === 1 && clipSent[0].s === 'ditaruh ke mesin ini',
+        'clipset kosong / kepanjangan / bukan string DITOLAK',
+        'cuma 1 dari 4 yang lolos');
+
+  // --- N5: status mesin ---
+  const seenStat = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'stat' }));
+  await wait(300);
+  const stat = good.frames.slice(seenStat).find((f) => f.t === 'stat');
+  check(!!stat && typeof stat.load === 'number' && stat.cores > 0 && stat.memTotal > 0,
+        'status mesin dijawab dengan beban, core, dan memori',
+        JSON.stringify(stat ? { load: stat.load, cores: stat.cores } : null));
+  check(stat?.front === 'Xcode', 'status ikut membawa app depan');
+
   // --- serah-terima kursor di tepi layar ---
   const beforeWarp = readSent().length;
   good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 0.42 }));

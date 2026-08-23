@@ -20,6 +20,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   // exercise the edge report without a display or Accessibility.
   let frame;
   try { frame = JSON.parse(line); } catch { return; }
+  if (frame.t === 'clipget') {
+    process.stdout.write(JSON.stringify({ t: 'clip', s: 'halo dari mesin sebelah — ünïcode ✓' }) + '\n');
+  }
+  if (frame.t === 'clipset') {
+    process.stdout.write(JSON.stringify({ t: 'clipok', n: (frame.s || '').length }) + '\n');
+  }
   // The stub deliberately does NOT know 'warp' — it stands in for a binary
   // that was pulled but never rebuilt, which is the failure this reporting
   // path exists to make visible.

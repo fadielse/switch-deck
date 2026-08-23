@@ -9,6 +9,9 @@ const MODIFIERS = new Set(['cmd', 'command', 'shift', 'opt', 'option', 'alt', 'c
 const MAX_KEYCODE = 127;   // macOS virtual keycodes stop well below this
 const MAX_TEXT = 256;      // a keystroke's worth, not a paste buffer
 const SIDES = new Set(['l', 'r', 't', 'b']);
+// Bigger than MAX_TEXT because a clipboard legitimately holds a paragraph or a
+// snippet, and still bounded because it crosses a socket and a pipe.
+const MAX_CLIP = 16384;
 
 /// Absent means zero — `{t:'s',dy:4}` is a legitimate vertical-only scroll.
 /// Present but not a finite number means the sender is broken, and the frame is
@@ -67,6 +70,17 @@ export function toInputFrame(frame) {
       if (!SIDES.has(frame.side)) return null;
       if (typeof frame.v !== 'number' || !Number.isFinite(frame.v)) return null;
       return { t: 'warp', side: frame.side, v: Math.max(0, Math.min(1, frame.v)) };
+    }
+
+    // The clipboard courier. Text only; images and files are a different
+    // feature with different limits, not a quiet widening of this one.
+    case 'clipget': {
+      return { t: 'clipget', limit: MAX_CLIP };
+    }
+    case 'clipset': {
+      if (typeof frame.s !== 'string' || !frame.s.length) return null;
+      if (frame.s.length > MAX_CLIP) return null;
+      return { t: 'clipset', s: frame.s };
     }
 
     case 'txt': {

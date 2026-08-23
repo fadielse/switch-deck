@@ -278,6 +278,25 @@ final class Injector {
         event.post(tap: Injector.tap)
     }
 
+    // MARK: - clipboard
+    //
+    // NSPasteboard rather than pbpaste/pbcopy in the server: reading the
+    // clipboard is OS-specific, and K10 puts OS-specific code on this side of
+    // the pipe. deckd stays a router that never learns what a pasteboard is.
+    //
+    // Text only, on purpose. Images and files are a different feature with
+    // different limits, not a quiet widening of this one.
+    func clipboardRead(limit: Int) -> String? {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return nil }
+        return text.count > limit ? String(text.prefix(limit)) : text
+    }
+
+    func clipboardWrite(_ text: String) {
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(text, forType: .string)
+    }
+
     func button(_ button: MouseButton, down: Bool) {
         guard let current = CGEvent(source: nil)?.location else { return }
         let type = down ? button.downType : button.upType
