@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build deps doctor selftest wait-trust r1 deckd e2e verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
+.PHONY: build deps doctor selftest wait-trust r1 deckd e2e idle debug-panel client dblclick verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -69,6 +69,24 @@ deckd: build deps
 ## Chain test: does a macro sent over the WebSocket reach deckd-input?
 e2e: build deps
 	@cd mac/deckd && node test/chain.js
+
+## Does the client let the CPU sleep, or does it spin a frame loop forever?
+## No Mac, no build: it reads the loop straight out of web/index.html.
+idle:
+	@cd mac/deckd && node test/idle.js
+
+## Does the debug panel render in every state, including the broken ones?
+debug-panel:
+	@cd mac/deckd && node test/debugpanel.js
+
+## Every client check. Needs no Mac, no build, no Accessibility permission.
+client: idle debug-panel
+
+## Does a double tap become a real double click? Reads kCGMouseEventClickState
+## back off the stream, so it needs no app and no icon to aim at.
+dblclick: build
+	@$(BIN) --dblclick-test
+
 
 ## F1 DoD — plant a sentinel, then watch the clipboard actually change.
 ## Run this in a second terminal while `make deckd` is up.
