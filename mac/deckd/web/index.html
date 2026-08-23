@@ -1180,7 +1180,13 @@
     setTimeout(function () { if (!g.classList.contains('on')) glowPool.push(g); }, 260);
   }
 
+  // Every other control on this page cancels the default on pointerdown; the
+  // pad never did. On a touch surface the browser keeps its own long-press and
+  // multi-finger handling alive until something says otherwise, which is how a
+  // gesture nobody wrote — a QR/share popup on a two-finger hold — can appear
+  // over a trackpad. There is nothing here to select, share or scan.
   pad.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
     pad.setPointerCapture(e.pointerId);
     if (pointers.size === 0) padRect = pad.getBoundingClientRect();
     moveGlow(e.pointerId, e.clientX, e.clientY);
@@ -1359,6 +1365,20 @@
   }
   pad.addEventListener('pointerup', release);
   pad.addEventListener('pointercancel', release);
+
+  // pointerdown alone does not always reach the gesture recognisers that run
+  // off raw touches, and pointermove is registered passive so it cannot cancel
+  // anything. This is the one place left that can, and it matters most for the
+  // second finger — the popup being chased shows up on a two-finger hold.
+  //
+  // Note what this cannot reach: a gesture belonging to the tablet's own
+  // system layer rather than the browser. If the popup survives this, that is
+  // the answer — see the note in the README.
+  ['touchstart', 'touchmove'].forEach(function (name) {
+    pad.addEventListener(name, function (e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  });
 
   // Live readout while a gesture is in progress. Guessing why three fingers do
   // nothing is the expensive way to find out; this answers it in one touch.

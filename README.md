@@ -195,6 +195,20 @@ Still needs a human:
       cancellation means macOS passes our deltas through untouched; pointer
       acceleration would have made the two bursts disagree.
 
+## A popup appears over the trackpad
+
+The page cancels the browser's own touch handling on the pad — long-press
+callout, context menu, and the raw `touchstart`/`touchmove` defaults that
+multi-finger gestures hang off. If a popup still appears (a QR/share sheet on
+a two-finger hold, for example), it does not belong to the browser and no
+amount of `preventDefault` will reach it.
+
+To tell the two apart in one try: **install to the home screen** (Settings →
+Pasang ke layar depan) and use it from that icon. That runs the client
+standalone with no browser UI, so anything that survives is the tablet's own
+system gesture. On Huawei/EMUI that means the gesture settings — knuckle
+gestures, smart-assistance scanning, and similar — not this repo.
+
 ## Protocol (stdin, JSON Lines)
 
 One frame per line. This is the contract a future Windows/Linux `deckd-input`
