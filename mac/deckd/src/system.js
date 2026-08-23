@@ -22,6 +22,13 @@ const ACTIONS = {
   // hand — but AppleScript reaches the same shortcuts through the accessibility
   // path, which does work. It needs Automation permission for whatever runs
   // deckd, which is granted separately from Accessibility.
+  // Waking the display is not a keystroke — it is a declaration of user
+  // activity, which is what caffeinate -u does. Works because this Mac never
+  // system-sleeps (pmset sleep 0), so deckd is still running and reachable
+  // while the screen is off. On a Mac that does sleep entirely, nothing here
+  // would be listening and this would need Wake-on-LAN instead.
+  'wake-display': ['caffeinate', ['-u', '-t', '1']],
+
   'space-left': ['osascript', ['-e', 'tell application "System Events" to key code 123 using control down']],
   'space-right': ['osascript', ['-e', 'tell application "System Events" to key code 124 using control down']],
   'app-expose': ['osascript', ['-e', 'tell application "System Events" to key code 125 using control down']]

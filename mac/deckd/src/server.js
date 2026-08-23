@@ -32,6 +32,11 @@ const deck = new Deck({
 
 let frontTimer = null;
 
+// Long enough that ordinary pauses while working do not trigger it, short
+// enough that coming back to the desk does.
+const WAKE_AFTER_IDLE = 60_000;
+let lastInputAt = 0;
+
 const input = new InputBridge(binary, {
   onFront: (front) => {
     // Debounced: alt-tabbing through three apps should land on the last one,
@@ -286,6 +291,13 @@ wss.on('connection', (ws, req) => {
     // feedback.
     if (frame.t === 'm' || frame.t === 's' || frame.t === 'b'
         || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media') {
+      // Touching the tablet after a spell of quiet is someone coming back to
+      // the desk, so wake the screen rather than making them find the mouse.
+      // Rate-limited to the gap that suggests a return, not to every frame.
+      const now = Date.now();
+      if (now - lastInputAt > WAKE_AFTER_IDLE) runSystemAction('wake-display');
+      lastInputAt = now;
+
       const clean = toInputFrame(frame);
       if (clean) input.send(clean);
       return;
