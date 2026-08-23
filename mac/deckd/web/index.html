@@ -232,8 +232,11 @@
   @media (orientation: landscape) {
     body.lay-pad .palm { flex: 0 0 108px; }
   }
-  /* A deck page with no keys should not hold a column open. */
-  .palm:empty { display: none; }
+  /* Only in `pad`, where the whole point is that the trackpad takes the screen.
+     Applying this everywhere changed `both` too: with the deck page set to
+     Kosong the palm rests vanished and the trackpad went full width, which is
+     exactly the layout that was meant to stay untouched. */
+  body.lay-pad .palm:empty { display: none; }
   /* Magic Keyboard proportions: every row is 15 units wide, and the function
      row sits at roughly two-thirds height like the real thing. */
   .krow { display: flex; gap: 5px; flex: 1 1 0; min-height: 0; }
