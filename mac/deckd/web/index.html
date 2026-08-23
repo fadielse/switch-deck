@@ -388,6 +388,28 @@
     padding: 7px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
   }
   .hostrow .who { flex: 1; min-width: 0; }
+  /* The list is vertical but the arrows say left and right, which is fine for
+     two machines and pure guesswork at four. This strip draws the desk the way
+     it actually is, so the list above it stops needing to be imagined. */
+  .desk {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 9px 10px; margin-bottom: 9px; border-radius: 10px;
+    background: #12151b; border: 1px solid #22262f;
+  }
+  .desk .lbl { font-size: 11px; color: #6b7280; margin-right: 2px; }
+  .desk .m {
+    display: flex; align-items: center; gap: 6px; padding: 5px 9px;
+    border-radius: 8px; background: var(--panel); border: 1px solid var(--line);
+    font-size: 12px; font-weight: 600; color: var(--dim); white-space: nowrap;
+  }
+  .desk .m.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
+  .desk .m .n { font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; }
+  .desk .arrow { color: #4b535f; font-size: 11px; }
+
+  .hostpos {
+    flex: 0 0 auto; width: 20px; text-align: center; font-size: 11px;
+    color: #6b7280; font-variant-numeric: tabular-nums;
+  }
   .hostorder { display: flex; gap: 4px; flex: 0 0 auto; }
   .hostorder .iconbtn { width: 30px; height: 30px; font-size: 11px; }
   .hostorder .iconbtn:disabled { opacity: .3; }
@@ -511,7 +533,8 @@
           <button class="gear" id="h-add">Tambah</button>
         </div>
         <p class="note" id="h-msg">Jalankan <code>make code</code> di Mac itu untuk kodenya.</p>
-        <p class="note">Urutan di bawah = urutan fisik di meja, kiri ke kanan. Itu yang dipakai "nyeberang di tepi layar".</p>
+        <p class="note">Susunan di meja, kiri ke kanan — ini yang dipakai "nyeberang di tepi layar". Geser pakai ◀ ▶ di tiap baris.</p>
+        <div class="desk" id="desk"></div>
         <div id="h-list" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
@@ -1021,6 +1044,7 @@
   // was fine at two Macs and stops being fine at four; a menu does not change
   // shape as machines are added.
   function renderHosts() {
+    if (el('settings').classList.contains('open')) renderDesk();
     var active = activeHost();
     // The chip used to fall back to the product name, which now sits two
     // centimetres to its left as the wordmark — the bar read "SwitchDeck
@@ -2210,12 +2234,49 @@
   bindToggle('tap', 'tapClick');
   bindToggle('holddrag', 'holdDrag');
   bindToggle('edge', 'edgeSwitch');
+  function renderDesk() {
+    var box = el('desk');
+    box.innerHTML = '';
+    if (hosts.length < 2) { box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    var lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = 'kiri';
+    box.appendChild(lbl);
+    hosts.forEach(function (h, i) {
+      if (i) {
+        var a = document.createElement('span');
+        a.className = 'arrow';
+        a.textContent = '→';
+        box.appendChild(a);
+      }
+      var m = document.createElement('span');
+      m.className = 'm' + (h.id === activeId ? ' on' : '');
+      var c = conns[h.id];
+      m.innerHTML = '<span class="dot state-' + (c ? c.state : 'off') + '"></span>'
+        + '<span class="nm"></span><span class="n"></span>';
+      m.querySelector('.nm').textContent = h.name || h.url;
+      m.querySelector('.n').textContent = i + 1;
+      box.appendChild(m);
+    });
+    var end = document.createElement('span');
+    end.className = 'lbl';
+    end.textContent = 'kanan';
+    box.appendChild(end);
+  }
+
   function renderHostList() {
+    renderDesk();
     var box = el('h-list');
     box.innerHTML = '';
     hosts.forEach(function (h) {
       var row = document.createElement('div');
       row.className = 'hostrow';
+
+      var pos = document.createElement('div');
+      pos.className = 'hostpos';
+      pos.textContent = hosts.indexOf(h) + 1;
+      row.appendChild(pos);
 
       var who = document.createElement('div');
       who.className = 'who';

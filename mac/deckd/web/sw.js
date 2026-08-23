@@ -6,7 +6,7 @@
 // cache that cost this project an evening earlier on. The cache exists so the
 // app opens instantly and shows something useful when the Mac is asleep, not
 // to save a request.
-const CACHE = 'switchdeck-v6';
+const CACHE = 'switchdeck-v7';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
