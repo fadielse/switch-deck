@@ -219,7 +219,12 @@
             thumb, which is worse to type on, not better. `main` keeps its
             share of the column and only its contents are hidden, so the
             keyboard geometry is identical in both modes. */
-  body.lay-both #kb, body.lay-kb #kb { display: flex; }
+  body.lay-both #kb, body.lay-swap #kb, body.lay-kb #kb { display: flex; }
+  /* Same trick as lay-kb, both halves visible: the document order is keyboard
+     then main, so swapping which one comes first is a matter of order, not of
+     moving elements around and re-deriving the geometry. */
+  body.lay-swap main { order: 1; }
+  body.lay-swap #kb { order: 2; }
   /* The keyboard sits before <main> in the document, so simply emptying main
      leaves the gap BELOW the keys — it floats up instead of dropping down.
      Reordering is what actually puts it at the bottom. */
@@ -1901,12 +1906,25 @@
   // One button that cycles, showing the layout it is currently in rather than
   // the one it would switch to. Three states is one too many for a toggle and
   // too few to spend header width on a segmented control.
-  var LAYOUTS = ['pad', 'both', 'kb'];
-  var LAYOUT_LABEL = { pad: 'trackpad saja', both: 'keyboard + trackpad', kb: 'keyboard saja' };
+  var LAYOUTS = ['pad', 'both', 'swap', 'kb'];
+  var LAYOUT_LABEL = {
+    pad: 'trackpad saja',
+    both: 'keyboard atas + trackpad bawah',
+    swap: 'trackpad atas + keyboard bawah',
+    kb: 'keyboard saja'
+  };
+  // A picture of the layout, drawn the way it sits on screen. One vocabulary
+  // throughout: two short lines mean keys, a dot means the trackpad — so which
+  // half is which is readable at 17 px without a legend.
   var LAYOUT_ICON = {
-    // A picture of the layout, drawn the way it actually sits on screen.
-    pad: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
-    both: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/><rect x="3" y="14" width="18" height="6.5" rx="1.8"/>',
+    pad: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/>'
+       + '<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+    both: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/><path d="M6.2 6.3h11.6M6.2 8.9h11.6"/>'
+        + '<rect x="3" y="14" width="18" height="6.5" rx="1.8"/>'
+        + '<circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/>',
+    swap: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/>'
+        + '<circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/>'
+        + '<rect x="3" y="14" width="18" height="6.5" rx="1.8"/><path d="M6.2 16.3h11.6M6.2 18.6h11.6"/>',
     kb: '<rect x="3" y="12" width="18" height="8.5" rx="1.8"/><path d="M6.5 15.5h11M6.5 18h11"/>'
   };
   var layout = 'both';

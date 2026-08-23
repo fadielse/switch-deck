@@ -53,7 +53,8 @@ function render(state) {
     state.dragging, state.gx, state.gy, state.gestureFired, state.lastGesture,
     state.accX, state.accY, state.accSX, state.accSY, state.activePage, -2, -1,
     state.deckPages, state.autoPage, state.frontApp, state.wakeLock, state.audio,
-    null, state.layout, { pad: 'trackpad saja', both: 'keyboard + trackpad', kb: 'keyboard saja' },
+    null, state.layout, { pad: 'trackpad saja', both: 'keyboard atas + trackpad bawah',
+      swap: 'trackpad atas + keyboard bawah', kb: 'keyboard saja' },
     win, doc
   );
 }
@@ -96,7 +97,7 @@ try {
   render(live);
   const want = ['Mac mini', 'wss (tls)', 'terhubung', 'trusted', 'p50 / p95',
                 '120 Hz', 'Auto → Xcode', 'Xcode', '88 f/s', 'JALAN', 'dipegang',
-                'keyboard + trackpad'];
+                'keyboard atas + trackpad bawah'];
   const missing = want.filter((w) => !box.html.includes(w));
   ok(missing.length === 0, 'kondisi hidup menampilkan semua field' + (missing.length ? ' — hilang: ' + missing.join(', ') : ''));
   ok(box.html.includes('120 ms · aktif'), 'ping dilaporkan mode aktif saat baru ada input');
