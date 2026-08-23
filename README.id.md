@@ -22,9 +22,9 @@ Satu tablet bisa menyetir **beberapa Mac sekaligus**: semua tersambung barengan,
 8. [Keyboard](#keyboard)
 9. [Deck](#deck)
 10. [Tata letak](#tata-letak)
-11. [Beberapa Mac sekaligus](#beberapa-mac-sekaligus)
-12. [Papan klip antar mesin](#papan-klip-antar-mesin)
-13. [Status mesin](#status-mesin)
+11. [Beberapa perangkat sekaligus](#beberapa-perangkat-sekaligus)
+12. [Papan klip antar perangkat](#papan-klip-antar-perangkat)
+13. [Status perangkat](#status-perangkat)
 14. [Setelan](#setelan)
 15. [Panel debug](#panel-debug)
 16. [Pasang ke layar depan (PWA) & HTTPS](#pasang-ke-layar-depan-pwa--https)
@@ -129,7 +129,7 @@ Dari kiri ke kanan di bar atas:
 | Bagian | Fungsi |
 |---|---|
 | **Logo SwitchDeck** | penanda; nama menghilang di layar sempit |
-| **Chip Mac** | titik status + nama Mac yang sedang disetir. Tap untuk pindah Mac (kalau ada lebih dari satu) |
+| **Chip perangkat** | titik status + nama perangkat yang sedang disetir. Tap untuk pindah (kalau ada lebih dari satu) |
 | **Tab halaman deck** | `Kosong`, `Auto`, lalu nama tiap halaman dari `deck.json`. Bisa di-scroll ke samping |
 | **Tombol tata letak** | berputar antara 4 susunan; ikonnya menggambarkan susunan yang **sedang** dipakai |
 | **⛶** | fullscreen |
@@ -222,7 +222,7 @@ File itu dibuat otomatis saat pertama jalan, dan **halaman App-nya hanya diisi a
 | `label` | — | tulisan di tombol (default: `id`) |
 | `hint` | — | baris kecil di bawah label |
 | `color` | — | warna latar, misal `#2c405c` |
-| `host` | — | jalankan di **Mac lain** — lihat [tombol lintas mesin](#tombol-yang-jalan-di-mac-lain) |
+| `host` | — | jalankan di **perangkat lain** — lihat [tombol lintas perangkat](#tombol-yang-jalan-di-perangkat-lain) |
 | `action` | ya | apa yang dijalankan |
 
 ### Tipe action
@@ -289,19 +289,19 @@ Pilihan tata letak diingat per perangkat.
 
 ---
 
-## Beberapa Mac sekaligus
+## Beberapa perangkat sekaligus
 
-Semua Mac tersambung **barengan**, tetapi hanya satu yang menerima input pada satu waktu. Tablet yang memegang semua koneksi — Mac tidak pernah saling bicara, jadi satu Mac mati tidak menjatuhkan yang lain.
+Semua perangkat tersambung **barengan**, tetapi hanya satu yang menerima input pada satu waktu. Tablet yang memegang semua koneksi — perangkat tidak pernah saling bicara, jadi satu mati tidak menjatuhkan yang lain.
 
-### Menambahkan Mac kedua
+### Menambahkan perangkat kedua
 
-Di Mac yang baru: `make deckd`, lalu `make code` untuk kodenya. Di tablet: **⚙ → Mac lain → isi alamat + kode → Tambah**.
+Di perangkat yang baru: `make deckd`, lalu `make code` untuk kodenya. Di tablet: **⚙ → Perangkat lain → isi alamat + kode → Tambah**.
 
-![Setelan Mac lain](docs/img/id/ss-set-hosts.png)
+![Setelan perangkat lain](docs/img/id/ss-set-hosts.png)
 
 ### Urutan meja
 
-Strip di atas daftar menggambar susunan **fisik** Mac di meja, kiri ke kanan:
+Strip di atas daftar menggambar susunan **fisik** perangkat di meja, kiri ke kanan:
 
 ```
 kiri   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   kanan
@@ -313,13 +313,13 @@ Urutan ini **bukan kosmetik** — ini yang dibaca fitur nyeberang di bawah.
 
 ### Nyeberang di tepi layar
 
-Dorong kursor terus ke tepi kanan sampai mentok, dan kendali pindah ke Mac di sebelah kanannya. Kursor di Mac tujuan muncul di tepi seberangnya, di ketinggian yang sama, jadi terasa menyambung.
+Dorong kursor terus ke tepi kanan sampai mentok, dan kendali pindah ke perangkat di sebelah kanannya. Kursor di perangkat tujuan muncul di tepi seberangnya, di ketinggian yang sama, jadi terasa menyambung.
 
 Supaya tidak pindah karena mentok biasa saat kerja, syaratnya **dua-duanya** harus terpenuhi: ~90 px gerakan tertelan **dan** dorongan berlanjut minimal ~0,1 detik. Ada jeda 0,7 detik setelah pindah. Bisa dimatikan di setelan.
 
-Kalau tidak mau pindah, **panel debug menyebut sebabnya** (`nyeberang gagal`): tidak ada Mac di sisi itu, atau Mac-nya tidak terhubung.
+Kalau tidak mau pindah, **panel debug menyebut sebabnya** (`nyeberang gagal`): tidak ada perangkat di sisi itu, atau perangkatnya tidak terhubung.
 
-### Tombol yang jalan di Mac lain
+### Tombol yang jalan di perangkat lain
 
 Beri sebuah tombol deck field `host`:
 
@@ -328,35 +328,35 @@ Beri sebuah tombol deck field `host`:
   "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
 ```
 
-Tombol itu selalu jalan di Mac yang disebut, apa pun yang sedang disetir — build di Mac mini sambil terus mengetik di MacBook.
+Tombol itu selalu jalan di perangkat yang disebut, apa pun yang sedang disetir — build di Mac mini sambil terus mengetik di MacBook.
 
 Dua hal yang mengikuti dari aturan "tablet cuma kirim id":
 
 - **Id-nya diresolusi di mesin tujuan.** `host: "MacBook Pro"` berarti *"jalankan macro bernama `build` di sana"*, dan `deck.json` milik MacBook yang menentukan `build` itu apa. Tiap mesin tetap pemilik arti id-nya sendiri.
 - **`action` di sebelah `host` adalah yang jalan lokal**, di mesin pemilik file ini. Tidak pernah dikirim ke mana pun.
 
-`host` dicocokkan dengan nama yang tampil di daftar Mac (atau alamatnya). Tombolnya digambar **bergaris putus-putus** dengan nama mesin tujuan, dan **redup** kalau mesin itu tidak terhubung.
+`host` dicocokkan dengan nama yang tampil di daftar perangkat (atau alamatnya). Tombolnya digambar **bergaris putus-putus** dengan nama mesin tujuan, dan **redup** kalau perangkat itu tidak terhubung.
 
 ---
 
-## Papan klip antar mesin
+## Papan klip antar perangkat
 
-**⚙ → Papan klip antar mesin.**
+**⚙ → Papan klip antar perangkat.**
 
-![Papan klip dan status mesin](docs/img/id/ss-set-clip.png)
+![Papan klip dan status perangkat](docs/img/id/ss-set-clip.png)
 
-- **Ambil dari** Mac X → isinya disimpan di tablet.
-- **Taruh ke** Mac Y → isinya ditulis ke papan klip Mac itu.
+- **Ambil dari** perangkat X → isinya disimpan di tablet.
+- **Taruh ke** perangkat Y → isinya ditulis ke papan klip perangkat itu.
 
-**Selalu manual, tidak pernah otomatis.** Sync papan klip otomatis antar mesin terdengar seperti kenyamanan dan sebenarnya kebocoran — password manager menaruh password di papan klip, dan menyalinnya ke mesin lain tanpa diminta tidak kelihatan sampai terlambat.
+**Selalu manual, tidak pernah otomatis.** Sync papan klip otomatis antar perangkat terdengar seperti kenyamanan dan sebenarnya kebocoran — password manager menaruh password di papan klip, dan menyalinnya ke mesin lain tanpa diminta tidak kelihatan sampai terlambat.
 
 Batasnya: **teks saja**, maksimal 16 KB, disimpan di **memori tablet saja** (hilang saat reload, tidak pernah menyentuh penyimpanan), dan **tidak pernah masuk log** di titik mana pun.
 
 ---
 
-## Status mesin
+## Status perangkat
 
-**⚙ → Status mesin.** Satu baris per Mac: app yang sedang di depan, beban, memori, lama nyala, latency, dan apakah Accessibility sudah diizinkan.
+**⚙ → Status perangkat.** Satu baris per perangkat: app yang sedang di depan, beban, memori, lama nyala, latency, dan apakah Accessibility sudah diizinkan.
 
 **Beban ditampilkan per core** karena itu angka yang artinya sama di laptop 4-core dan desktop 12-core — dan itu justru gunanya halaman ini. Warnanya berubah kuning di atas 70%.
 
@@ -370,7 +370,9 @@ Datanya **hanya diminta selagi panel setelan terbuka**. Tidak ada yang disampel 
 
 **Bahasa antarmuka** ada di paling atas panel setelan: Indonesia atau English, berlaku seketika tanpa reload.
 
-Yang **tidak** ikut berubah — dan memang tidak boleh: **nama halaman deck dan label tombol deck**. Semua itu datang dari `deck.json` milik Mac, bukan dari aplikasi. Kalau tombol lo bertuliskan "Tidurkan Layar", dia tetap begitu di mode English, karena itu tulisan lo sendiri.
+Yang **tidak** ikut berubah — dan memang tidak boleh: **nama halaman deck dan label tombol deck**. Semua itu ada di `deck.json` milik perangkat dan jadi milik siapa pun yang menulisnya; mengganti nama tombol tulisan sendiri bukan urusan aplikasi.
+
+Tapi **deck bawaan** yang dibuat saat pertama jalan itu tulisan KAMI, jadi sekarang berbahasa Inggris (`General`, `Sleep Display`, `Wake Display`). `deck.json` yang sudah ada tidak pernah ditimpa — kalau mau ikut deck bawaan yang baru, ganti nama file lama lalu jalankan ulang `deckd`.
 
 | Setelan | Arti |
 |---|---|
@@ -387,11 +389,11 @@ Yang **tidak** ikut berubah — dan memang tidak boleh: **nama halaman deck dan 
 | **Suara tombol** | jenis (Tik / Thock / Pop / Tipis) dan volume; `0` = mati. Trackpad memang tidak berbunyi |
 | **Pasang ke layar depan** | lihat bagian PWA di bawah |
 | **Ping / keepalive** | makin kecil, radio wifi makin jarang tidur — lebih boros baterai. Saat menganggur, ping otomatis melambat ke 2 detik |
-| **Mac lain** | tambah, beri nama, urutkan, hapus |
-| **Papan klip antar mesin** | ambil / taruh |
-| **Status mesin** | kondisi tiap Mac |
+| **Perangkat lain** | tambah, beri nama, urutkan, hapus |
+| **Papan klip antar perangkat** | ambil / taruh |
+| **Status perangkat** | kondisi tiap perangkat |
 | **Panel debug** | lihat bawah |
-| **Device yang dipasangkan** | tablet/HP yang boleh mengendalikan Mac aktif; mencabut langsung memutus koneksinya |
+| **Tablet & HP terpasang** | yang boleh mengendalikan perangkat aktif; mencabut langsung memutus koneksinya |
 
 Semua setelan disimpan per perangkat.
 
@@ -405,7 +407,7 @@ Semua setelan disimpan per perangkat.
 
 | Grup | Isi |
 |---|---|
-| **koneksi** | Mac aktif, alamat, transport (ws/wss), status, izin Accessibility, ringkasan Mac lain |
+| **koneksi** | perangkat aktif, alamat, transport (ws/wss), status, izin Accessibility, ringkasan perangkat lain |
 | **latency** | rtt terakhir, p50/p95 (berwarna sesuai ambang), min/max, jumlah sampel, mode ping aktif/idle |
 | **trafik** | frame/detik, total kirim, refresh Hz Mac, status loop animasi |
 | **sentuhan** | jumlah jari, mode, drag, jarak gestur vs ambang, sisa sub-piksel |
@@ -465,8 +467,8 @@ make uninstall    # cabut lagi
 | Tablet tidak bisa membuka alamatnya | Beda jaringan, atau firewall Mac. Cek dengan `make ip` |
 | Kode pairing selalu salah | Kode sekali pakai. Ambil yang baru dengan `make code` |
 | Layar tablet tidur terus | Sedang lewat HTTP. Wake Lock butuh HTTPS — `make cert` |
-| Satu fitur jalan di satu Mac tapi tidak di Mac lain | Mac itu belum di-`make build` setelah `git pull`. Panel debug akan menampilkan `injector nolak` |
-| Nyeberang di tepi tidak terjadi | Cek urutan meja di **⚙ → Mac lain**, dan baris `nyeberang gagal` di panel debug |
+| Satu fitur jalan di satu perangkat tapi tidak di yang lain | Perangkat itu belum di-`make build` setelah `git pull`. Panel debug akan menampilkan `injector nolak` |
+| Nyeberang di tepi tidak terjadi | Cek urutan meja di **⚙ → Perangkat lain**, dan baris `nyeberang gagal` di panel debug |
 | Gestur tiga jari tidak pindah desktop | Cek *System Settings → Keyboard → Shortcuts → Mission Control* masih aktif |
 | Muncul popup asing saat menahan dua jari | Itu fitur browsernya, bukan SwitchDeck. Coba browser lain — misalnya Vivaldi di Android memunculkan popup QR yang tidak bisa ditekan oleh halaman |
 | Dobel tap tidak membuka apa-apa | Pastikan `make build` sudah dijalankan; perbaikan click count ada di sisi Swift |

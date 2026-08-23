@@ -765,7 +765,7 @@
   // daripada satu bahasa yang konsisten.
   var I18N = {
     id: {
-      'pair.hint': 'Masukkan kode 6 digit yang dicetak di terminal Mac.',
+      'pair.hint': 'Masukkan kode 6 digit yang dicetak di terminal perangkat itu.',
       'pair.button': 'Pasangkan',
       'pair.noaddr': 'alamatnya belum diisi',
       'pair.unreachable': 'tidak bisa menghubungi ',
@@ -789,7 +789,7 @@
       'set.natural.hint': 'konten ikut arah jari',
       'set.tap': 'Tap buat klik',
       'set.edge': 'Nyeberang di tepi layar',
-      'set.edge.hint': 'dorong kursor terus ke tepi kiri/kanan sampai mentok, kendali pindah ke Mac sebelahnya. Urutan Mac diatur di "Mac lain" di bawah',
+      'set.edge.hint': 'dorong kursor terus ke tepi kiri/kanan sampai mentok, kendali pindah ke perangkat sebelahnya. Urutannya diatur di "Perangkat lain" di bawah',
       'set.holddrag': 'Tahan buat drag',
       'set.holddrag.hint': 'tahan diam ~0,45 detik lalu geser — cahayanya berubah hijau saat aktif. Ini satu-satunya cara drag di Mission Control, karena tap di sana malah menutupnya',
       'set.swipe': 'Geser 3 jari kiri/kanan',
@@ -799,6 +799,7 @@
 
       'set.sound': 'Suara tombol',
       'set.sound.kind': 'Jenis',
+      'sound.tik': 'Tik', 'sound.thock': 'Thock', 'sound.pop': 'Pop', 'sound.tipis': 'Tipis',
       'set.volume': 'Volume',
       'set.volume.hint': '0 = mati. Trackpad tidak berbunyi — permukaan, bukan tombol',
       'set.off': 'mati',
@@ -811,17 +812,17 @@
       'set.install.no': 'Browser belum menawarkan pemasangan. Coba lewat menu ⋮ → Add to Home screen.',
 
       'set.conn': 'Koneksi',
-      'set.conn.status': 'Status Mac aktif',
+      'set.conn.status': 'Status perangkat aktif',
       'set.screen': 'Layar tablet',
       'set.screen.hint': 'wake lock browser — mati kalau bukan https',
       'set.keepalive': 'Ping / keepalive',
       'set.keepalive.hint': 'makin kecil, radio wifi makin jarang tidur — boros baterai',
 
-      'set.hosts': 'Mac lain',
+      'set.hosts': 'Perangkat lain',
       'set.hosts.add': 'Tambah',
       'set.hosts.code': 'kode 6 digit',
-      'set.hosts.msg': 'Jalankan <code>make code</code> di Mac itu untuk kodenya.',
-      'set.hosts.order': 'Susunan di meja, kiri ke kanan — ini yang dipakai "nyeberang di tepi layar". Geser pakai ◀ ▶ di tiap baris.',
+      'set.hosts.msg': 'Jalankan <code>make code</code> di perangkat itu untuk kodenya.',
+      'set.hosts.order': 'Susunan perangkat di meja, kiri ke kanan — ini yang dipakai "nyeberang di tepi layar". Geser pakai ◀ ▶ di tiap baris.',
       'set.hosts.name': 'kasih nama',
       'set.hosts.left': 'geser kiri',
       'set.hosts.right': 'geser kanan',
@@ -829,7 +830,7 @@
       'desk.left': 'kiri',
       'desk.right': 'kanan',
 
-      'set.clip': 'Papan klip antar mesin',
+      'set.clip': 'Papan klip antar perangkat',
       'set.clip.hint': 'Selalu manual — tidak ada yang tersalin sendiri. Isinya cuma disimpan di memori tablet, tidak pernah ditulis ke penyimpanan dan tidak pernah masuk log.',
       'clip.take': 'Ambil dari:',
       'clip.put': 'Taruh ke:',
@@ -838,7 +839,7 @@
       'clip.empty': 'Papan klip {0} kosong.',
       'clip.held': 'Dari {0} · {1} karakter · "{2}"',
 
-      'set.stat': 'Status mesin',
+      'set.stat': 'Status perangkat',
       'set.stat.hint': 'Cuma diminta selagi panel ini terbuka — tidak ada yang disampel di belakang layar.',
       'stat.load': 'beban',
       'stat.ram': 'RAM',
@@ -850,8 +851,8 @@
       'set.debug.panel': 'Panel debug',
       'set.debug.hint': 'koneksi, latency, ping, frame/s, sentuhan & gestur, deck, dan kondisi tablet — melayang di pojok kiri bawah, sentuhan tetap tembus',
 
-      'set.devices': 'Device yang dipasangkan',
-      'set.devices.hint': 'Tablet atau HP yang boleh mengendalikan Mac aktif. Mencabut langsung memutus koneksinya.',
+      'set.devices': 'Tablet & HP terpasang',
+      'set.devices.hint': 'Tablet atau HP yang boleh mengendalikan perangkat aktif. Mencabut langsung memutus koneksinya.',
       'set.devices.this': 'ini',
       'set.devices.paired': 'dipasangkan ',
       'set.devices.confirm': 'Ini device yang lagi kamu pakai. Cabut dan putus sekarang?',
@@ -867,7 +868,7 @@
       'layout.swap': 'trackpad atas + keyboard bawah',
       'layout.kb': 'keyboard saja',
       'bar.layout': 'tata letak',
-      'bar.host': 'pilih Mac',
+      'bar.host': 'pilih perangkat',
       'bar.fullscreen': 'layar penuh',
       'bar.settings': 'setelan',
 
@@ -875,8 +876,8 @@
       'deck.auto': 'Auto',
       'deck.error': 'deck.json ada salah ketik, jadi deck terakhir yang benar tetap dipakai: ',
 
-      'warn.trust': 'Mac ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di Mac itu.',
-      'warn.relay': 'Nyambung lewat Tailscale, bukan jaringan lokal — bisa kerelai lewat server di negara lain. Kalau tablet ini satu wifi sama Mac-nya, buka <b>{0}</b> dan pasangkan ulang.',
+      'warn.trust': 'Perangkat ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.',
+      'warn.relay': 'Nyambung lewat Tailscale, bukan jaringan lokal — bisa kerelai lewat server di negara lain. Kalau tablet ini satu wifi sama perangkatnya, buka <b>{0}</b> dan pasangkan ulang.',
 
       'gest.next': 'desktop berikutnya',
       'gest.prev': 'desktop sebelumnya',
@@ -890,7 +891,7 @@
       'wake.free': 'layar bisa tidur',
       'wake.http': 'http — layar bisa tidur',
 
-      'dbg.conn': 'koneksi', 'dbg.mac': 'mac', 'dbg.addr': 'alamat',
+      'dbg.conn': 'koneksi', 'dbg.mac': 'perangkat', 'dbg.addr': 'alamat',
       'dbg.transport': 'transport', 'dbg.tls': 'wss (tls)', 'dbg.plain': 'ws (polos)',
       'dbg.status': 'status', 'dbg.access': 'accessibility', 'dbg.others': 'host lain',
       'dbg.latency': 'latency', 'dbg.last': 'terakhir', 'dbg.minmax': 'min / max',
@@ -917,13 +918,13 @@
       'dbg.audio': 'audio', 'dbg.audionone': 'belum dibuat',
       'dbg.layout': 'tata letak', 'dbg.rejected': 'injector nolak',
       'dbg.none': '—', 'dbg.unmapped': 'tepi {0} belum dipetakan',
-      'dbg.nohostside': 'tidak ada Mac di sebelah {0} — atur urutan di Setelan → Mac lain',
+      'dbg.nohostside': 'tidak ada perangkat di sebelah {0} — atur urutan di Setelan → Perangkat lain',
       'dbg.hostgone': '{0} tidak terhubung', 'dbg.noactive': 'host aktif tidak ada di daftar',
       'dbg.sideleft': 'kiri', 'dbg.sideright': 'kanan'
     },
 
     en: {
-      'pair.hint': 'Enter the 6-digit code printed in the Mac’s terminal.',
+      'pair.hint': 'Enter the 6-digit code printed in that device’s terminal.',
       'pair.button': 'Pair',
       'pair.noaddr': 'address is empty',
       'pair.unreachable': 'cannot reach ',
@@ -947,7 +948,7 @@
       'set.natural.hint': 'content follows the finger',
       'set.tap': 'Tap to click',
       'set.edge': 'Cross at the screen edge',
-      'set.edge.hint': 'keep pushing the cursor into the left/right edge and control moves to the Mac beside it. Set the order under "Other Macs" below',
+      'set.edge.hint': 'keep pushing the cursor into the left/right edge and control moves to the device beside it. Set the order under "Other devices" below',
       'set.holddrag': 'Hold to drag',
       'set.holddrag.hint': 'hold still for ~0.45s then move — the glow turns green while dragging. This is the only way to drag in Mission Control, where a tap dismisses it instead',
       'set.swipe': 'Three-finger swipe left/right',
@@ -957,6 +958,7 @@
 
       'set.sound': 'Key sound',
       'set.sound.kind': 'Type',
+      'sound.tik': 'Tick', 'sound.thock': 'Thock', 'sound.pop': 'Pop', 'sound.tipis': 'Soft',
       'set.volume': 'Volume',
       'set.volume.hint': '0 = off. The trackpad stays silent — it is a surface, not a key',
       'set.off': 'off',
@@ -969,17 +971,17 @@
       'set.install.no': 'The browser has not offered installation. Try the ⋮ menu → Add to Home screen.',
 
       'set.conn': 'Connection',
-      'set.conn.status': 'Active Mac',
+      'set.conn.status': 'Active device',
       'set.screen': 'Tablet screen',
       'set.screen.hint': 'browser wake lock — unavailable without https',
       'set.keepalive': 'Ping / keepalive',
       'set.keepalive.hint': 'the smaller it is, the less the wifi radio sleeps — heavier on battery',
 
-      'set.hosts': 'Other Macs',
+      'set.hosts': 'Other devices',
       'set.hosts.add': 'Add',
       'set.hosts.code': '6-digit code',
-      'set.hosts.msg': 'Run <code>make code</code> on that Mac to get its code.',
-      'set.hosts.order': 'Arrangement on the desk, left to right — this is what "cross at the screen edge" reads. Reorder with ◀ ▶ on each row.',
+      'set.hosts.msg': 'Run <code>make code</code> on that device to get its code.',
+      'set.hosts.order': 'Arrangement of devices on the desk, left to right — this is what "cross at the screen edge" reads. Reorder with ◀ ▶ on each row.',
       'set.hosts.name': 'give it a name',
       'set.hosts.left': 'move left',
       'set.hosts.right': 'move right',
@@ -987,7 +989,7 @@
       'desk.left': 'left',
       'desk.right': 'right',
 
-      'set.clip': 'Clipboard between machines',
+      'set.clip': 'Clipboard between devices',
       'set.clip.hint': 'Always manual — nothing is copied on its own. It is held in the tablet’s memory only: never written to storage, never logged.',
       'clip.take': 'Take from:',
       'clip.put': 'Put on:',
@@ -996,7 +998,7 @@
       'clip.empty': '{0}’s clipboard is empty.',
       'clip.held': 'From {0} · {1} characters · "{2}"',
 
-      'set.stat': 'Machine status',
+      'set.stat': 'Device status',
       'set.stat.hint': 'Asked for only while this panel is open — nothing is sampled in the background.',
       'stat.load': 'load',
       'stat.ram': 'RAM',
@@ -1008,8 +1010,8 @@
       'set.debug.panel': 'Debug panel',
       'set.debug.hint': 'connection, latency, ping, frames/s, touch & gestures, deck, and tablet state — floats bottom-left, touches pass straight through',
 
-      'set.devices': 'Paired devices',
-      'set.devices.hint': 'Tablets or phones allowed to drive the active Mac. Revoking disconnects it immediately.',
+      'set.devices': 'Paired tablets & phones',
+      'set.devices.hint': 'Tablets or phones allowed to drive the active device. Revoking disconnects it immediately.',
       'set.devices.this': 'this one',
       'set.devices.paired': 'paired ',
       'set.devices.confirm': 'This is the device you are using. Revoke and disconnect now?',
@@ -1025,7 +1027,7 @@
       'layout.swap': 'trackpad above, keyboard below',
       'layout.kb': 'keyboard only',
       'bar.layout': 'layout',
-      'bar.host': 'choose a Mac',
+      'bar.host': 'choose a device',
       'bar.fullscreen': 'fullscreen',
       'bar.settings': 'settings',
 
@@ -1033,8 +1035,8 @@
       'deck.auto': 'Auto',
       'deck.error': 'deck.json has a typo, so the last good deck is still in use: ',
 
-      'warn.trust': 'This Mac has not granted Accessibility — every movement will be dropped silently. Run `make doctor` on it.',
-      'warn.relay': 'Connected over Tailscale rather than the local network — it may be relayed through a server abroad. If this tablet is on the same wifi as the Mac, open <b>{0}</b> and pair again.',
+      'warn.trust': 'This device has not granted Accessibility — every movement will be dropped silently. Run `make doctor` on it.',
+      'warn.relay': 'Connected over Tailscale rather than the local network — it may be relayed through a server abroad. If this tablet is on the same wifi as the device, open <b>{0}</b> and pair again.',
 
       'gest.next': 'next desktop',
       'gest.prev': 'previous desktop',
@@ -1048,7 +1050,7 @@
       'wake.free': 'screen may sleep',
       'wake.http': 'http — screen may sleep',
 
-      'dbg.conn': 'connection', 'dbg.mac': 'mac', 'dbg.addr': 'address',
+      'dbg.conn': 'connection', 'dbg.mac': 'device', 'dbg.addr': 'address',
       'dbg.transport': 'transport', 'dbg.tls': 'wss (tls)', 'dbg.plain': 'ws (plain)',
       'dbg.status': 'status', 'dbg.access': 'accessibility', 'dbg.others': 'other hosts',
       'dbg.latency': 'latency', 'dbg.last': 'last', 'dbg.minmax': 'min / max',
@@ -1075,7 +1077,7 @@
       'dbg.audio': 'audio', 'dbg.audionone': 'not created',
       'dbg.layout': 'layout', 'dbg.rejected': 'injector refused',
       'dbg.none': '—', 'dbg.unmapped': 'edge {0} is not mapped',
-      'dbg.nohostside': 'no Mac to the {0} — set the order in Settings → Other Macs',
+      'dbg.nohostside': 'no device to the {0} — set the order in Settings → Other devices',
       'dbg.hostgone': '{0} is not connected', 'dbg.noactive': 'active host is not in the list',
       'dbg.sideleft': 'left', 'dbg.sideright': 'right'
     }
@@ -2838,9 +2840,12 @@
 
   function rebuildPickers() {
     buildPicker('s-swipe', { space: t('set.swipe.space'), app: t('set.swipe.app') }, 'swipe');
-    // Nama suara tidak diterjemahkan: itu nama bunyi, bukan kalimat.
-    buildPicker('s-sound', { tik: 'Tik', thock: 'Thock', pop: 'Pop', tipis: 'Tipis' }, 'sound',
-                function () { clickSound(false); });
+    // Tik/Thock/Pop itu tiruan bunyi dan berlaku di dua bahasa; "Tipis" adalah
+    // kata Indonesia dan tidak. Jadi keempatnya lewat kamus, bukan sebagian.
+    buildPicker('s-sound', {
+      tik: t('sound.tik'), thock: t('sound.thock'),
+      pop: t('sound.pop'), tipis: t('sound.tipis')
+    }, 'sound', function () { clickSound(false); });
   }
   rebuildPickers();
   el('s-keepalive').addEventListener('change', function () {

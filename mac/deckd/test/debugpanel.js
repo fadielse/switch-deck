@@ -179,5 +179,24 @@ ok(onlyId.length === 0 && onlyEn.length === 0,
 ok(enKeys.filter((k) => !String(dict.en[k]).trim()).length === 0,
    'tidak ada terjemahan Inggris yang kosong');
 
+// 8. Kata Indonesia yang tersasar ke kamus Inggris. Kesalahan ini tidak
+//    melempar apa pun — dia cuma tampil, dan cuma ketahuan kalau ada yang
+//    membaca layarnya.
+const idGiveaways = ['yang ', 'tidak ', 'belum ', 'perangkat', 'layar ', 'jari ',
+                     'mesin', 'setelan', 'kiri', 'kanan', 'mati'];
+const dirty = enKeys.filter((k) => {
+  const v = String(dict.en[k]).toLowerCase();
+  return idGiveaways.some((w) => v.includes(w));
+});
+ok(dirty.length === 0, 'tidak ada kata Indonesia yang tersasar ke kamus Inggris',
+   dirty.map((k) => k + '=' + dict.en[k]).join(' | '));
+
+// 9. Istilah host sudah digeneralkan dari "Mac" jadi perangkat/device, karena
+//    host berikutnya direncanakan bukan Mac. Ini menjaganya tidak kembali.
+const macish = [...idKeys].filter((k) =>
+  /\bMacs?\b/.test(String(dict.id[k])) || /\bMacs?\b/.test(String(dict.en[k])));
+ok(macish.length === 0, 'tidak ada kamus yang menyebut "Mac" — istilahnya perangkat/device',
+   macish.join(', '));
+
 console.log('\n' + pass + ' pass, ' + fail + ' fail');
 process.exit(fail ? 1 : 0);

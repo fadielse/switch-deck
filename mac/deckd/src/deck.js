@@ -32,14 +32,14 @@ function defaultDeck() {
   return {
     pages: [
       {
-        name: 'Umum',
+        name: 'General',
         keys: [
           { id: 'copy', label: 'Copy', hint: '⌘C', action: { type: 'shortcut', keys: ['cmd', 'c'] } },
           { id: 'paste', label: 'Paste', hint: '⌘V', action: { type: 'shortcut', keys: ['cmd', 'v'] } },
           { id: 'undo', label: 'Undo', hint: '⌘Z', action: { type: 'shortcut', keys: ['cmd', 'z'] } },
           { id: 'shot', label: 'Screenshot', hint: '⌘⇧4', action: { type: 'shortcut', keys: ['cmd', 'shift', '4'] } },
           { id: 'mission', label: 'Mission Control', color: '#2c405c', action: { type: 'open_app', app: 'Mission Control' } },
-          { id: 'sleep', label: 'Tidurkan Layar', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } }
+          { id: 'sleep', label: 'Sleep Display', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } }
         ]
       },
       {
@@ -67,7 +67,7 @@ function defaultDeck() {
           { id: 'xc-nav', label: 'Navigator', hint: '⌘0', action: { type: 'shortcut', keys: ['cmd', '0'] } }
         ]
       },
-      { name: 'App', keys: appPage() }
+      { name: 'Apps', keys: appPage() }
     ]
   };
 }

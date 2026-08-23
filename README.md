@@ -22,9 +22,9 @@ One tablet can drive **several Macs at once**: all of them stay connected, and c
 8. [Keyboard](#keyboard)
 9. [Deck](#deck)
 10. [Layouts](#layouts)
-11. [Several Macs at once](#several-macs-at-once)
-12. [Clipboard between machines](#clipboard-between-machines)
-13. [Machine status](#machine-status)
+11. [Several devices at once](#several-devices-at-once)
+12. [Clipboard between devices](#clipboard-between-devices)
+13. [Device status](#device-status)
 14. [Settings](#settings)
 15. [Debug panel](#debug-panel)
 16. [Add to home screen (PWA) & HTTPS](#add-to-home-screen-pwa--https)
@@ -129,7 +129,7 @@ Left to right along the top bar:
 | Part | What it does |
 |---|---|
 | **SwitchDeck wordmark** | identity; the name hides on a narrow screen |
-| **Mac chip** | status dot plus the name of the Mac being driven. Tap it to switch Macs (when there is more than one) |
+| **Device chip** | status dot plus the name of the device being driven. Tap it to switch (when there is more than one) |
 | **Deck page tabs** | `None`, `Auto`, then a tab per page from `deck.json`. Scrolls sideways |
 | **Layout button** | cycles through the four arrangements; the icon draws the one you are **currently** in |
 | **⛶** | fullscreen |
@@ -222,7 +222,7 @@ That file is written on first run, and its App page is **filled only with applic
 | `label` | — | text on the button (defaults to `id`) |
 | `hint` | — | small second line under the label |
 | `color` | — | background colour, e.g. `#2c405c` |
-| `host` | — | run it on **another Mac** — see [cross-machine buttons](#buttons-that-run-on-another-mac) |
+| `host` | — | run it on **another device** — see [cross-device buttons](#buttons-that-run-on-another-device) |
 | `action` | yes | what to carry out |
 
 ### Action types
@@ -289,19 +289,19 @@ The chosen layout is remembered per device.
 
 ---
 
-## Several Macs at once
+## Several devices at once
 
-Every Mac is connected **at the same time**, but only one receives input at any moment. The tablet owns every connection — the Macs never talk to each other, so one Mac going down does not take the others with it.
+Every device is connected **at the same time**, but only one receives input at any moment. The tablet owns every connection — the devices never talk to each other, so one going down does not take the others with it.
 
-### Adding a second Mac
+### Adding a second device
 
-On the new Mac: `make deckd`, then `make code` for its code. On the tablet: **⚙ → Other Macs → enter the address and code → Add**.
+On the new device: `make deckd`, then `make code` for its code. On the tablet: **⚙ → Other devices → enter the address and code → Add**.
 
-![Other Macs settings](docs/img/en/ss-set-hosts.png)
+![Other devices settings](docs/img/en/ss-set-hosts.png)
 
 ### Desk order
 
-The strip above the list draws the **physical** arrangement of the Macs on your desk, left to right:
+The strip above the list draws the **physical** arrangement of the devices on your desk, left to right:
 
 ```
 left   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   right
@@ -313,13 +313,13 @@ This order is **not cosmetic** — it is what the crossing feature below reads.
 
 ### Crossing at the screen edge
 
-Keep pushing the cursor into the right edge and control moves to the Mac to its right. The cursor appears on the far machine at the facing edge, at the same height, so the crossing reads as continuous.
+Keep pushing the cursor into the right edge and control moves to the device to its right. The cursor appears on the far machine at the facing edge, at the same height, so the crossing reads as continuous.
 
 To keep an ordinary bump against the edge from moving anything, **both** conditions must hold: about 90 px of motion swallowed **and** the push sustained for at least ~0.1 s. There is a 0.7 s pause afterwards. It can be switched off in settings.
 
-If it refuses to cross, the **debug panel names the reason** (`crossing failed`): no Mac on that side, or that Mac is not connected.
+If it refuses to cross, the **debug panel names the reason** (`crossing failed`): no device on that side, or that device is not connected.
 
-### Buttons that run on another Mac
+### Buttons that run on another device
 
 Give a deck button a `host` field:
 
@@ -328,35 +328,35 @@ Give a deck button a `host` field:
   "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
 ```
 
-That button always runs on the Mac it names, whichever one you are driving — build on the Mac mini while you carry on typing on the MacBook.
+That button always runs on the device it names, whichever one you are driving — build on the Mac mini while you carry on typing on the MacBook.
 
 Two things follow from the rule that the tablet sends an id and never a command:
 
 - **The id is resolved on the machine it reaches.** `host: "MacBook Pro"` means *"run the macro called `build` over there"*, and the MacBook's own `deck.json` decides what `build` does. Each machine stays the authority on what its own ids mean.
 - **The `action` beside `host` is what runs locally**, on the machine whose file this is. It is never sent anywhere.
 
-`host` is matched against the name shown in the tablet's host list (or the address). The button is drawn with a **dashed border** and the target's name, and goes **dim** when that machine is not connected.
+`host` is matched against the name shown in the tablet's device list (or the address). The button is drawn with a **dashed border** and the target's name, and goes **dim** when that device is not connected.
 
 ---
 
-## Clipboard between machines
+## Clipboard between devices
 
-**⚙ → Clipboard between machines.**
+**⚙ → Clipboard between devices.**
 
-![Clipboard and machine status](docs/img/en/ss-set-clip.png)
+![Clipboard and device status](docs/img/en/ss-set-clip.png)
 
-- **Take from** Mac X → the contents are held on the tablet.
-- **Put on** Mac Y → the contents are written to that Mac's clipboard.
+- **Take from** device X → the contents are held on the tablet.
+- **Put on** device Y → the contents are written to that device's clipboard.
 
-**Always manual, never automatic.** Automatic clipboard sync between machines sounds like convenience and is actually a leak — password managers put passwords on the clipboard, and copying those elsewhere unasked is invisible until it is too late.
+**Always manual, never automatic.** Automatic clipboard sync between devices sounds like convenience and is actually a leak — password managers put passwords on the clipboard, and copying those elsewhere unasked is invisible until it is too late.
 
 The limits: **text only**, at most 16 KB, held in the **tablet's memory alone** (gone on reload, never written to storage), and **never logged** at any hop.
 
 ---
 
-## Machine status
+## Device status
 
-**⚙ → Machine status.** One row per Mac: the app in front, load, memory, uptime, latency, and whether Accessibility has been granted.
+**⚙ → Device status.** One row per device: the app in front, load, memory, uptime, latency, and whether Accessibility has been granted.
 
 **Load is shown per core**, because that is the number meaning the same thing on a four-core laptop and a twelve-core desktop — which is the whole point of this view. It turns amber past 70%.
 
@@ -370,7 +370,9 @@ The figures are **only requested while the settings panel is open**. Nothing is 
 
 **Interface language** sits at the very top of the panel: Indonesia or English, applied immediately without a reload.
 
-What does **not** change with it — and must not: **deck page names and deck button labels**. Those come from the Mac's `deck.json`, not from the application. A button reading "Tidurkan Layar" stays that way in English mode, because that text is yours.
+What does **not** change with it — and must not: **deck page names and deck button labels**. Those live in `deck.json` on the device and belong to whoever wrote them; renaming a button you wrote is not the app's business.
+
+The starter deck it generates on first run *is* ours, so it is written in English (`General`, `Sleep Display`, `Wake Display`). An existing `deck.json` is never rewritten — to pick up the new starter deck, rename yours and restart `deckd`.
 
 | Setting | Meaning |
 |---|---|
@@ -387,11 +389,11 @@ What does **not** change with it — and must not: **deck page names and deck bu
 | **Key sound** | type (Tik / Thock / Pop / Tipis) and volume; `0` = off. The trackpad stays silent by design |
 | **Add to home screen** | see the PWA section below |
 | **Ping / keepalive** | the smaller it is, the less the wifi radio sleeps — heavier on battery. When idle, the ping slows to 2 seconds on its own |
-| **Other Macs** | add, name, reorder, remove |
-| **Clipboard between machines** | take / put |
-| **Machine status** | the state of each Mac |
+| **Other devices** | add, name, reorder, remove |
+| **Clipboard between devices** | take / put |
+| **Device status** | the state of each device |
 | **Debug panel** | see below |
-| **Paired devices** | tablets and phones allowed to drive the active Mac; revoking disconnects them at once |
+| **Paired tablets & phones** | devices allowed to drive the active one; revoking disconnects them at once |
 
 Every setting is stored per device.
 
@@ -405,7 +407,7 @@ Every setting is stored per device.
 
 | Group | Contents |
 |---|---|
-| **connection** | active Mac, address, transport (ws/wss), status, Accessibility, a summary of the other Macs |
+| **connection** | active device, address, transport (ws/wss), status, Accessibility, a summary of the others |
 | **latency** | last rtt, p50/p95 (coloured by threshold), min/max, sample count, ping mode active/idle |
 | **traffic** | frames per second, total sent, the Mac's refresh rate, animation-loop state |
 | **touch** | finger count, mode, drag, gesture distance against its threshold, sub-pixel remainder |
@@ -465,8 +467,8 @@ make uninstall    # remove it again
 | The tablet cannot open the address | Different network, or the Mac's firewall. Check with `make ip` |
 | The pairing code is always wrong | The code is single-use. Get a fresh one with `make code` |
 | The tablet screen keeps sleeping | You are on plain HTTP. Wake Lock needs HTTPS — `make cert` |
-| A feature works on one Mac but not another | That Mac has not been rebuilt after `git pull`. The debug panel will show `injector refused` |
-| Crossing at the edge does nothing | Check the desk order in **⚙ → Other Macs**, and the `crossing failed` row in the debug panel |
+| A feature works on one device but not another | That device has not been rebuilt after `git pull`. The debug panel will show `injector refused` |
+| Crossing at the edge does nothing | Check the desk order in **⚙ → Other devices**, and the `crossing failed` row in the debug panel |
 | Three-finger gestures do not switch desktops | Check *System Settings → Keyboard → Shortcuts → Mission Control* is still enabled |
 | A strange popup appears on a two-finger hold | That belongs to the browser, not to SwitchDeck. Try another browser — Vivaldi on Android, for instance, raises a QR popup the page cannot suppress |
 | Double tap opens nothing | Make sure `make build` has been run; the click-count fix lives on the Swift side |
