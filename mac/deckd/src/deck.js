@@ -39,7 +39,13 @@ function defaultDeck() {
           { id: 'undo', label: 'Undo', hint: '⌘Z', action: { type: 'shortcut', keys: ['cmd', 'z'] } },
           { id: 'shot', label: 'Screenshot', hint: '⌘⇧4', action: { type: 'shortcut', keys: ['cmd', 'shift', '4'] } },
           { id: 'mission', label: 'Mission Control', color: '#2c405c', action: { type: 'open_app', app: 'Mission Control' } },
-          { id: 'sleep', label: 'Sleep Display', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } }
+          { id: 'sleep', label: 'Sleep Display', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } },
+          // The counterpart to sleep. It was added to a live deck.json while
+          // the feature was built and never made it back here, so every new
+          // install had a way to switch the display off and none to switch it
+          // on again — which is exactly the walk to the physical mouse the
+          // deck exists to avoid.
+          { id: 'wake', label: 'Wake Display', color: '#24402c', action: { type: 'shell', command: 'caffeinate', args: ['-u', '-t', '1'] } }
         ]
       },
       {
