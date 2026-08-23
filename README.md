@@ -1,204 +1,204 @@
 # SwitchDeck
 
-Tablet Android jadi **trackpad + keyboard + deck makro** untuk Mac — lewat browser, tanpa install apa pun di tablet.
+Turn an Android tablet into a **trackpad, keyboard and macro deck** for a Mac — through the browser, with nothing to install on the tablet.
 
-Satu tablet bisa menyetir **beberapa Mac sekaligus**: semua tersambung barengan, dan kendali berpindah dengan mendorong kursor ke tepi layar.
+One tablet can drive **several Macs at once**: all of them stay connected, and control crosses over by pushing the cursor into the edge of the screen.
 
-![Layar utama SwitchDeck](docs/img/ss-main.png)
+![SwitchDeck main screen](docs/img/en/ss-main.png)
 
-> 📖 Versi HTML dengan gambar lebih besar dan daftar isi di samping: buka **[docs/index.html](docs/index.html)** di browser.
+> 🇮🇩 **Bahasa Indonesia:** [README.id.md](README.id.md) · 📖 HTML version with larger images: open **[docs/index.html](docs/index.html)** in a browser.
 
 ---
 
-## Daftar isi
+## Contents
 
-1. [Apa ini, dan apa yang bukan](#apa-ini-dan-apa-yang-bukan)
-2. [Yang dibutuhkan](#yang-dibutuhkan)
-3. [Pasang di Mac](#pasang-di-mac)
-4. [Izin macOS](#izin-macos)
-5. [Sambungkan tablet (pairing)](#sambungkan-tablet-pairing)
-6. [Mengenal layar](#mengenal-layar)
+1. [What it is, and what it is not](#what-it-is-and-what-it-is-not)
+2. [Requirements](#requirements)
+3. [Install on the Mac](#install-on-the-mac)
+4. [macOS permissions](#macos-permissions)
+5. [Connect the tablet (pairing)](#connect-the-tablet-pairing)
+6. [The screen, part by part](#the-screen-part-by-part)
 7. [Trackpad](#trackpad)
 8. [Keyboard](#keyboard)
 9. [Deck](#deck)
-10. [Tata letak](#tata-letak)
-11. [Beberapa Mac sekaligus](#beberapa-mac-sekaligus)
-12. [Papan klip antar mesin](#papan-klip-antar-mesin)
-13. [Status mesin](#status-mesin)
-14. [Setelan](#setelan)
-15. [Panel debug](#panel-debug)
-16. [Pasang ke layar depan (PWA) & HTTPS](#pasang-ke-layar-depan-pwa--https)
-17. [Jalan otomatis saat Mac nyala](#jalan-otomatis-saat-mac-nyala)
-18. [Kalau ada masalah](#kalau-ada-masalah)
-19. [Daftar perintah `make`](#daftar-perintah-make)
-20. [Cara kerjanya di dalam](#cara-kerjanya-di-dalam)
+10. [Layouts](#layouts)
+11. [Several Macs at once](#several-macs-at-once)
+12. [Clipboard between machines](#clipboard-between-machines)
+13. [Machine status](#machine-status)
+14. [Settings](#settings)
+15. [Debug panel](#debug-panel)
+16. [Add to home screen (PWA) & HTTPS](#add-to-home-screen-pwa--https)
+17. [Start automatically with the Mac](#start-automatically-with-the-mac)
+18. [When something goes wrong](#when-something-goes-wrong)
+19. [`make` command reference](#make-command-reference)
+20. [How it works inside](#how-it-works-inside)
 
 ---
 
-## Apa ini, dan apa yang bukan
+## What it is, and what it is not
 
-**Ini:** permukaan kendali. Tablet mengirim gerakan, ketikan, dan id tombol; Mac yang menjalankannya.
+**It is:** a control surface. The tablet sends motion, keystrokes and button ids; the Mac carries them out.
 
-**Bukan:**
+**It is not:**
 
-- **Bukan screen mirroring / remote desktop.** Layar Mac tidak pernah dikirim ke tablet. Kalau butuh itu, pakai Universal Control atau VNC.
-- **Bukan untuk dipakai dari luar rumah.** Dirancang untuk satu jaringan lokal.
-- **Bukan produk untuk orang lain.** Tidak ada akun, tidak ada cloud, tidak ada multi-user.
+- **Not screen mirroring or remote desktop.** The Mac's screen is never sent to the tablet. If that is what you need, use Universal Control or VNC.
+- **Not meant for use away from home.** It is built for a single local network.
+- **Not a product for other people.** No accounts, no cloud, no multi-user.
 
 ---
 
-## Yang dibutuhkan
+## Requirements
 
 | | |
 |---|---|
-| **Mac** | macOS dengan Xcode command line tools (untuk `swift build`) dan **Node.js 18+** |
-| **Tablet / HP** | apa saja yang punya browser modern dan layar sentuh multi-jari |
-| **Jaringan** | tablet dan Mac di **wifi yang sama**. Lewat Tailscale juga jalan, tapi latensinya lebih tinggi |
+| **Mac** | macOS with the Xcode command line tools (for `swift build`) and **Node.js 18+** |
+| **Tablet / phone** | anything with a modern browser and a multi-touch screen |
+| **Network** | tablet and Mac on the **same wifi**. Tailscale also works, at higher latency |
 
 ---
 
-## Pasang di Mac
+## Install on the Mac
 
 ```bash
 git clone https://github.com/fadielse/switch-deck.git
 cd switch-deck
-make build      # compile helper Swift (deckd-input)
-make deps       # dependency Node untuk server (deckd)
-make doctor     # cek izin & kesehatan
-make deckd      # jalankan server
+make build      # compile the Swift helper (deckd-input)
+make deps       # Node dependencies for the server (deckd)
+make doctor     # check permissions and health
+make deckd      # run the server
 ```
 
-`make deckd` akan mencetak sesuatu seperti ini:
+`make deckd` prints something like this:
 
 ```
 Buka di tablet:  http://192.168.1.213:8777/
 Kode pairing:    858417
 ```
 
-Biarkan terminal itu terbuka. Untuk menjalankannya otomatis tiap Mac nyala, lihat [Jalan otomatis saat Mac nyala](#jalan-otomatis-saat-mac-nyala).
+Leave that terminal open. To have it start on its own whenever the Mac boots, see [Start automatically with the Mac](#start-automatically-with-the-mac).
 
 ---
 
-## Izin macOS
+## macOS permissions
 
-SwitchDeck menyuntik input, jadi macOS mewajibkan izin **Accessibility**.
+SwitchDeck injects input, so macOS requires the **Accessibility** permission.
 
 ```bash
 make doctor
 ```
 
-Kalau tertulis `trusted : TIDAK`, buka:
+If it reports `trusted : TIDAK`, open:
 
-**System Settings → Privacy & Security → Accessibility**, lalu tambahkan binary ini:
+**System Settings → Privacy & Security → Accessibility**, and add this binary:
 
 ```
-<folder-repo>/mac/deckd-input/.build/release/deckd-input
+<repo-folder>/mac/deckd-input/.build/release/deckd-input
 ```
 
-Tekan **+**, lalu di dialog file tekan **⌘⇧G** dan tempel path di atas — folder `.build` disembunyikan Finder, jadi tidak bisa diklik dari daftar biasa.
+Press **+**, then in the file dialog press **⌘⇧G** and paste the path above — Finder hides the `.build` folder, so it cannot be reached by clicking through the list.
 
-Dua hal yang sering bikin bingung:
+Two things that regularly cause confusion:
 
-- **Izin menempel pada aplikasi induk.** Kalau `deckd` dijalankan dari Terminal, yang perlu diizinkan bisa jadi Terminal-nya. Kalau dijalankan lewat launchd (`make install`), yang diizinkan binary-nya langsung. `make doctor` mencetak rantai prosesnya supaya kelihatan siapa induknya.
-- **Setelah menambahkan izin, jalankan ulang `deckd`.** macOS tidak memberi izin ke proses yang sudah jalan.
+- **The permission belongs to the parent application.** If `deckd` is started from Terminal, it may be Terminal that needs to be allowed. If it is started by launchd (`make install`), the binary itself is what gets allowed. `make doctor` prints the process chain so you can see which one it actually is.
+- **Restart `deckd` after granting the permission.** macOS does not hand it to a process that is already running.
 
-Untuk fitur pindah desktop dan App Exposé, macOS juga akan meminta izin **Automation** (System Events) sekali saat pertama dipakai.
+Switching desktops and App Exposé also make macOS ask once for the **Automation** (System Events) permission.
 
 ---
 
-## Sambungkan tablet (pairing)
+## Connect the tablet (pairing)
 
-1. Buka alamat yang dicetak `make deckd` di browser tablet, misalnya `http://192.168.1.213:8777/`.
-2. Masukkan **kode 6 digit** yang tercetak di terminal.
-3. Tap **Pasangkan**.
+1. Open the address printed by `make deckd` in the tablet's browser, for example `http://192.168.1.213:8777/`.
+2. Type the **6-digit code** printed in the terminal.
+3. Tap **Pair**.
 
-Kode hanya sekali pakai dan ada rate-limit — tebakan beruntun langsung dijeda. Setelah berhasil, tablet menyimpan token-nya sendiri, jadi tidak perlu pairing lagi.
+![Pairing screen](docs/img/en/ss-pairing.png)
 
-Lupa kodenya? `make code` mencetaknya lagi.
+The code is single-use and rate-limited — repeated guesses are stalled immediately. Once it succeeds the tablet keeps its own token, so there is nothing to pair again.
 
-![Layar pairing di tablet](docs/img/ss-pairing-tablet.png)
+Lost the code? `make code` prints a fresh one.
 
 ---
 
-## Mengenal layar
+## The screen, part by part
 
-![Layar utama](docs/img/ss-main.png)
+![Main screen](docs/img/en/ss-main.png)
 
-Dari kiri ke kanan di bar atas:
+Left to right along the top bar:
 
-| Bagian | Fungsi |
+| Part | What it does |
 |---|---|
-| **Logo SwitchDeck** | penanda; nama menghilang di layar sempit |
-| **Chip Mac** | titik status + nama Mac yang sedang disetir. Tap untuk pindah Mac (kalau ada lebih dari satu) |
-| **Tab halaman deck** | `Kosong`, `Auto`, lalu nama tiap halaman dari `deck.json`. Bisa di-scroll ke samping |
-| **Tombol tata letak** | berputar antara 4 susunan; ikonnya menggambarkan susunan yang **sedang** dipakai |
+| **SwitchDeck wordmark** | identity; the name hides on a narrow screen |
+| **Mac chip** | status dot plus the name of the Mac being driven. Tap it to switch Macs (when there is more than one) |
+| **Deck page tabs** | `None`, `Auto`, then a tab per page from `deck.json`. Scrolls sideways |
+| **Layout button** | cycles through the four arrangements; the icon draws the one you are **currently** in |
 | **⛶** | fullscreen |
-| **⚙** | setelan |
+| **⚙** | settings |
 
-Bar atas tingginya **tetap** — tidak pernah tumbuh walaupun nama app di tab `Auto` panjang.
+The top bar has a **fixed height** — it never grows, however long the app name in the `Auto` tab happens to be.
 
 ---
 
 ## Trackpad
 
-Area besar di tengah. Sentuhan dikonfirmasi oleh **cahaya lembut yang mengikuti jari** — dua jari untuk scroll berarti dua cahaya.
+The large area in the middle. A touch is confirmed by **a soft glow that follows the finger** — two fingers for scrolling means two glows.
 
-| Gerakan | Hasil |
+| Gesture | Result |
 |---|---|
-| Satu jari geser | gerakkan kursor |
-| Satu jari tap | klik kiri |
-| **Dua tap cepat** | **dobel klik** — buka file, pilih kata |
-| Dua jari geser | scroll |
-| Dua jari tap | klik kanan |
-| Tap lalu tekan lagi, geser | drag |
-| **Tahan diam ~0,45 detik lalu geser** | **drag** — cahayanya berubah **hijau** saat aktif |
-| Tiga jari geser kiri/kanan | pindah desktop (atau ganti app — bisa dipilih di setelan) |
-| Tiga jari geser atas | Mission Control |
-| Tiga jari geser bawah | App Exposé |
+| One finger, move | move the cursor |
+| One finger, tap | left click |
+| **Two quick taps** | **double click** — open a file, select a word |
+| Two fingers, move | scroll |
+| Two fingers, tap | right click |
+| Tap, then press again and move | drag |
+| **Hold still ~0.45s, then move** | **drag** — the glow turns **green** while it is active |
+| Three fingers, swipe left/right | switch desktop (or switch app — selectable in settings) |
+| Three fingers, swipe up | Mission Control |
+| Three fingers, swipe down | App Exposé |
 
-**Kenapa "tahan buat drag" penting:** di Mission Control, tap pertama justru *memilih window dan menutup Mission Control*, jadi gestur "tap lalu tekan" tidak akan pernah bisa dipakai di sana. Tahan-lalu-geser adalah satu-satunya cara memindahkan window antar desktop dari tablet.
+**Why hold-to-drag matters:** in Mission Control the first tap *selects a window and dismisses Mission Control*, so the "tap then press" gesture can never be used there. Hold-then-move is the only way to move a window between desktops from the tablet.
 
-Trackpad **tidak berbunyi** — dia permukaan, bukan tombol. Suara ada di keyboard dan deck, sebagai pengganti travel tombol yang tidak dimiliki kaca.
+The trackpad **stays silent** — it is a surface, not a key. Sound belongs to the keyboard and the deck, where it stands in for the key travel glass cannot give.
 
 ---
 
 ## Keyboard
 
-Tata letaknya mengikuti Apple Magic Keyboard US: nama tombol sama, lebar sama, fn row setinggi dua pertiga, arrow inverted-T.
+The layout follows the Apple Magic Keyboard (US): same key names, same widths, a function row at two-thirds height, and an inverted-T arrow cluster.
 
-- **Modifier bersifat sticky**: tap = aktif sekali, tap lagi = terkunci, tap lagi = mati. Bisa juga **ditahan sambil menekan huruf dengan jari lain**.
-- **fn row punya dua peran** seperti hardware: aksi tercetak (brightness, volume, media) secara default, dan **F1–F12 polos** kalau `fn` aktif.
-- **Caps Lock** adalah toggle di tablet, bukan tombol yang dikirim — macOS memperlakukan caps sebagai state hardware yang tidak bisa disetel lewat event.
-- **Tombol yang ditahan mengulang** (jeda 450 ms, lalu tiap 45 ms). Modifier dan media key sengaja tidak mengulang.
-- Keluar dari mode keyboard **melepas semua modifier**, jadi tidak mungkin ada modifier nyangkut di Mac.
+- **Modifiers are sticky**: tap to arm for one key, tap again to lock, tap again to release. They can also be **held down while another finger presses a letter**.
+- **The function row has both roles**, exactly like the hardware: the printed action (brightness, volume, media) by default, and plain **F1–F12** while `fn` is on.
+- **Caps Lock is a toggle on the tablet**, not a key that gets sent — macOS treats caps as a hardware state that cannot be set by an event.
+- **Held keys repeat** (450 ms delay, then every 45 ms). Modifiers and media keys deliberately do not.
+- Leaving the keyboard **releases every modifier**, so a modifier can never be left stuck on the Mac.
 
-Ketikan dikirim sebagai **karakter apa adanya**, jadi hasilnya tidak bergantung layout keyboard di Mac. Shortcut dikirim sebagai **keycode dengan modifier benar-benar ditahan**, karena chord harus sampai sebagai chord.
+Typing is sent as **the literal character**, so the result does not depend on the Mac's own keyboard layout. Shortcuts are sent as **keycodes with the modifiers genuinely held down**, because a chord has to arrive as a chord.
 
 ---
 
 ## Deck
 
-Tombol makro di kiri-kanan trackpad (di portrait: satu grid di atas). Isinya datang dari:
+Macro buttons either side of the trackpad (in portrait: one grid across the top). Their contents come from:
 
 ```
 ~/.config/switchdeck/deck.json
 ```
 
-File itu dibuat otomatis saat pertama jalan, dan **halaman App-nya hanya diisi aplikasi yang benar-benar terpasang** — jadi tidak ada tombol mati.
+That file is written on first run, and its App page is **filled only with applications that are actually installed** — so there are no dead buttons.
 
-**Edit file itu, semua tablet menggambar ulang seketika** — tanpa reconnect, tanpa restart. Salah ketik JSON akan menyisakan deck terakhir yang benar di layar plus peringatan, bukan mengosongkannya.
+**Edit the file and every connected tablet redraws instantly** — no reconnect, no restart. A JSON typo leaves the last good deck on screen along with a warning, rather than emptying it.
 
-### Bentuk file
+### Shape of the file
 
 ```json
 {
   "pages": [
     {
-      "name": "Umum",
+      "name": "General",
       "keys": [
         { "id": "copy", "label": "Copy", "hint": "⌘C",
           "action": { "type": "shortcut", "keys": ["cmd", "c"] } },
-        { "id": "sleep", "label": "Tidurkan Layar", "color": "#3a2440",
+        { "id": "sleep", "label": "Sleep Display", "color": "#3a2440",
           "action": { "type": "shell", "command": "pmset", "args": ["displaysleepnow"] } }
       ]
     },
@@ -214,299 +214,305 @@ File itu dibuat otomatis saat pertama jalan, dan **halaman App-nya hanya diisi a
 }
 ```
 
-### Field per tombol
+### Fields per button
 
-| Field | Wajib | Arti |
+| Field | Required | Meaning |
 |---|---|---|
-| `id` | ya | nama unik; ini satu-satunya yang dikirim tablet |
-| `label` | — | tulisan di tombol (default: `id`) |
-| `hint` | — | baris kecil di bawah label |
-| `color` | — | warna latar, misal `#2c405c` |
-| `host` | — | jalankan di **Mac lain** — lihat [tombol lintas mesin](#tombol-yang-jalan-di-mac-lain) |
-| `action` | ya | apa yang dijalankan |
+| `id` | yes | unique name; this is the only thing the tablet ever sends |
+| `label` | — | text on the button (defaults to `id`) |
+| `hint` | — | small second line under the label |
+| `color` | — | background colour, e.g. `#2c405c` |
+| `host` | — | run it on **another Mac** — see [cross-machine buttons](#buttons-that-run-on-another-mac) |
+| `action` | yes | what to carry out |
 
-### Tipe action
+### Action types
 
-| Type | Contoh |
+| Type | Example |
 |---|---|
 | `shortcut` | `{ "type": "shortcut", "keys": ["cmd", "shift", "4"] }` |
-| `text` | `{ "type": "text", "text": "alamat@email.com" }` |
-| `media` | `{ "type": "media", "code": 16 }` — kode `NX_KEYTYPE_*` (play 16, next 17, prev 18, mute 7, vol up 0, vol down 1) |
+| `text` | `{ "type": "text", "text": "me@example.com" }` |
+| `media` | `{ "type": "media", "code": 16 }` — `NX_KEYTYPE_*` codes (play 16, next 17, previous 18, mute 7, volume up 0, volume down 1) |
 | `open_app` | `{ "type": "open_app", "app": "Xcode" }` |
 | `url` | `{ "type": "url", "url": "https://github.com" }` |
-| `applescript` | `{ "type": "applescript", "script": "display notification \"halo\"" }` |
+| `applescript` | `{ "type": "applescript", "script": "display notification \"hello\"" }` |
 | `shell` | `{ "type": "shell", "command": "pmset", "args": ["displaysleepnow"] }` |
 
-**`shell` menerima command + array argumen, bukan satu baris perintah.** Tidak ada yang sampai ke shell untuk diurai ulang, jadi tidak ada tempat untuk injeksi.
+**`shell` takes a command plus an array of arguments, not a command line.** Nothing reaches a shell to be parsed again, so there is nowhere for injection to happen.
 
-### Halaman yang ikut app aktif
+### Pages that follow the front app
 
-Beri halaman field `match`:
+Give a page a `match` field:
 
 ```json
 { "name": "Xcode", "match": ["Xcode", "com.apple.dt.Xcode"], "keys": [ ... ] }
 ```
 
-Isinya bisa nama app atau bundle id. Lalu **pilih tab `Auto`** di tablet: deck akan mengikuti app yang sedang di depan (Xcode ke depan → halaman Xcode).
+It accepts app names or bundle ids. Then **select the `Auto` tab** on the tablet: the deck follows whatever is in front (Xcode comes forward → the Xcode page).
 
-**Mengikuti app itu MODE, bukan perilaku default.** Deck yang menata ulang dirinya saat tangan sedang meraih tombol lebih buruk daripada deck yang diam. Memilih halaman = mengunci. Tab `Auto` hanya muncul kalau memang ada halaman yang minta app.
+**Following the front app is a MODE, not the default behaviour.** A deck that rearranges itself while your hand is reaching for a button is worse than one that stays put, so choosing a page pins it. The `Auto` tab only appears when some page actually asks for an app.
 
-Perpindahannya di-debounce 250 ms: alt-tab melewati tiga app harus mendarat di yang terakhir, bukan berkedip lewat ketiganya.
-
----
-
-## Tata letak
-
-Tombol tata letak di bar atas berputar antara empat susunan. Ikonnya memakai satu kosakata: **dua garis = tombol, satu titik = trackpad.**
-
-### 1. Trackpad saja
-
-![Trackpad saja](docs/img/ss-pad.png)
-
-Trackpad mengambil semua ruang yang tidak dipakai deck. Kalau halaman deck disetel `Kosong`, trackpad benar-benar sepenuh layar.
-
-### 2. Keyboard di atas, trackpad di bawah
-
-![Keyboard dan trackpad](docs/img/ss-main.png)
-
-Keyboard **menyusutkan** trackpad, bukan menggantikannya — deck tidak pernah hilang dari layar.
-
-### 3. Trackpad di atas, keyboard di bawah
-
-![Trackpad di atas](docs/img/ss-swap.png)
-
-Isi yang sama, dibalik.
-
-### 4. Keyboard saja
-
-![Keyboard saja](docs/img/ss-kbonly.png)
-
-Trackpad hilang dan keyboard **turun ke bawah dengan ukuran yang sama** seperti mode sebelumnya — bukan melar. Keyboard yang dimelarkan sepenuh tablet punya baris lebih tinggi dari jempol, dan itu lebih susah diketik, bukan lebih enak.
-
-Pilihan tata letak diingat per perangkat.
-
-**Portrait ditangani terpisah.** Tablet yang berdiri itu deck yang ditegakkan, bukan laptop — palm rest di kiri-kanan trackpad tidak masuk akal di lebar segitu. Jadi begitu tablet diputar, deck otomatis jadi **satu grid di bagian atas** dan trackpad mengambil sisanya. Tidak ada yang perlu disetel; cukup putar tabletnya.
+Switching is debounced by 250 ms: alt-tabbing through three apps should land on the last one, not flicker through all three.
 
 ---
 
-## Beberapa Mac sekaligus
+## Layouts
 
-Semua Mac tersambung **barengan**, tetapi hanya satu yang menerima input pada satu waktu. Tablet yang memegang semua koneksi — Mac tidak pernah saling bicara, jadi satu Mac mati tidak menjatuhkan yang lain.
+The layout button in the top bar cycles through four arrangements. The icons share one vocabulary: **two short lines mean keys, a dot means the trackpad.**
 
-### Menambahkan Mac kedua
+### 1. Trackpad only
 
-Di Mac yang baru: `make deckd`, lalu `make code` untuk kodenya. Di tablet: **⚙ → Mac lain → isi alamat + kode → Tambah**.
+![Trackpad only](docs/img/en/ss-pad.png)
 
-![Setelan Mac lain](docs/img/ss-set-hosts.png)
+The trackpad takes everything the deck does not need. With the deck page set to `None`, it really is the whole screen.
 
-### Urutan meja
+### 2. Keyboard above, trackpad below
 
-Strip di atas daftar menggambar susunan **fisik** Mac di meja, kiri ke kanan:
+![Keyboard and trackpad](docs/img/en/ss-main.png)
+
+The keyboard **shrinks** the trackpad rather than replacing it — the deck never leaves the screen.
+
+### 3. Trackpad above, keyboard below
+
+![Trackpad on top](docs/img/en/ss-swap.png)
+
+The same two halves, the other way up.
+
+### 4. Keyboard only
+
+![Keyboard only](docs/img/en/ss-kbonly.png)
+
+The trackpad goes and the keyboard **drops to the bottom at the same size** it had in the previous mode — it does not stretch. A keyboard stretched over a whole tablet has rows taller than a thumb, which is harder to type on, not easier.
+
+The chosen layout is remembered per device.
+
+**Portrait is handled separately.** A tablet stood upright is a deck on its edge, not a laptop — palm rests either side of a trackpad make no sense at that width. So as soon as the tablet is turned, the deck becomes **one grid across the top** and the trackpad takes what is left. Nothing to configure; just turn it.
+
+---
+
+## Several Macs at once
+
+Every Mac is connected **at the same time**, but only one receives input at any moment. The tablet owns every connection — the Macs never talk to each other, so one Mac going down does not take the others with it.
+
+### Adding a second Mac
+
+On the new Mac: `make deckd`, then `make code` for its code. On the tablet: **⚙ → Other Macs → enter the address and code → Add**.
+
+![Other Macs settings](docs/img/en/ss-set-hosts.png)
+
+### Desk order
+
+The strip above the list draws the **physical** arrangement of the Macs on your desk, left to right:
 
 ```
-kiri   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   kanan
+left   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   right
 ```
 
-Geser dengan tombol **◀ ▶** di tiap baris. Nomornya juga muncul di daftar, jadi daftar vertikal itu tidak perlu dibayangkan sebagai baris horizontal.
+Reorder with the **◀ ▶** buttons on each row. The same number appears in the list, so the vertical list does not have to be imagined as a horizontal row.
 
-Urutan ini **bukan kosmetik** — ini yang dibaca fitur nyeberang di bawah.
+This order is **not cosmetic** — it is what the crossing feature below reads.
 
-### Nyeberang di tepi layar
+### Crossing at the screen edge
 
-Dorong kursor terus ke tepi kanan sampai mentok, dan kendali pindah ke Mac di sebelah kanannya. Kursor di Mac tujuan muncul di tepi seberangnya, di ketinggian yang sama, jadi terasa menyambung.
+Keep pushing the cursor into the right edge and control moves to the Mac to its right. The cursor appears on the far machine at the facing edge, at the same height, so the crossing reads as continuous.
 
-Supaya tidak pindah karena mentok biasa saat kerja, syaratnya **dua-duanya** harus terpenuhi: ~90 px gerakan tertelan **dan** dorongan berlanjut minimal ~0,1 detik. Ada jeda 0,7 detik setelah pindah. Bisa dimatikan di setelan.
+To keep an ordinary bump against the edge from moving anything, **both** conditions must hold: about 90 px of motion swallowed **and** the push sustained for at least ~0.1 s. There is a 0.7 s pause afterwards. It can be switched off in settings.
 
-Kalau tidak mau pindah, **panel debug menyebut sebabnya** (`nyeberang gagal`): tidak ada Mac di sisi itu, atau Mac-nya tidak terhubung.
+If it refuses to cross, the **debug panel names the reason** (`crossing failed`): no Mac on that side, or that Mac is not connected.
 
-### Tombol yang jalan di Mac lain
+### Buttons that run on another Mac
 
-Beri sebuah tombol deck field `host`:
+Give a deck button a `host` field:
 
 ```json
 { "id": "build", "label": "Build", "host": "MacBook Pro",
   "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
 ```
 
-Tombol itu selalu jalan di Mac yang disebut, apa pun yang sedang disetir — build di Mac mini sambil terus mengetik di MacBook.
+That button always runs on the Mac it names, whichever one you are driving — build on the Mac mini while you carry on typing on the MacBook.
 
-Dua hal yang mengikuti dari aturan "tablet cuma kirim id":
+Two things follow from the rule that the tablet sends an id and never a command:
 
-- **Id-nya diresolusi di mesin tujuan.** `host: "MacBook Pro"` berarti *"jalankan macro bernama `build` di sana"*, dan `deck.json` milik MacBook yang menentukan `build` itu apa. Tiap mesin tetap pemilik arti id-nya sendiri.
-- **`action` di sebelah `host` adalah yang jalan lokal**, di mesin pemilik file ini. Tidak pernah dikirim ke mana pun.
+- **The id is resolved on the machine it reaches.** `host: "MacBook Pro"` means *"run the macro called `build` over there"*, and the MacBook's own `deck.json` decides what `build` does. Each machine stays the authority on what its own ids mean.
+- **The `action` beside `host` is what runs locally**, on the machine whose file this is. It is never sent anywhere.
 
-`host` dicocokkan dengan nama yang tampil di daftar Mac (atau alamatnya). Tombolnya digambar **bergaris putus-putus** dengan nama mesin tujuan, dan **redup** kalau mesin itu tidak terhubung.
-
----
-
-## Papan klip antar mesin
-
-**⚙ → Papan klip antar mesin.**
-
-![Papan klip dan status mesin](docs/img/ss-set-clip.png)
-
-- **Ambil dari** Mac X → isinya disimpan di tablet.
-- **Taruh ke** Mac Y → isinya ditulis ke papan klip Mac itu.
-
-**Selalu manual, tidak pernah otomatis.** Sync papan klip otomatis antar mesin terdengar seperti kenyamanan dan sebenarnya kebocoran — password manager menaruh password di papan klip, dan menyalinnya ke mesin lain tanpa diminta tidak kelihatan sampai terlambat.
-
-Batasnya: **teks saja**, maksimal 16 KB, disimpan di **memori tablet saja** (hilang saat reload, tidak pernah menyentuh penyimpanan), dan **tidak pernah masuk log** di titik mana pun.
+`host` is matched against the name shown in the tablet's host list (or the address). The button is drawn with a **dashed border** and the target's name, and goes **dim** when that machine is not connected.
 
 ---
 
-## Status mesin
+## Clipboard between machines
 
-**⚙ → Status mesin.** Satu baris per Mac: app yang sedang di depan, beban, memori, lama nyala, latency, dan apakah Accessibility sudah diizinkan.
+**⚙ → Clipboard between machines.**
 
-**Beban ditampilkan per core** karena itu angka yang artinya sama di laptop 4-core dan desktop 12-core — dan itu justru gunanya halaman ini. Warnanya berubah kuning di atas 70%.
+![Clipboard and machine status](docs/img/en/ss-set-clip.png)
 
-Datanya **hanya diminta selagi panel setelan terbuka**. Tidak ada yang disampel di belakang layar.
+- **Take from** Mac X → the contents are held on the tablet.
+- **Put on** Mac Y → the contents are written to that Mac's clipboard.
+
+**Always manual, never automatic.** Automatic clipboard sync between machines sounds like convenience and is actually a leak — password managers put passwords on the clipboard, and copying those elsewhere unasked is invisible until it is too late.
+
+The limits: **text only**, at most 16 KB, held in the **tablet's memory alone** (gone on reload, never written to storage), and **never logged** at any hop.
 
 ---
 
-## Setelan
+## Machine status
 
-![Setelan trackpad](docs/img/ss-set-trackpad.png)
+**⚙ → Machine status.** One row per Mac: the app in front, load, memory, uptime, latency, and whether Accessibility has been granted.
 
-| Setelan | Arti |
+**Load is shown per core**, because that is the number meaning the same thing on a four-core laptop and a twelve-core desktop — which is the whole point of this view. It turns amber past 70%.
+
+The figures are **only requested while the settings panel is open**. Nothing is sampled in the background.
+
+---
+
+## Settings
+
+![Trackpad settings](docs/img/en/ss-set-trackpad.png)
+
+**Interface language** sits at the very top of the panel: Indonesia or English, applied immediately without a reload.
+
+What does **not** change with it — and must not: **deck page names and deck button labels**. Those come from the Mac's `deck.json`, not from the application. A button reading "Tidurkan Layar" stays that way in English mode, because that text is yours.
+
+| Setting | Meaning |
 |---|---|
-| **Sensitivitas** | pengali gerakan kursor |
-| **Akselerasi** | seberapa jauh gerakan cepat melipatgandakan jarak |
-| **Kehalusan gerak** | `1.00` = mentah tanpa penghalusan; makin kecil makin halus tapi menambah 1–2 frame jeda |
-| **Kecepatan scroll** | pengali scroll dua jari |
-| **Scroll natural** | konten mengikuti arah jari |
-| **Tap buat klik** | matikan kalau sering salah klik |
-| **Nyeberang di tepi layar** | serah-terima kursor antar Mac |
-| **Tahan buat drag** | tahan diam lalu geser untuk drag |
-| **Geser 3 jari kiri/kanan** | *Pindah desktop* atau *Ganti app* |
-| **Suara tombol** | jenis (Tik / Thock / Pop / Tipis) dan volume; `0` = mati. Trackpad memang tidak berbunyi |
-| **Pasang ke layar depan** | lihat bagian PWA di bawah |
-| **Ping / keepalive** | makin kecil, radio wifi makin jarang tidur — lebih boros baterai. Saat menganggur, ping otomatis melambat ke 2 detik |
-| **Mac lain** | tambah, beri nama, urutkan, hapus |
-| **Papan klip antar mesin** | ambil / taruh |
-| **Status mesin** | kondisi tiap Mac |
-| **Panel debug** | lihat bawah |
-| **Device yang dipasangkan** | tablet/HP yang boleh mengendalikan Mac aktif; mencabut langsung memutus koneksinya |
+| **Language** | Indonesia or English. Applies immediately, saved per device |
+| **Sensitivity** | cursor movement multiplier |
+| **Acceleration** | how much a fast movement multiplies the distance |
+| **Motion smoothing** | `1.00` = raw, no smoothing; lower is smoother but adds 1–2 frames of lag |
+| **Scroll speed** | two-finger scroll multiplier |
+| **Natural scrolling** | content follows the finger |
+| **Tap to click** | turn off if you click by accident |
+| **Cross at the screen edge** | cursor handover between Macs |
+| **Hold to drag** | hold still, then move, to drag |
+| **Three-finger swipe left/right** | *Switch desktop* or *Switch app* |
+| **Key sound** | type (Tik / Thock / Pop / Tipis) and volume; `0` = off. The trackpad stays silent by design |
+| **Add to home screen** | see the PWA section below |
+| **Ping / keepalive** | the smaller it is, the less the wifi radio sleeps — heavier on battery. When idle, the ping slows to 2 seconds on its own |
+| **Other Macs** | add, name, reorder, remove |
+| **Clipboard between machines** | take / put |
+| **Machine status** | the state of each Mac |
+| **Debug panel** | see below |
+| **Paired devices** | tablets and phones allowed to drive the active Mac; revoking disconnects them at once |
 
-Semua setelan disimpan per perangkat.
+Every setting is stored per device.
 
 ---
 
-## Panel debug
+## Debug panel
 
-**⚙ → Debug → Panel debug.** Melayang di pojok kiri bawah, **sentuhan tetap tembus** ke bawahnya.
+**⚙ → Debug → Debug panel.** It floats at the bottom left, and **touches pass straight through it**.
 
-![Panel debug](docs/img/ss-debug.png)
+![Debug panel](docs/img/en/ss-debug.png)
 
-| Grup | Isi |
+| Group | Contents |
 |---|---|
-| **koneksi** | Mac aktif, alamat, transport (ws/wss), status, izin Accessibility, ringkasan Mac lain |
-| **latency** | rtt terakhir, p50/p95 (berwarna sesuai ambang), min/max, jumlah sampel, mode ping aktif/idle |
-| **trafik** | frame/detik, total kirim, refresh Hz Mac, status loop animasi |
-| **sentuhan** | jumlah jari, mode, drag, jarak gestur vs ambang, sisa sub-piksel |
-| **deck** | halaman aktif, app depan, jumlah halaman |
-| **tablet** | ukuran layar, orientasi, fullscreen, wake lock, secure context, status audio |
+| **connection** | active Mac, address, transport (ws/wss), status, Accessibility, a summary of the other Macs |
+| **latency** | last rtt, p50/p95 (coloured by threshold), min/max, sample count, ping mode active/idle |
+| **traffic** | frames per second, total sent, the Mac's refresh rate, animation-loop state |
+| **touch** | finger count, mode, drag, gesture distance against its threshold, sub-pixel remainder |
+| **deck** | active page, front app, page count |
+| **tablet** | screen size, orientation, fullscreen, wake lock, secure context, audio state |
 
-Saat mati, panel ini **tidak memakan apa pun** — timer-nya hanya ada selama panel terbuka.
+While it is off, this panel **costs nothing** — its timer exists only while the panel is open.
 
-Kalau sesuatu tidak jalan, mulai dari sini. Dua baris yang paling sering menjawab:
+When something misbehaves, start here. Two rows answer most questions:
 
-- **`nyeberang gagal`** — kenapa serah-terima kursor tidak terjadi.
-- **`injector nolak`** — Mac itu menolak sebuah frame. Hampir selalu berarti binary Swift di mesin itu lebih lama dari client-nya (`git pull` tanpa `make build`).
+- **`crossing failed`** — why the cursor handover did not happen.
+- **`injector refused`** — that Mac rejected a frame. Almost always means its Swift binary is older than the client talking to it (`git pull` without `make build`).
 
 ---
 
-## Pasang ke layar depan (PWA) & HTTPS
+## Add to home screen (PWA) & HTTPS
 
-**⚙ → Pasang ke layar depan.** Berjalan tanpa bar browser, dibuka lewat ikon seperti aplikasi biasa.
+**⚙ → Add to home screen.** It then runs without a browser bar, opened from an icon like any other app.
 
-Kalau tombolnya tidak muncul, panelnya menyebutkan alasannya — bukan menampilkan tombol mati. Di sebagian browser jalurnya lewat menu ⋮ → *Add to Home screen*.
+If the button does not appear, the panel says why rather than showing a dead button. In some browsers the route is the ⋮ menu → *Add to Home screen*.
 
-**HTTPS itu peningkatan, bukan syarat.** Aplikasi disajikan di dua port sekaligus:
+**HTTPS is an improvement, not a gate.** The app is served on two ports at once:
 
 ```
-http://<ip>:8777/      selalu ada
-https://<ip>:8778/     setelah `make cert`
+http://<ip>:8777/      always available
+https://<ip>:8778/     after `make cert`
 ```
 
-Kenapa perlu? **Wake Lock** (menahan layar tablet tetap menyala) hanya jalan di secure context. Jadi kalau layar tablet suka tidur sendiri, itu tandanya sedang lewat HTTP.
+Why bother? **Wake Lock** — keeping the tablet's screen awake — only works in a secure context. So if the tablet keeps falling asleep, that is the sign it is going over plain HTTP.
 
 ```bash
-make cert     # bikin sertifikat lokal
-# lalu restart deckd, dan di tablet buka https://<ip>:8778/
+make cert     # create a local certificate
+# then restart deckd and open https://<ip>:8778/ on the tablet
 ```
 
-Halaman `/setup` di server memandu pemasangan sertifikat CA di tablet.
+The server's `/setup` page walks through installing the CA certificate on the tablet.
 
 ---
 
-## Jalan otomatis saat Mac nyala
+## Start automatically with the Mac
 
 ```bash
-make install      # pasang sebagai layanan launchd
-make status       # cek jalan atau tidak
-make uninstall    # cabut lagi
+make install      # install as a launchd service
+make status       # check whether it is running
+make uninstall    # remove it again
 ```
 
-**Penting:** launchd tidak punya aplikasi induk yang bisa "meminjamkan" izin Accessibility-nya. Jadi binary `deckd-input` harus diizinkan **langsung**, bukan Terminal. `make doctor` mencetak rantai proses supaya jelas siapa yang sebenarnya perlu dicentang.
+**Important:** launchd has no parent application to lend it the Accessibility permission. So the `deckd-input` binary must be allowed **directly**, not Terminal. `make doctor` prints the process chain to make it obvious which one actually needs ticking.
 
 ---
 
-## Kalau ada masalah
+## When something goes wrong
 
-| Gejala | Kemungkinan besar |
+| Symptom | Most likely cause |
 |---|---|
-| Kursor tidak bergerak sama sekali | Izin Accessibility. Jalankan `make doctor` — kalau `trusted: TIDAK`, izinkan lalu **jalankan ulang** deckd |
-| Tablet tidak bisa membuka alamatnya | Beda jaringan, atau firewall Mac. Cek dengan `make ip` |
-| Kode pairing selalu salah | Kode sekali pakai. Ambil yang baru dengan `make code` |
-| Layar tablet tidur terus | Sedang lewat HTTP. Wake Lock butuh HTTPS — `make cert` |
-| Satu fitur jalan di satu Mac tapi tidak di Mac lain | Mac itu belum di-`make build` setelah `git pull`. Panel debug akan menampilkan `injector nolak` |
-| Nyeberang di tepi tidak terjadi | Cek urutan meja di **⚙ → Mac lain**, dan baris `nyeberang gagal` di panel debug |
-| Gestur tiga jari tidak pindah desktop | Cek *System Settings → Keyboard → Shortcuts → Mission Control* masih aktif |
-| Muncul popup asing saat menahan dua jari | Itu fitur browsernya, bukan SwitchDeck. Coba browser lain — misalnya Vivaldi di Android memunculkan popup QR yang tidak bisa ditekan oleh halaman |
-| Dobel tap tidak membuka apa-apa | Pastikan `make build` sudah dijalankan; perbaikan click count ada di sisi Swift |
+| The cursor does not move at all | Accessibility. Run `make doctor` — if `trusted: TIDAK`, grant it and **restart** deckd |
+| The tablet cannot open the address | Different network, or the Mac's firewall. Check with `make ip` |
+| The pairing code is always wrong | The code is single-use. Get a fresh one with `make code` |
+| The tablet screen keeps sleeping | You are on plain HTTP. Wake Lock needs HTTPS — `make cert` |
+| A feature works on one Mac but not another | That Mac has not been rebuilt after `git pull`. The debug panel will show `injector refused` |
+| Crossing at the edge does nothing | Check the desk order in **⚙ → Other Macs**, and the `crossing failed` row in the debug panel |
+| Three-finger gestures do not switch desktops | Check *System Settings → Keyboard → Shortcuts → Mission Control* is still enabled |
+| A strange popup appears on a two-finger hold | That belongs to the browser, not to SwitchDeck. Try another browser — Vivaldi on Android, for instance, raises a QR popup the page cannot suppress |
+| Double tap opens nothing | Make sure `make build` has been run; the click-count fix lives on the Swift side |
 
-Masih buntu? Nyalakan **panel debug** dan baca grup `koneksi` — hampir semua pertanyaan "kenapa diam" terjawab di situ.
+Still stuck? Turn on the **debug panel** and read the `connection` group — nearly every "why is it silent" question is answered there.
 
 ---
 
-## Daftar perintah `make`
+## `make` command reference
 
-| Perintah | Fungsi |
+| Command | What it does |
 |---|---|
-| `make build` | compile helper Swift |
-| `make deps` | install dependency Node |
-| `make deckd` | jalankan server |
-| `make doctor` | cek izin, rantai proses, kesehatan |
-| `make code` | cetak ulang kode pairing |
-| `make ip` | alamat Mac di jaringan lokal |
-| `make cert` | buat sertifikat untuk HTTPS |
-| `make install` / `make uninstall` | pasang / cabut layanan launchd |
-| `make status` | status layanan |
-| **Tes** | |
-| `make e2e` | rantai penuh WebSocket → deckd → deckd-input |
-| `make client` | semua cek sisi client (tanpa Mac, tanpa build, tanpa izin) |
-| `make idle` | memastikan client membiarkan CPU tidur |
-| `make debug-panel` | memastikan panel debug tergambar di semua kondisi |
-| `make dblclick` | memastikan dobel tap jadi dobel klik sungguhan |
-| `make selftest` | uji injeksi input langsung |
-| `make verify-copy` | uji rantai penuh sampai clipboard macOS |
-| `make latency` | ukur latency |
+| `make build` | compile the Swift helper |
+| `make deps` | install Node dependencies |
+| `make deckd` | run the server |
+| `make doctor` | check permissions, process chain, health |
+| `make code` | print a fresh pairing code |
+| `make ip` | the Mac's address on the local network |
+| `make cert` | create a certificate for HTTPS |
+| `make install` / `make uninstall` | install / remove the launchd service |
+| `make status` | service status |
+| `make docs` | rebuild the HTML documentation from the README files |
+| **Tests** | |
+| `make e2e` | the full chain, WebSocket → deckd → deckd-input |
+| `make client` | every client-side check (no Mac, no build, no permission needed) |
+| `make idle` | proves the client lets the CPU sleep |
+| `make debug-panel` | proves the debug panel renders in every state, in both languages |
+| `make dblclick` | proves a double tap becomes a real double click |
+| `make selftest` | direct input-injection test |
+| `make verify-copy` | full chain through to the macOS clipboard |
+| `make latency` | measure latency |
 
 ---
 
-## Cara kerjanya di dalam
+## How it works inside
 
 ```
 Tablet (browser)  ──WebSocket──▶  deckd (Node)  ──stdin JSON──▶  deckd-input (Swift)  ──▶  macOS
                                     │                                                       CGEvent
-                                    └── deck.json, token device, pairing
+                                    └── deck.json, device tokens, pairing
 ```
 
-Tiga proses, tiga tanggung jawab:
+Three processes, three responsibilities:
 
-- **Client web** — semua UI. Diedit paling sering, tidak perlu compile.
-- **`deckd` (Node)** — router: WebSocket, token, deck, validasi. **Tidak tahu apa itu CGEvent.**
-- **`deckd-input` (Swift)** — satu-satunya yang menyentuh API macOS. Semua kode khusus OS dikurung di sini, supaya menambah Windows nanti tidak menyentuh dua lapisan lainnya.
+- **The web client** — all of the UI. Edited most often, needs no compilation.
+- **`deckd` (Node)** — the router: WebSocket, tokens, deck, validation. **It does not know what a CGEvent is.**
+- **`deckd-input` (Swift)** — the only part that touches macOS APIs. Every OS-specific line is confined here, so adding Windows later will not disturb the other two layers.
 
-Aturan yang berlaku sejak awal dan tidak pernah dilonggarkan: **tablet mengirim id, bukan perintah.** Tablet tidak pernah tahu isi `action` sebuah tombol; dia hanya tahu id dan label. Setiap frame divalidasi di `deckd` sebelum diteruskan — angka tidak berhingga, keycode di luar jangkauan, nama modifier ngawur, dan teks kepanjangan semuanya ditolak, bukan diam-diam diperbaiki.
+One rule has held from the beginning and has never been relaxed: **the tablet sends an id, not a command.** The tablet never learns what a button's `action` contains; it only knows the id and the label. Every frame is validated in `deckd` before it is passed on — non-finite numbers, out-of-range keycodes, unknown modifier names and over-long text are all rejected rather than quietly repaired.

@@ -19,7 +19,18 @@ if (a < 0 || b < 0) {
   console.error('[FAIL] blok paintDebug tidak ketemu di index.html — tes ini perlu diperbarui');
   process.exit(1);
 }
-const chunk = page.slice(a, b);
+// Kamus dan t() yang asli ikut diangkat, bukan distub. Panel ini hampir
+// seluruhnya terbuat dari terjemahan sekarang; t() palsu akan lulus sambil
+// menyembunyikan kunci yang belum diterjemahkan.
+const I18N_START = '  var I18N = {';
+const I18N_END = '  // Teks statis diberi tanda di markup';
+const ia = page.indexOf(I18N_START), ib = page.indexOf(I18N_END);
+if (ia < 0 || ib < 0) {
+  console.error('[FAIL] blok I18N tidak ketemu di index.html');
+  process.exit(1);
+}
+const i18nChunk = page.slice(ia, ib);
+const chunk = i18nChunk + page.slice(a, b);
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '[PASS] ' : '[FAIL] ') + m); };
@@ -36,33 +47,41 @@ const win = {
 const doc = { fullscreenElement: null };
 
 function render(state) {
+  LANG = (state.cfg && state.cfg.lang) || 'id';
   const build = new Function(
-    'el', 'cfg', 'activeId', 'conns', 'activeHost', 'STATE_LABEL', 'hosts',
+    'el', 'cfg', 'activeId', 'conns', 'activeHost', 'stateLabel', 'hosts',
     'lastInputAt', 'ACTIVE_WINDOW', 'IDLE_PING', 'sentRate', 'sentTotal',
     'minSendGap', 'flushing', 'pointers', 'gestureMax', 'mode', 'dragging',
     'gx', 'gy', 'gestureFired', 'lastGesture', 'accX', 'accY', 'accSX', 'accSY',
     'activePage', 'AUTO', 'NO_PAGE', 'deckPages', 'autoPage', 'frontApp',
-    'wakeLock', 'audio', 'holdTimer', 'layout', 'LAYOUT_LABEL',
+    'wakeLock', 'audio', 'holdTimer', 'layout', 'layoutLabel',
     'edgeSide', 'edgePush', 'EDGE_PUSH', 'edgeReports', 'EDGE_REPORTS', 'edgeBlocked',
     'window', 'document',
     chunk + '\n return paintDebug();'
   );
   return build(
-    el, state.cfg, state.activeId, state.conns, state.activeHost, state.STATE_LABEL,
+    el, state.cfg, state.activeId, state.conns, state.activeHost, stateLabel,
     state.hosts, state.lastInputAt, 4000, 2000, state.sentRate, state.sentTotal,
     state.minSendGap, state.flushing, state.pointers, state.gestureMax, state.mode,
     state.dragging, state.gx, state.gy, state.gestureFired, state.lastGesture,
     state.accX, state.accY, state.accSX, state.accSY, state.activePage, -2, -1,
     state.deckPages, state.autoPage, state.frontApp, state.wakeLock, state.audio,
-    null, state.layout, { pad: 'trackpad saja', both: 'keyboard atas + trackpad bawah',
-      swap: 'trackpad atas + keyboard bawah', kb: 'keyboard saja' },
+    null, state.layout, layoutLabel,
     state.edgeSide, state.edgePush, 90, state.edgeReports, 2, state.edgeBlocked,
     win, doc
   );
 }
 
+// Label status & tata letak sekarang datang dari t(), jadi keduanya cukup
+// diteruskan sebagai fungsi tipis yang memakai kamus asli.
+let LANG = 'id';
+const dict = new Function(i18nChunk + '\n return I18N;')();
+const tr = (k) => (dict[LANG] || dict.id)[k] ?? dict.id[k] ?? k;
+const stateLabel = (st) => tr('state.' + st) === 'state.' + st ? st : tr('state.' + st);
+const layoutLabel = (name) => tr('layout.' + name);
+
 const base = {
-  cfg: { debug: true, keepalive: 120 },
+  cfg: { debug: true, keepalive: 120, lang: 'id' },
   activeId: null, conns: {}, hosts: [], activeHost: () => null,
   STATE_LABEL: { on: 'terhubung', connecting: 'menyambung', off: 'putus', rejected: 'perlu dipasangkan' },
   lastInputAt: 0, sentRate: 0, sentTotal: 0, minSendGap: 16.7, flushing: false,
@@ -129,9 +148,36 @@ try {
 // 5. Off means off: no markup at all, whatever the rest of the state says.
 try {
   box.html = 'sisa lama';
-  render(Object.assign({}, live, { cfg: { debug: false, keepalive: 120 } }));
+  render(Object.assign({}, live, { cfg: { debug: false, keepalive: 120, lang: 'id' } }));
   ok(box.html === 'sisa lama', 'debug mati: panel tidak digambar sama sekali');
 } catch (e) { ok(false, 'kondisi mati melempar: ' + e.message); }
+
+// 6. Bahasa Inggris: panel yang sama harus berbicara Inggris, bukan campuran.
+try {
+  box.html = '';
+  render(Object.assign({}, live, { cfg: { debug: true, keepalive: 120, lang: 'en' } }));
+  const want = ['connection', 'latency', 'traffic', 'touch', 'tablet', 'connected'];
+  const missingEn = want.filter((w) => !box.html.includes(w));
+  ok(missingEn.length === 0, 'panel tergambar dalam bahasa Inggris'
+     + (missingEn.length ? ' — hilang: ' + missingEn.join(', ') : ''));
+  const leftover = ['koneksi', 'sentuhan', 'terhubung', 'trafik'].filter((w) => box.html.includes(w));
+  ok(leftover.length === 0, 'tidak ada sisa bahasa Indonesia di mode Inggris'
+     + (leftover.length ? ' — masih ada: ' + leftover.join(', ') : ''));
+} catch (e) { ok(false, 'mode Inggris melempar: ' + e.message); }
+
+// 7. Dua kamus harus punya kunci yang sama persis. Bahasa cadangan yang
+//    separuh terisi menghasilkan layar campur aduk, dan itu lebih buruk
+//    daripada satu bahasa yang konsisten.
+const idKeys = Object.keys(dict.id).sort();
+const enKeys = Object.keys(dict.en).sort();
+const onlyId = idKeys.filter((k) => !enKeys.includes(k));
+const onlyEn = enKeys.filter((k) => !idKeys.includes(k));
+ok(onlyId.length === 0 && onlyEn.length === 0,
+   'kamus id dan en punya kunci yang sama (' + idKeys.length + ' kunci)',
+   onlyId.length ? 'cuma di id: ' + onlyId.join(', ')
+                 : onlyEn.length ? 'cuma di en: ' + onlyEn.join(', ') : '');
+ok(enKeys.filter((k) => !String(dict.en[k]).trim()).length === 0,
+   'tidak ada terjemahan Inggris yang kosong');
 
 console.log('\n' + pass + ' pass, ' + fail + ' fail');
 process.exit(fail ? 1 : 0);

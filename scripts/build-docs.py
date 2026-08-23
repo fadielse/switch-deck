@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Bangun docs/index.html dari README.md.
+"""Bangun dokumentasi HTML dua bahasa dari file README.
+
+  README.md    -> docs/index.html   (English)
+  README.id.md -> docs/id.html      (Bahasa Indonesia)
 
 Dokumentasi HTML yang ditulis tangan terpisah akan melenceng dari README dalam
 hitungan minggu. Ini menurunkannya dari satu sumber, jadi yang perlu diedit
-cuma README.md — lalu `make docs`.
+cuma file README-nya — lalu `make docs`.
 """
 import io, os, re, sys
 
@@ -34,10 +37,10 @@ HEAD = r'''<!doctype html>
   nav .brand b span { color:var(--dim); font-weight:500; }
   nav ol { list-style:none; margin:0; padding:0; counter-reset:s; }
   nav li { counter-increment:s; }
-  nav a { display:block; padding:6px 10px; border-radius:7px; color:var(--dim);
-          text-decoration:none; }
-  nav a::before { content:counter(s) ". "; color:#5b6472; }
-  nav a:hover { background:var(--panel); color:var(--fg); }
+  nav ol a { display:block; padding:6px 10px; border-radius:7px; color:var(--dim);
+             text-decoration:none; }
+  nav ol a::before { content:counter(s) ". "; color:#5b6472; }
+  nav ol a:hover { background:var(--panel); color:var(--fg); }
   main { flex:1 1 auto; min-width:0; padding:26px 34px 90px; max-width:920px; }
   h1 { font-size:34px; letter-spacing:-.02em; margin:.2em 0 .1em; }
   h2 { font-size:23px; letter-spacing:-.01em; margin:2.4em 0 .5em;
@@ -64,6 +67,12 @@ HEAD = r'''<!doctype html>
   blockquote p { margin:.3em 0; color:inherit; }
   blockquote code { background:#241f14; color:#f0e2bb; }
   hr { border:0; border-top:1px solid var(--line); margin:2em 0; }
+  .langswitch { display:flex; gap:6px; margin-bottom:16px; }
+  .langswitch a, .langswitch span {
+    flex:1; text-align:center; padding:6px 8px; border-radius:7px; font-size:12.5px;
+    border:1px solid var(--line); text-decoration:none; color:var(--dim);
+  }
+  .langswitch span { background:#1f2a3d; border-color:#3d6fd1; color:#cdd6e4; font-weight:600; }
   @media (max-width:900px) { nav { display:none; } main { padding:20px 18px 60px; } }
 </style>
 </head>
@@ -80,6 +89,7 @@ HEAD = r'''<!doctype html>
     </svg>
     <b><span>Switch</span>Deck</b>
   </div>
+  <div class="langswitch">__LANGSWITCH__</div>
   <ol id="toc"></ol>
 </nav>
 <main>
@@ -130,7 +140,7 @@ def convert(md):
             out.append('<pre><code>' + body + '</code></pre>'); continue
         if L.startswith('## '):
             t = L[3:].strip()
-            if t == 'Daftar isi':
+            if t in ('Daftar isi', 'Contents'):
                 skip_toc = True; i += 1; continue
             skip_toc = False
             out.append('<h2 id="%s">%s</h2>' % (slug(t), inline(t))); i += 1; continue
@@ -183,18 +193,37 @@ def convert(md):
         i += 1
     return '\n'.join(out)
 
-md = io.open(os.path.join(ROOT, 'README.md'), encoding='utf-8').read()
-html = HEAD + convert(md) + FOOT
-# Gambar relatif terhadap docs/index.html, bukan terhadap akar repo.
-html = html.replace('src="docs/img/', 'src="img/')
-out = os.path.join(ROOT, 'docs', 'index.html')
-io.open(out, 'w', encoding='utf-8').write(html)
-print('docs/index.html dibangun dari README.md — %d karakter' % len(html))
+BUILDS = [
+    ('README.md', 'index.html', 'en', 'English'),
+    ('README.id.md', 'id.html', 'id', 'Bahasa Indonesia'),
+]
 
 missing = []
-for m in re.finditer(r'src="img/([^"]+)"', html):
-    if not os.path.exists(os.path.join(ROOT, 'docs', 'img', m.group(1))):
-        missing.append(m.group(1))
+for src, out_name, lang, _label in BUILDS:
+    md = io.open(os.path.join(ROOT, src), encoding='utf-8').read()
+
+    # Baris pemilih bahasa di README menunjuk ke file markdown; di halaman HTML
+    # yang berguna adalah halaman HTML-nya, dan itu sudah ada di sidebar.
+    md = '\n'.join(l for l in md.split('\n')
+                   if not (l.startswith('>') and ('README.id.md' in l or 'README.md](README.md' in l)))
+
+    switch = []
+    for _s, other_out, other_lang, other_label in BUILDS:
+        if other_lang == lang:
+            switch.append('<span>%s</span>' % other_label)
+        else:
+            switch.append('<a href="%s">%s</a>' % (other_out, other_label))
+
+    html = HEAD.replace('__LANGSWITCH__', ''.join(switch)) + convert(md) + FOOT
+    # Gambar relatif terhadap docs/, bukan terhadap akar repo.
+    html = html.replace('src="docs/img/', 'src="img/')
+    io.open(os.path.join(ROOT, 'docs', out_name), 'w', encoding='utf-8').write(html)
+    print('docs/%s dibangun dari %s — %d karakter' % (out_name, src, len(html)))
+
+    for m in re.finditer(r'src="img/([^"]+)"', html):
+        if not os.path.exists(os.path.join(ROOT, 'docs', 'img', m.group(1))):
+            missing.append(out_name + ' -> ' + m.group(1))
+
 if missing:
     print('GAMBAR HILANG: ' + ', '.join(missing), file=sys.stderr)
     sys.exit(1)

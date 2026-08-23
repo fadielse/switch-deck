@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwitchDeck — Dokumentasi</title>
+<style>
+  :root {
+    --bg:#0f1116; --panel:#161a21; --line:#252a34; --fg:#e6e8ec; --dim:#98a1b0;
+    --accent:#4d84e6; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:16px/1.65 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color:var(--accent); }
+  .wrap { display:flex; align-items:flex-start; max-width:1500px; margin:0 auto; }
+  nav { position:sticky; top:0; align-self:flex-start; flex:0 0 268px;
+        max-height:100vh; overflow-y:auto; padding:26px 16px 40px;
+        border-right:1px solid var(--line); font-size:13.5px; }
+  nav .brand { display:flex; align-items:center; gap:9px; margin-bottom:18px; }
+  nav .brand svg { width:26px; height:26px; }
+  nav .brand b { font-size:15px; letter-spacing:-.01em; }
+  nav .brand b span { color:var(--dim); font-weight:500; }
+  nav ol { list-style:none; margin:0; padding:0; counter-reset:s; }
+  nav li { counter-increment:s; }
+  nav ol a { display:block; padding:6px 10px; border-radius:7px; color:var(--dim);
+             text-decoration:none; }
+  nav ol a::before { content:counter(s) ". "; color:#5b6472; }
+  nav ol a:hover { background:var(--panel); color:var(--fg); }
+  main { flex:1 1 auto; min-width:0; padding:26px 34px 90px; max-width:920px; }
+  h1 { font-size:34px; letter-spacing:-.02em; margin:.2em 0 .1em; }
+  h2 { font-size:23px; letter-spacing:-.01em; margin:2.4em 0 .5em;
+       padding-top:.7em; border-top:1px solid var(--line); scroll-margin-top:14px; }
+  h3 { font-size:17px; margin:1.7em 0 .4em; color:#cfd6e2; }
+  p, li { color:#d3d8e0; }
+  code { font-family:var(--mono); font-size:.87em; background:#1c212b;
+         padding:2px 6px; border-radius:5px; color:#cbd5e6; }
+  pre { background:#12161d; border:1px solid var(--line); border-radius:10px;
+        padding:14px 16px; overflow-x:auto; font-size:13.5px; line-height:1.55; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  table { border-collapse:collapse; width:100%; margin:1em 0; font-size:14.5px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line);
+           vertical-align:top; }
+  th { color:var(--dim); font-weight:600; font-size:12.5px; text-transform:uppercase;
+       letter-spacing:.06em; }
+  tbody tr:hover { background:#141821; }
+  figure { margin:1.4em 0; }
+  figure img { width:100%; display:block; border:1px solid var(--line);
+               border-radius:11px; background:#0b0d12; }
+  figcaption { color:var(--dim); font-size:13px; margin-top:8px; }
+  blockquote { margin:1.3em 0; padding:13px 16px; border-radius:10px;
+               background:#1a1710; border:1px solid #4a3c17; color:#e8d9ae; }
+  blockquote p { margin:.3em 0; color:inherit; }
+  blockquote code { background:#241f14; color:#f0e2bb; }
+  hr { border:0; border-top:1px solid var(--line); margin:2em 0; }
+  .langswitch { display:flex; gap:6px; margin-bottom:16px; }
+  .langswitch a, .langswitch span {
+    flex:1; text-align:center; padding:6px 8px; border-radius:7px; font-size:12.5px;
+    border:1px solid var(--line); text-decoration:none; color:var(--dim);
+  }
+  .langswitch span { background:#1f2a3d; border-color:#3d6fd1; color:#cdd6e4; font-weight:600; }
+  @media (max-width:900px) { nav { display:none; } main { padding:20px 18px 60px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="6" fill="#3d6fd1"/>
+      <path d="M7.1 9.6h8.1M12.9 7.3l2.4 2.3-2.4 2.3" stroke="#fff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16.9 14.4H8.8M11.1 16.7l-2.4-2.3 2.4-2.3" stroke="#bcd4ff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <b><span>Switch</span>Deck</b>
+  </div>
+  <div class="langswitch"><a href="index.html">English</a><span>Bahasa Indonesia</span></div>
+  <ol id="toc"></ol>
+</nav>
+<main>
+<h1>SwitchDeck</h1>
+<p>Tablet Android jadi <strong>trackpad + keyboard + deck makro</strong> untuk Mac — lewat browser, tanpa install apa pun di tablet.</p>
+<p>Satu tablet bisa menyetir <strong>beberapa Mac sekaligus</strong>: semua tersambung barengan, dan kendali berpindah dengan mendorong kursor ke tepi layar.</p>
+<figure><img alt="Layar utama SwitchDeck" src="img/id/ss-main.png"><figcaption>Layar utama SwitchDeck</figcaption></figure>
+<hr>
+<h2 id="apa-ini-dan-apa-yang-bukan">Apa ini, dan apa yang bukan</h2>
+<p><strong>Ini:</strong> permukaan kendali. Tablet mengirim gerakan, ketikan, dan id tombol; Mac yang menjalankannya.</p>
+<p><strong>Bukan:</strong></p>
+<ul><li><strong>Bukan screen mirroring / remote desktop.</strong> Layar Mac tidak pernah dikirim ke tablet. Kalau butuh itu, pakai Universal Control atau VNC.</li><li><strong>Bukan untuk dipakai dari luar rumah.</strong> Dirancang untuk satu jaringan lokal.</li><li><strong>Bukan produk untuk orang lain.</strong> Tidak ada akun, tidak ada cloud, tidak ada multi-user.</li></ul>
+<hr>
+<h2 id="yang-dibutuhkan">Yang dibutuhkan</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>Mac</strong></td><td>macOS dengan Xcode command line tools (untuk <code>swift build</code>) dan <strong>Node.js 18+</strong></td></tr><tr><td><strong>Tablet / HP</strong></td><td>apa saja yang punya browser modern dan layar sentuh multi-jari</td></tr><tr><td><strong>Jaringan</strong></td><td>tablet dan Mac di <strong>wifi yang sama</strong>. Lewat Tailscale juga jalan, tapi latensinya lebih tinggi</td></tr></tbody></table>
+<hr>
+<h2 id="pasang-di-mac">Pasang di Mac</h2>
+<pre><code>git clone https://github.com/fadielse/switch-deck.git
+cd switch-deck
+make build      # compile helper Swift (deckd-input)
+make deps       # dependency Node untuk server (deckd)
+make doctor     # cek izin &amp; kesehatan
+make deckd      # jalankan server</code></pre>
+<p><code>make deckd</code> akan mencetak sesuatu seperti ini:</p>
+<pre><code>Buka di tablet:  http://192.168.1.213:8777/
+Kode pairing:    858417</code></pre>
+<p>Biarkan terminal itu terbuka. Untuk menjalankannya otomatis tiap Mac nyala, lihat <a href="#jalan-otomatis-saat-mac-nyala">Jalan otomatis saat Mac nyala</a>.</p>
+<hr>
+<h2 id="izin-macos">Izin macOS</h2>
+<p>SwitchDeck menyuntik input, jadi macOS mewajibkan izin <strong>Accessibility</strong>.</p>
+<pre><code>make doctor</code></pre>
+<p>Kalau tertulis <code>trusted : TIDAK</code>, buka:</p>
+<p><strong>System Settings → Privacy &amp; Security → Accessibility</strong>, lalu tambahkan binary ini:</p>
+<pre><code>&lt;folder-repo&gt;/mac/deckd-input/.build/release/deckd-input</code></pre>
+<p>Tekan <strong>+</strong>, lalu di dialog file tekan <strong>⌘⇧G</strong> dan tempel path di atas — folder <code>.build</code> disembunyikan Finder, jadi tidak bisa diklik dari daftar biasa.</p>
+<p>Dua hal yang sering bikin bingung:</p>
+<ul><li><strong>Izin menempel pada aplikasi induk.</strong> Kalau <code>deckd</code> dijalankan dari Terminal, yang perlu diizinkan bisa jadi Terminal-nya. Kalau dijalankan lewat launchd (<code>make install</code>), yang diizinkan binary-nya langsung. <code>make doctor</code> mencetak rantai prosesnya supaya kelihatan siapa induknya.</li><li><strong>Setelah menambahkan izin, jalankan ulang <code>deckd</code>.</strong> macOS tidak memberi izin ke proses yang sudah jalan.</li></ul>
+<p>Untuk fitur pindah desktop dan App Exposé, macOS juga akan meminta izin <strong>Automation</strong> (System Events) sekali saat pertama dipakai.</p>
+<hr>
+<h2 id="sambungkan-tablet-pairing">Sambungkan tablet (pairing)</h2>
+<ol><li>Buka alamat yang dicetak <code>make deckd</code> di browser tablet, misalnya <code>http://192.168.1.213:8777/</code>.</li><li>Masukkan <strong>kode 6 digit</strong> yang tercetak di terminal.</li><li>Tap <strong>Pasangkan</strong>.</li></ol>
+<p>Kode hanya sekali pakai dan ada rate-limit — tebakan beruntun langsung dijeda. Setelah berhasil, tablet menyimpan token-nya sendiri, jadi tidak perlu pairing lagi.</p>
+<p>Lupa kodenya? <code>make code</code> mencetaknya lagi.</p>
+<figure><img alt="Layar pairing di tablet" src="img/id/ss-pairing.png"><figcaption>Layar pairing di tablet</figcaption></figure>
+<hr>
+<h2 id="mengenal-layar">Mengenal layar</h2>
+<figure><img alt="Layar utama" src="img/id/ss-main.png"><figcaption>Layar utama</figcaption></figure>
+<p>Dari kiri ke kanan di bar atas:</p>
+<table><thead><tr><th>Bagian</th><th>Fungsi</th></tr></thead><tbody><tr><td><strong>Logo SwitchDeck</strong></td><td>penanda; nama menghilang di layar sempit</td></tr><tr><td><strong>Chip Mac</strong></td><td>titik status + nama Mac yang sedang disetir. Tap untuk pindah Mac (kalau ada lebih dari satu)</td></tr><tr><td><strong>Tab halaman deck</strong></td><td><code>Kosong</code>, <code>Auto</code>, lalu nama tiap halaman dari <code>deck.json</code>. Bisa di-scroll ke samping</td></tr><tr><td><strong>Tombol tata letak</strong></td><td>berputar antara 4 susunan; ikonnya menggambarkan susunan yang <strong>sedang</strong> dipakai</td></tr><tr><td><strong>⛶</strong></td><td>fullscreen</td></tr><tr><td><strong>⚙</strong></td><td>setelan</td></tr></tbody></table>
+<p>Bar atas tingginya <strong>tetap</strong> — tidak pernah tumbuh walaupun nama app di tab <code>Auto</code> panjang.</p>
+<hr>
+<h2 id="trackpad">Trackpad</h2>
+<p>Area besar di tengah. Sentuhan dikonfirmasi oleh <strong>cahaya lembut yang mengikuti jari</strong> — dua jari untuk scroll berarti dua cahaya.</p>
+<table><thead><tr><th>Gerakan</th><th>Hasil</th></tr></thead><tbody><tr><td>Satu jari geser</td><td>gerakkan kursor</td></tr><tr><td>Satu jari tap</td><td>klik kiri</td></tr><tr><td><strong>Dua tap cepat</strong></td><td><strong>dobel klik</strong> — buka file, pilih kata</td></tr><tr><td>Dua jari geser</td><td>scroll</td></tr><tr><td>Dua jari tap</td><td>klik kanan</td></tr><tr><td>Tap lalu tekan lagi, geser</td><td>drag</td></tr><tr><td><strong>Tahan diam ~0,45 detik lalu geser</strong></td><td><strong>drag</strong> — cahayanya berubah <strong>hijau</strong> saat aktif</td></tr><tr><td>Tiga jari geser kiri/kanan</td><td>pindah desktop (atau ganti app — bisa dipilih di setelan)</td></tr><tr><td>Tiga jari geser atas</td><td>Mission Control</td></tr><tr><td>Tiga jari geser bawah</td><td>App Exposé</td></tr></tbody></table>
+<p><strong>Kenapa "tahan buat drag" penting:</strong> di Mission Control, tap pertama justru <em>memilih window dan menutup Mission Control</em>, jadi gestur "tap lalu tekan" tidak akan pernah bisa dipakai di sana. Tahan-lalu-geser adalah satu-satunya cara memindahkan window antar desktop dari tablet.</p>
+<p>Trackpad <strong>tidak berbunyi</strong> — dia permukaan, bukan tombol. Suara ada di keyboard dan deck, sebagai pengganti travel tombol yang tidak dimiliki kaca.</p>
+<hr>
+<h2 id="keyboard">Keyboard</h2>
+<p>Tata letaknya mengikuti Apple Magic Keyboard US: nama tombol sama, lebar sama, fn row setinggi dua pertiga, arrow inverted-T.</p>
+<ul><li><strong>Modifier bersifat sticky</strong>: tap = aktif sekali, tap lagi = terkunci, tap lagi = mati. Bisa juga <strong>ditahan sambil menekan huruf dengan jari lain</strong>.</li><li><strong>fn row punya dua peran</strong> seperti hardware: aksi tercetak (brightness, volume, media) secara default, dan <strong>F1–F12 polos</strong> kalau <code>fn</code> aktif.</li><li><strong>Caps Lock</strong> adalah toggle di tablet, bukan tombol yang dikirim — macOS memperlakukan caps sebagai state hardware yang tidak bisa disetel lewat event.</li><li><strong>Tombol yang ditahan mengulang</strong> (jeda 450 ms, lalu tiap 45 ms). Modifier dan media key sengaja tidak mengulang.</li><li>Keluar dari mode keyboard <strong>melepas semua modifier</strong>, jadi tidak mungkin ada modifier nyangkut di Mac.</li></ul>
+<p>Ketikan dikirim sebagai <strong>karakter apa adanya</strong>, jadi hasilnya tidak bergantung layout keyboard di Mac. Shortcut dikirim sebagai <strong>keycode dengan modifier benar-benar ditahan</strong>, karena chord harus sampai sebagai chord.</p>
+<hr>
+<h2 id="deck">Deck</h2>
+<p>Tombol makro di kiri-kanan trackpad (di portrait: satu grid di atas). Isinya datang dari:</p>
+<pre><code>~/.config/switchdeck/deck.json</code></pre>
+<p>File itu dibuat otomatis saat pertama jalan, dan <strong>halaman App-nya hanya diisi aplikasi yang benar-benar terpasang</strong> — jadi tidak ada tombol mati.</p>
+<p><strong>Edit file itu, semua tablet menggambar ulang seketika</strong> — tanpa reconnect, tanpa restart. Salah ketik JSON akan menyisakan deck terakhir yang benar di layar plus peringatan, bukan mengosongkannya.</p>
+<h3 id="bentuk-file">Bentuk file</h3>
+<pre><code>{
+  "pages": [
+    {
+      "name": "Umum",
+      "keys": [
+        { "id": "copy", "label": "Copy", "hint": "⌘C",
+          "action": { "type": "shortcut", "keys": ["cmd", "c"] } },
+        { "id": "sleep", "label": "Tidurkan Layar", "color": "#3a2440",
+          "action": { "type": "shell", "command": "pmset", "args": ["displaysleepnow"] } }
+      ]
+    },
+    {
+      "name": "Xcode",
+      "match": ["Xcode"],
+      "keys": [
+        { "id": "xc-build", "label": "Build", "hint": "⌘B",
+          "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
+      ]
+    }
+  ]
+}</code></pre>
+<h3 id="field-per-tombol">Field per tombol</h3>
+<table><thead><tr><th>Field</th><th>Wajib</th><th>Arti</th></tr></thead><tbody><tr><td><code>id</code></td><td>ya</td><td>nama unik; ini satu-satunya yang dikirim tablet</td></tr><tr><td><code>label</code></td><td>—</td><td>tulisan di tombol (default: <code>id</code>)</td></tr><tr><td><code>hint</code></td><td>—</td><td>baris kecil di bawah label</td></tr><tr><td><code>color</code></td><td>—</td><td>warna latar, misal <code>#2c405c</code></td></tr><tr><td><code>host</code></td><td>—</td><td>jalankan di <strong>Mac lain</strong> — lihat <a href="#tombol-yang-jalan-di-mac-lain">tombol lintas mesin</a></td></tr><tr><td><code>action</code></td><td>ya</td><td>apa yang dijalankan</td></tr></tbody></table>
+<h3 id="tipe-action">Tipe action</h3>
+<table><thead><tr><th>Type</th><th>Contoh</th></tr></thead><tbody><tr><td><code>shortcut</code></td><td><code>{ "type": "shortcut", "keys": ["cmd", "shift", "4"] }</code></td></tr><tr><td><code>text</code></td><td><code>{ "type": "text", "text": "alamat@email.com" }</code></td></tr><tr><td><code>media</code></td><td><code>{ "type": "media", "code": 16 }</code> — kode <code>NX_KEYTYPE_*</code> (play 16, next 17, prev 18, mute 7, vol up 0, vol down 1)</td></tr><tr><td><code>open_app</code></td><td><code>{ "type": "open_app", "app": "Xcode" }</code></td></tr><tr><td><code>url</code></td><td><code>{ "type": "url", "url": "https://github.com" }</code></td></tr><tr><td><code>applescript</code></td><td><code>{ "type": "applescript", "script": "display notification \"halo\"" }</code></td></tr><tr><td><code>shell</code></td><td><code>{ "type": "shell", "command": "pmset", "args": ["displaysleepnow"] }</code></td></tr></tbody></table>
+<p><strong><code>shell</code> menerima command + array argumen, bukan satu baris perintah.</strong> Tidak ada yang sampai ke shell untuk diurai ulang, jadi tidak ada tempat untuk injeksi.</p>
+<h3 id="halaman-yang-ikut-app-aktif">Halaman yang ikut app aktif</h3>
+<p>Beri halaman field <code>match</code>:</p>
+<pre><code>{ "name": "Xcode", "match": ["Xcode", "com.apple.dt.Xcode"], "keys": [ ... ] }</code></pre>
+<p>Isinya bisa nama app atau bundle id. Lalu <strong>pilih tab <code>Auto</code></strong> di tablet: deck akan mengikuti app yang sedang di depan (Xcode ke depan → halaman Xcode).</p>
+<p><strong>Mengikuti app itu MODE, bukan perilaku default.</strong> Deck yang menata ulang dirinya saat tangan sedang meraih tombol lebih buruk daripada deck yang diam. Memilih halaman = mengunci. Tab <code>Auto</code> hanya muncul kalau memang ada halaman yang minta app.</p>
+<p>Perpindahannya di-debounce 250 ms: alt-tab melewati tiga app harus mendarat di yang terakhir, bukan berkedip lewat ketiganya.</p>
+<hr>
+<h2 id="tata-letak">Tata letak</h2>
+<p>Tombol tata letak di bar atas berputar antara empat susunan. Ikonnya memakai satu kosakata: <strong>dua garis = tombol, satu titik = trackpad.</strong></p>
+<h3 id="1-trackpad-saja">1. Trackpad saja</h3>
+<figure><img alt="Trackpad saja" src="img/id/ss-pad.png"><figcaption>Trackpad saja</figcaption></figure>
+<p>Trackpad mengambil semua ruang yang tidak dipakai deck. Kalau halaman deck disetel <code>Kosong</code>, trackpad benar-benar sepenuh layar.</p>
+<h3 id="2-keyboard-di-atas-trackpad-di-bawah">2. Keyboard di atas, trackpad di bawah</h3>
+<figure><img alt="Keyboard dan trackpad" src="img/id/ss-main.png"><figcaption>Keyboard dan trackpad</figcaption></figure>
+<p>Keyboard <strong>menyusutkan</strong> trackpad, bukan menggantikannya — deck tidak pernah hilang dari layar.</p>
+<h3 id="3-trackpad-di-atas-keyboard-di-bawah">3. Trackpad di atas, keyboard di bawah</h3>
+<figure><img alt="Trackpad di atas" src="img/id/ss-swap.png"><figcaption>Trackpad di atas</figcaption></figure>
+<p>Isi yang sama, dibalik.</p>
+<h3 id="4-keyboard-saja">4. Keyboard saja</h3>
+<figure><img alt="Keyboard saja" src="img/id/ss-kbonly.png"><figcaption>Keyboard saja</figcaption></figure>
+<p>Trackpad hilang dan keyboard <strong>turun ke bawah dengan ukuran yang sama</strong> seperti mode sebelumnya — bukan melar. Keyboard yang dimelarkan sepenuh tablet punya baris lebih tinggi dari jempol, dan itu lebih susah diketik, bukan lebih enak.</p>
+<p>Pilihan tata letak diingat per perangkat.</p>
+<p><strong>Portrait ditangani terpisah.</strong> Tablet yang berdiri itu deck yang ditegakkan, bukan laptop — palm rest di kiri-kanan trackpad tidak masuk akal di lebar segitu. Jadi begitu tablet diputar, deck otomatis jadi <strong>satu grid di bagian atas</strong> dan trackpad mengambil sisanya. Tidak ada yang perlu disetel; cukup putar tabletnya.</p>
+<hr>
+<h2 id="beberapa-mac-sekaligus">Beberapa Mac sekaligus</h2>
+<p>Semua Mac tersambung <strong>barengan</strong>, tetapi hanya satu yang menerima input pada satu waktu. Tablet yang memegang semua koneksi — Mac tidak pernah saling bicara, jadi satu Mac mati tidak menjatuhkan yang lain.</p>
+<h3 id="menambahkan-mac-kedua">Menambahkan Mac kedua</h3>
+<p>Di Mac yang baru: <code>make deckd</code>, lalu <code>make code</code> untuk kodenya. Di tablet: <strong>⚙ → Mac lain → isi alamat + kode → Tambah</strong>.</p>
+<figure><img alt="Setelan Mac lain" src="img/id/ss-set-hosts.png"><figcaption>Setelan Mac lain</figcaption></figure>
+<h3 id="urutan-meja">Urutan meja</h3>
+<p>Strip di atas daftar menggambar susunan <strong>fisik</strong> Mac di meja, kiri ke kanan:</p>
+<pre><code>kiri   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   kanan</code></pre>
+<p>Geser dengan tombol <strong>◀ ▶</strong> di tiap baris. Nomornya juga muncul di daftar, jadi daftar vertikal itu tidak perlu dibayangkan sebagai baris horizontal.</p>
+<p>Urutan ini <strong>bukan kosmetik</strong> — ini yang dibaca fitur nyeberang di bawah.</p>
+<h3 id="nyeberang-di-tepi-layar">Nyeberang di tepi layar</h3>
+<p>Dorong kursor terus ke tepi kanan sampai mentok, dan kendali pindah ke Mac di sebelah kanannya. Kursor di Mac tujuan muncul di tepi seberangnya, di ketinggian yang sama, jadi terasa menyambung.</p>
+<p>Supaya tidak pindah karena mentok biasa saat kerja, syaratnya <strong>dua-duanya</strong> harus terpenuhi: ~90 px gerakan tertelan <strong>dan</strong> dorongan berlanjut minimal ~0,1 detik. Ada jeda 0,7 detik setelah pindah. Bisa dimatikan di setelan.</p>
+<p>Kalau tidak mau pindah, <strong>panel debug menyebut sebabnya</strong> (<code>nyeberang gagal</code>): tidak ada Mac di sisi itu, atau Mac-nya tidak terhubung.</p>
+<h3 id="tombol-yang-jalan-di-mac-lain">Tombol yang jalan di Mac lain</h3>
+<p>Beri sebuah tombol deck field <code>host</code>:</p>
+<pre><code>{ "id": "build", "label": "Build", "host": "MacBook Pro",
+  "action": { "type": "shortcut", "keys": ["cmd", "b"] } }</code></pre>
+<p>Tombol itu selalu jalan di Mac yang disebut, apa pun yang sedang disetir — build di Mac mini sambil terus mengetik di MacBook.</p>
+<p>Dua hal yang mengikuti dari aturan "tablet cuma kirim id":</p>
+<ul><li><strong>Id-nya diresolusi di mesin tujuan.</strong> <code>host: "MacBook Pro"</code> berarti <em>"jalankan macro bernama <code>build</code> di sana"</em>, dan <code>deck.json</code> milik MacBook yang menentukan <code>build</code> itu apa. Tiap mesin tetap pemilik arti id-nya sendiri.</li><li><strong><code>action</code> di sebelah <code>host</code> adalah yang jalan lokal</strong>, di mesin pemilik file ini. Tidak pernah dikirim ke mana pun.</li></ul>
+<p><code>host</code> dicocokkan dengan nama yang tampil di daftar Mac (atau alamatnya). Tombolnya digambar <strong>bergaris putus-putus</strong> dengan nama mesin tujuan, dan <strong>redup</strong> kalau mesin itu tidak terhubung.</p>
+<hr>
+<h2 id="papan-klip-antar-mesin">Papan klip antar mesin</h2>
+<p><strong>⚙ → Papan klip antar mesin.</strong></p>
+<figure><img alt="Papan klip dan status mesin" src="img/id/ss-set-clip.png"><figcaption>Papan klip dan status mesin</figcaption></figure>
+<ul><li><strong>Ambil dari</strong> Mac X → isinya disimpan di tablet.</li><li><strong>Taruh ke</strong> Mac Y → isinya ditulis ke papan klip Mac itu.</li></ul>
+<p><strong>Selalu manual, tidak pernah otomatis.</strong> Sync papan klip otomatis antar mesin terdengar seperti kenyamanan dan sebenarnya kebocoran — password manager menaruh password di papan klip, dan menyalinnya ke mesin lain tanpa diminta tidak kelihatan sampai terlambat.</p>
+<p>Batasnya: <strong>teks saja</strong>, maksimal 16 KB, disimpan di <strong>memori tablet saja</strong> (hilang saat reload, tidak pernah menyentuh penyimpanan), dan <strong>tidak pernah masuk log</strong> di titik mana pun.</p>
+<hr>
+<h2 id="status-mesin">Status mesin</h2>
+<p><strong>⚙ → Status mesin.</strong> Satu baris per Mac: app yang sedang di depan, beban, memori, lama nyala, latency, dan apakah Accessibility sudah diizinkan.</p>
+<p><strong>Beban ditampilkan per core</strong> karena itu angka yang artinya sama di laptop 4-core dan desktop 12-core — dan itu justru gunanya halaman ini. Warnanya berubah kuning di atas 70%.</p>
+<p>Datanya <strong>hanya diminta selagi panel setelan terbuka</strong>. Tidak ada yang disampel di belakang layar.</p>
+<hr>
+<h2 id="setelan">Setelan</h2>
+<figure><img alt="Setelan trackpad" src="img/id/ss-set-trackpad.png"><figcaption>Setelan trackpad</figcaption></figure>
+<p><strong>Bahasa antarmuka</strong> ada di paling atas panel setelan: Indonesia atau English, berlaku seketika tanpa reload.</p>
+<p>Yang <strong>tidak</strong> ikut berubah — dan memang tidak boleh: <strong>nama halaman deck dan label tombol deck</strong>. Semua itu datang dari <code>deck.json</code> milik Mac, bukan dari aplikasi. Kalau tombol lo bertuliskan "Tidurkan Layar", dia tetap begitu di mode English, karena itu tulisan lo sendiri.</p>
+<table><thead><tr><th>Setelan</th><th>Arti</th></tr></thead><tbody><tr><td><strong>Bahasa</strong></td><td>Indonesia atau English. Berlaku seketika, disimpan per perangkat</td></tr><tr><td><strong>Sensitivitas</strong></td><td>pengali gerakan kursor</td></tr><tr><td><strong>Akselerasi</strong></td><td>seberapa jauh gerakan cepat melipatgandakan jarak</td></tr><tr><td><strong>Kehalusan gerak</strong></td><td><code>1.00</code> = mentah tanpa penghalusan; makin kecil makin halus tapi menambah 1–2 frame jeda</td></tr><tr><td><strong>Kecepatan scroll</strong></td><td>pengali scroll dua jari</td></tr><tr><td><strong>Scroll natural</strong></td><td>konten mengikuti arah jari</td></tr><tr><td><strong>Tap buat klik</strong></td><td>matikan kalau sering salah klik</td></tr><tr><td><strong>Nyeberang di tepi layar</strong></td><td>serah-terima kursor antar Mac</td></tr><tr><td><strong>Tahan buat drag</strong></td><td>tahan diam lalu geser untuk drag</td></tr><tr><td><strong>Geser 3 jari kiri/kanan</strong></td><td><em>Pindah desktop</em> atau <em>Ganti app</em></td></tr><tr><td><strong>Suara tombol</strong></td><td>jenis (Tik / Thock / Pop / Tipis) dan volume; <code>0</code> = mati. Trackpad memang tidak berbunyi</td></tr><tr><td><strong>Pasang ke layar depan</strong></td><td>lihat bagian PWA di bawah</td></tr><tr><td><strong>Ping / keepalive</strong></td><td>makin kecil, radio wifi makin jarang tidur — lebih boros baterai. Saat menganggur, ping otomatis melambat ke 2 detik</td></tr><tr><td><strong>Mac lain</strong></td><td>tambah, beri nama, urutkan, hapus</td></tr><tr><td><strong>Papan klip antar mesin</strong></td><td>ambil / taruh</td></tr><tr><td><strong>Status mesin</strong></td><td>kondisi tiap Mac</td></tr><tr><td><strong>Panel debug</strong></td><td>lihat bawah</td></tr><tr><td><strong>Device yang dipasangkan</strong></td><td>tablet/HP yang boleh mengendalikan Mac aktif; mencabut langsung memutus koneksinya</td></tr></tbody></table>
+<p>Semua setelan disimpan per perangkat.</p>
+<hr>
+<h2 id="panel-debug">Panel debug</h2>
+<p><strong>⚙ → Debug → Panel debug.</strong> Melayang di pojok kiri bawah, <strong>sentuhan tetap tembus</strong> ke bawahnya.</p>
+<figure><img alt="Panel debug" src="img/id/ss-debug.png"><figcaption>Panel debug</figcaption></figure>
+<table><thead><tr><th>Grup</th><th>Isi</th></tr></thead><tbody><tr><td><strong>koneksi</strong></td><td>Mac aktif, alamat, transport (ws/wss), status, izin Accessibility, ringkasan Mac lain</td></tr><tr><td><strong>latency</strong></td><td>rtt terakhir, p50/p95 (berwarna sesuai ambang), min/max, jumlah sampel, mode ping aktif/idle</td></tr><tr><td><strong>trafik</strong></td><td>frame/detik, total kirim, refresh Hz Mac, status loop animasi</td></tr><tr><td><strong>sentuhan</strong></td><td>jumlah jari, mode, drag, jarak gestur vs ambang, sisa sub-piksel</td></tr><tr><td><strong>deck</strong></td><td>halaman aktif, app depan, jumlah halaman</td></tr><tr><td><strong>tablet</strong></td><td>ukuran layar, orientasi, fullscreen, wake lock, secure context, status audio</td></tr></tbody></table>
+<p>Saat mati, panel ini <strong>tidak memakan apa pun</strong> — timer-nya hanya ada selama panel terbuka.</p>
+<p>Kalau sesuatu tidak jalan, mulai dari sini. Dua baris yang paling sering menjawab:</p>
+<ul><li><strong><code>nyeberang gagal</code></strong> — kenapa serah-terima kursor tidak terjadi.</li><li><strong><code>injector nolak</code></strong> — Mac itu menolak sebuah frame. Hampir selalu berarti binary Swift di mesin itu lebih lama dari client-nya (<code>git pull</code> tanpa <code>make build</code>).</li></ul>
+<hr>
+<h2 id="pasang-ke-layar-depan-pwa-https">Pasang ke layar depan (PWA) &amp; HTTPS</h2>
+<p><strong>⚙ → Pasang ke layar depan.</strong> Berjalan tanpa bar browser, dibuka lewat ikon seperti aplikasi biasa.</p>
+<p>Kalau tombolnya tidak muncul, panelnya menyebutkan alasannya — bukan menampilkan tombol mati. Di sebagian browser jalurnya lewat menu ⋮ → <em>Add to Home screen</em>.</p>
+<p><strong>HTTPS itu peningkatan, bukan syarat.</strong> Aplikasi disajikan di dua port sekaligus:</p>
+<pre><code>http://&lt;ip&gt;:8777/      selalu ada
+https://&lt;ip&gt;:8778/     setelah `make cert`</code></pre>
+<p>Kenapa perlu? <strong>Wake Lock</strong> (menahan layar tablet tetap menyala) hanya jalan di secure context. Jadi kalau layar tablet suka tidur sendiri, itu tandanya sedang lewat HTTP.</p>
+<pre><code>make cert     # bikin sertifikat lokal
+# lalu restart deckd, dan di tablet buka https://&lt;ip&gt;:8778/</code></pre>
+<p>Halaman <code>/setup</code> di server memandu pemasangan sertifikat CA di tablet.</p>
+<hr>
+<h2 id="jalan-otomatis-saat-mac-nyala">Jalan otomatis saat Mac nyala</h2>
+<pre><code>make install      # pasang sebagai layanan launchd
+make status       # cek jalan atau tidak
+make uninstall    # cabut lagi</code></pre>
+<p><strong>Penting:</strong> launchd tidak punya aplikasi induk yang bisa "meminjamkan" izin Accessibility-nya. Jadi binary <code>deckd-input</code> harus diizinkan <strong>langsung</strong>, bukan Terminal. <code>make doctor</code> mencetak rantai proses supaya jelas siapa yang sebenarnya perlu dicentang.</p>
+<hr>
+<h2 id="kalau-ada-masalah">Kalau ada masalah</h2>
+<table><thead><tr><th>Gejala</th><th>Kemungkinan besar</th></tr></thead><tbody><tr><td>Kursor tidak bergerak sama sekali</td><td>Izin Accessibility. Jalankan <code>make doctor</code> — kalau <code>trusted: TIDAK</code>, izinkan lalu <strong>jalankan ulang</strong> deckd</td></tr><tr><td>Tablet tidak bisa membuka alamatnya</td><td>Beda jaringan, atau firewall Mac. Cek dengan <code>make ip</code></td></tr><tr><td>Kode pairing selalu salah</td><td>Kode sekali pakai. Ambil yang baru dengan <code>make code</code></td></tr><tr><td>Layar tablet tidur terus</td><td>Sedang lewat HTTP. Wake Lock butuh HTTPS — <code>make cert</code></td></tr><tr><td>Satu fitur jalan di satu Mac tapi tidak di Mac lain</td><td>Mac itu belum di-<code>make build</code> setelah <code>git pull</code>. Panel debug akan menampilkan <code>injector nolak</code></td></tr><tr><td>Nyeberang di tepi tidak terjadi</td><td>Cek urutan meja di <strong>⚙ → Mac lain</strong>, dan baris <code>nyeberang gagal</code> di panel debug</td></tr><tr><td>Gestur tiga jari tidak pindah desktop</td><td>Cek <em>System Settings → Keyboard → Shortcuts → Mission Control</em> masih aktif</td></tr><tr><td>Muncul popup asing saat menahan dua jari</td><td>Itu fitur browsernya, bukan SwitchDeck. Coba browser lain — misalnya Vivaldi di Android memunculkan popup QR yang tidak bisa ditekan oleh halaman</td></tr><tr><td>Dobel tap tidak membuka apa-apa</td><td>Pastikan <code>make build</code> sudah dijalankan; perbaikan click count ada di sisi Swift</td></tr></tbody></table>
+<p>Masih buntu? Nyalakan <strong>panel debug</strong> dan baca grup <code>koneksi</code> — hampir semua pertanyaan "kenapa diam" terjawab di situ.</p>
+<hr>
+<h2 id="daftar-perintah-make">Daftar perintah <code>make</code></h2>
+<table><thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead><tbody><tr><td><code>make build</code></td><td>compile helper Swift</td></tr><tr><td><code>make deps</code></td><td>install dependency Node</td></tr><tr><td><code>make deckd</code></td><td>jalankan server</td></tr><tr><td><code>make doctor</code></td><td>cek izin, rantai proses, kesehatan</td></tr><tr><td><code>make code</code></td><td>cetak ulang kode pairing</td></tr><tr><td><code>make ip</code></td><td>alamat Mac di jaringan lokal</td></tr><tr><td><code>make cert</code></td><td>buat sertifikat untuk HTTPS</td></tr><tr><td><code>make install</code> / <code>make uninstall</code></td><td>pasang / cabut layanan launchd</td></tr><tr><td><code>make status</code></td><td>status layanan</td></tr><tr><td><strong>Tes</strong></td><td></td></tr><tr><td><code>make e2e</code></td><td>rantai penuh WebSocket → deckd → deckd-input</td></tr><tr><td><code>make client</code></td><td>semua cek sisi client (tanpa Mac, tanpa build, tanpa izin)</td></tr><tr><td><code>make idle</code></td><td>memastikan client membiarkan CPU tidur</td></tr><tr><td><code>make debug-panel</code></td><td>memastikan panel debug tergambar di semua kondisi</td></tr><tr><td><code>make dblclick</code></td><td>memastikan dobel tap jadi dobel klik sungguhan</td></tr><tr><td><code>make selftest</code></td><td>uji injeksi input langsung</td></tr><tr><td><code>make verify-copy</code></td><td>uji rantai penuh sampai clipboard macOS</td></tr><tr><td><code>make latency</code></td><td>ukur latency</td></tr></tbody></table>
+<hr>
+<h2 id="cara-kerjanya-di-dalam">Cara kerjanya di dalam</h2>
+<pre><code>Tablet (browser)  ──WebSocket──▶  deckd (Node)  ──stdin JSON──▶  deckd-input (Swift)  ──▶  macOS
+                                    │                                                       CGEvent
+                                    └── deck.json, token device, pairing</code></pre>
+<p>Tiga proses, tiga tanggung jawab:</p>
+<ul><li><strong>Client web</strong> — semua UI. Diedit paling sering, tidak perlu compile.</li><li><strong><code>deckd</code> (Node)</strong> — router: WebSocket, token, deck, validasi. <strong>Tidak tahu apa itu CGEvent.</strong></li><li><strong><code>deckd-input</code> (Swift)</strong> — satu-satunya yang menyentuh API macOS. Semua kode khusus OS dikurung di sini, supaya menambah Windows nanti tidak menyentuh dua lapisan lainnya.</li></ul>
+<p>Aturan yang berlaku sejak awal dan tidak pernah dilonggarkan: <strong>tablet mengirim id, bukan perintah.</strong> Tablet tidak pernah tahu isi <code>action</code> sebuah tombol; dia hanya tahu id dan label. Setiap frame divalidasi di <code>deckd</code> sebelum diteruskan — angka tidak berhingga, keycode di luar jangkauan, nama modifier ngawur, dan teks kepanjangan semuanya ditolak, bukan diam-diam diperbaiki.</p>
+</main>
+</div>
+<script>
+  // Sidebar dibangun dari isi halaman, jadi tidak ada daftar kedua yang bisa
+  // basi terhadap judul yang sebenarnya ada.
+  var toc = document.getElementById('toc');
+  document.querySelectorAll('main h2').forEach(function (h) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    li.appendChild(a); toc.appendChild(li);
+  });
+</script>
+</body>
+</html>
