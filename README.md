@@ -195,6 +195,35 @@ Still needs a human:
       cancellation means macOS passes our deltas through untouched; pointer
       acceleration would have made the two bursts disagree.
 
+## A deck button that runs on another machine
+
+A key in `deck.json` may name a machine:
+
+```json
+{ "id": "build", "label": "Build", "host": "MacBook Pro",
+  "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
+```
+
+The tablet keeps every host connected at once, so this costs nothing but the
+choice of which socket to write to. Build on the Mac mini while you carry on
+typing on the MacBook.
+
+Two things follow from the rule that has held since F1 — the tablet sends an
+id, never a command:
+
+- **The id is looked up on the machine it is sent to.** `host: "MacBook Pro"`
+  means "run the macro called `build` over there", and the MacBook's own
+  `deck.json` decides what `build` does. Each machine stays the authority on
+  what its own ids mean, and a button that names an id the other machine does
+  not have comes back as an error rather than running something unexpected.
+- **The `action` beside `host` is what runs locally**, on the machine whose
+  deck.json this is. It is never sent anywhere.
+
+`host` matches the name shown in the tablet's host list (or the address). The
+button is drawn with a dashed border and the machine's name, and goes dim
+when that machine is not connected — a Build that fires somewhere else is the
+one label that must never be ambiguous.
+
 ## A popup appears over the trackpad
 
 The page cancels what a page is allowed to cancel on the pad — long-press

@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -22,13 +22,33 @@ function check(ok, label, detail = '') {
   if (!ok) failures += 1;
 }
 
+const CONFIG_DIR = mkdtempSync(join(tmpdir(), 'switchdeck-test-'));
+
+// A deck with a button that runs somewhere else. Written before the server
+// starts so it is read as a real config rather than patched in afterwards.
+writeFileSync(join(CONFIG_DIR, 'deck.json'), JSON.stringify({
+  pages: [{
+    name: 'Umum',
+    keys: [
+      { id: 'copy', label: 'Copy', hint: '⌘C', action: { type: 'shortcut', keys: ['cmd', 'c'] } },
+      { id: 'build-there', label: 'Build', host: 'MacBook Pro',
+        action: { type: 'shortcut', keys: ['cmd', 'b'] } },
+      { id: 'blank-host', label: 'Salah', host: '   ',
+        action: { type: 'shortcut', keys: ['cmd', 'x'] } }
+    ]
+  }, {
+    name: 'Xcode', match: ['Xcode'],
+    keys: [{ id: 'xc-build', label: 'Build', action: { type: 'shortcut', keys: ['cmd', 'b'] } }]
+  }]
+}, null, 2));
+
 const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   env: {
     ...process.env,
     PORT: String(PORT),
     // Its own config directory: the real one holds real device tokens and the
     // pairing code the user is reading.
-    SWITCHDECK_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'switchdeck-test-')),
+    SWITCHDECK_CONFIG_DIR: CONFIG_DIR,
     DECKD_INPUT: join(here, 'stub-input.js'),
     STUB_OUT,
   },
@@ -154,6 +174,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(passed.some((f) => f.t === 'm' && f.dx === 5 && f.dy === -3), 'frame gerak diteruskan');
   check(passed.some((f) => f.t === 's' && f.dy === 4), 'frame scroll diteruskan');
   check(passed.some((f) => f.t === 'b' && f.btn === 'r'), 'frame klik kanan diteruskan');
+
+  // --- tombol deck yang menyasar mesin lain ---
+  const allKeys = pages.flatMap((p) => p.keys);
+  const away = allKeys.find((k) => k.id === 'build-there');
+  check(away?.host === 'MacBook Pro', 'tombol lintas-mesin bawa nama host-nya',
+        'tablet perlu tahu ini jalan di mana, biar labelnya tidak menipu');
+  check(away?.action === undefined,
+        'tombol lintas-mesin TETAP tidak bawa action',
+        'aturan sejak F1 tidak longgar cuma karena tujuannya mesin lain');
+  check(allKeys.find((k) => k.id === 'blank-host')?.host === undefined,
+        'host kosong/spasi dibuang, bukan diteruskan sebagai nama palsu');
 
   // --- serah-terima kursor di tepi layar ---
   const beforeWarp = readSent().length;

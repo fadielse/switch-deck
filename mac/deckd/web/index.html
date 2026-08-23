@@ -167,6 +167,13 @@
     transition: transform .06s, background .12s, border-color .12s;
   }
   .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
+  /* Runs somewhere else: marked, because a button that fires on another
+     machine looking identical to one that fires here is a trap. */
+  .key.away { border-style: dashed; }
+  .key .on-host { color: #78a9e8; font-weight: 600; }
+  .key.away .on-host::before { content: '⇢ '; }
+  .key.dead { opacity: .45; }
+  .key.dead .on-host { color: #f2777f; }
   .key span:first-child { font-size: 14px; line-height: 1.15; }
   .key { transition: transform .09s ease, background .12s ease, box-shadow .12s ease; }
   .key.down {
@@ -919,6 +926,17 @@
     pill.className = 'pill ' + (state === 'on' ? 'up' : state === 'connecting' ? 'mid' : 'down');
   }
 
+  // Deck buttons name a machine the way a person does — by the name shown in
+  // the host list — not by an id the deck.json author has no way of knowing.
+  function hostByName(name) {
+    var want = String(name).trim().toLowerCase();
+    for (var i = 0; i < hosts.length; i++) {
+      var h = hosts[i];
+      if ((h.name || '').toLowerCase() === want || (h.url || '').toLowerCase() === want) return h;
+    }
+    return null;
+  }
+
   function activeHost() {
     for (var i = 0; i < hosts.length; i++) if (hosts[i].id === activeId) return hosts[i];
     return null;
@@ -1203,13 +1221,43 @@
       var b = document.createElement('button');
       b.className = 'key'; b.id = 'key-' + k.id;
       if (k.color) b.style.background = k.color;
-      b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+
+      // A button may name another machine. Every socket is already open, so
+      // this costs nothing but the decision of which one to write to — and it
+      // is the whole reason multi-host is interesting: build on the Mac mini
+      // while still typing on the MacBook.
+      var target = k.host ? hostByName(k.host) : null;
+      var away = !!k.host;
+      var reachable = !away || (target && conns[target.id] && conns[target.id].state === 'on');
+      if (away) {
+        b.classList.add('away');
+        // Which machine it runs on is not something to guess at: a Build that
+        // fires somewhere else is the one label that must never be ambiguous.
+        b.innerHTML = '<span>' + k.label + '</span>'
+          + '<span class="hint on-host">' + (target ? (target.name || target.url) : k.host) + '</span>';
+        if (!reachable) b.classList.add('dead');
+      } else {
+        b.innerHTML = '<span>' + k.label + '</span>'
+          + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+      }
+
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
         b.setPointerCapture(e.pointerId);
         b.classList.add('down');
+        if (!reachable) {
+          // Silence here would be indistinguishable from the macro failing on
+          // the other side, which is a different problem with a different fix.
+          flash(k.id, 'fail');
+          return;
+        }
         clickSound(true);
-        send({ t: 'macro', id: k.id });
+        if (away) {
+          var c = conns[target.id];
+          c.ws.send(JSON.stringify({ t: 'macro', id: k.id }));
+        } else {
+          send({ t: 'macro', id: k.id });
+        }
       });
       ['pointerup', 'pointercancel'].forEach(function (name) {
         b.addEventListener(name, function () { b.classList.remove('down'); });

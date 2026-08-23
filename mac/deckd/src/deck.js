@@ -2,7 +2,12 @@ import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const FILE = join(homedir(), '.config', 'switchdeck', 'deck.json');
+// Same override as config.js. It was missing here, so every `make e2e` read —
+// and on a fresh machine would have written — the user's real deck. config.js
+// was given this override when the test harness was found trampling real
+// device tokens; deck.json sat in the same directory and was left behind.
+const DIR = process.env.SWITCHDECK_CONFIG_DIR || join(homedir(), '.config', 'switchdeck');
+const FILE = join(DIR, 'deck.json');
 
 /// Seeded with apps that are actually installed, so the starter deck has no
 /// dead buttons. Anything missing is dropped rather than shipped as a key that
@@ -124,7 +129,17 @@ export class Deck {
       pages: this.deck.pages.map((p) => ({
         name: p.name,
         match: p.match,
-        keys: p.keys.map((k) => ({ id: k.id, label: k.label ?? k.id, hint: k.hint, color: k.color }))
+        // `host` names another machine this button should run on. It is not an
+        // action and never becomes one: the tablet still sends nothing but an
+        // id, and the machine it is sent to looks that id up in ITS OWN
+        // deck.json. Each machine stays the authority on what its ids mean.
+        keys: p.keys.map((k) => ({
+          id: k.id,
+          label: k.label ?? k.id,
+          hint: k.hint,
+          color: k.color,
+          host: typeof k.host === 'string' && k.host.trim() ? k.host.trim() : undefined
+        }))
       })),
       error: this.error ?? null
     };
