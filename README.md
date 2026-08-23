@@ -95,7 +95,7 @@ Kalau tertulis `trusted : TIDAK`, buka:
 <folder-repo>/mac/deckd-input/.build/release/deckd-input
 ```
 
-> 📸 **Butuh screenshot manual:** panel *System Settings → Privacy & Security → Accessibility* dengan `deckd-input` dicentang. Simpan sebagai `docs/img/ss-accessibility.png`.
+Tekan **+**, lalu di dialog file tekan **⌘⇧G** dan tempel path di atas — folder `.build` disembunyikan Finder, jadi tidak bisa diklik dari daftar biasa.
 
 Dua hal yang sering bikin bingung:
 
@@ -116,7 +116,7 @@ Kode hanya sekali pakai dan ada rate-limit — tebakan beruntun langsung dijeda.
 
 Lupa kodenya? `make code` mencetaknya lagi.
 
-> 📸 **Butuh screenshot manual:** layar pairing di tablet aslinya. Simpan sebagai `docs/img/ss-pairing-tablet.png`.
+![Layar pairing di tablet](docs/img/ss-pairing-tablet.png)
 
 ---
 
@@ -285,7 +285,7 @@ Trackpad hilang dan keyboard **turun ke bawah dengan ukuran yang sama** seperti 
 
 Pilihan tata letak diingat per perangkat.
 
-> 📸 **Butuh screenshot manual:** tampilan **portrait** di tablet (deck jadi satu grid di atas, trackpad mengambil sisanya). Simpan sebagai `docs/img/ss-portrait.png`.
+**Portrait ditangani terpisah.** Tablet yang berdiri itu deck yang ditegakkan, bukan laptop — palm rest di kiri-kanan trackpad tidak masuk akal di lebar segitu. Jadi begitu tablet diputar, deck otomatis jadi **satu grid di bagian atas** dan trackpad mengambil sisanya. Tidak ada yang perlu disetel; cukup putar tabletnya.
 
 ---
 
@@ -437,8 +437,6 @@ make cert     # bikin sertifikat lokal
 ```
 
 Halaman `/setup` di server memandu pemasangan sertifikat CA di tablet.
-
-> 📸 **Butuh screenshot manual:** dialog *Add to Home screen* di browser tablet. Simpan sebagai `docs/img/ss-install-pwa.png`.
 
 ---
 

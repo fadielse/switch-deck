@@ -103,7 +103,7 @@ Kode pairing:    858417</code></pre>
 <p>Kalau tertulis <code>trusted : TIDAK</code>, buka:</p>
 <p><strong>System Settings → Privacy &amp; Security → Accessibility</strong>, lalu tambahkan binary ini:</p>
 <pre><code>&lt;folder-repo&gt;/mac/deckd-input/.build/release/deckd-input</code></pre>
-<blockquote><p>📸 <strong>Butuh screenshot manual:</strong> panel <em>System Settings → Privacy &amp; Security → Accessibility</em> dengan <code>deckd-input</code> dicentang. Simpan sebagai <code>docs/img/ss-accessibility.png</code>.</p></blockquote>
+<p>Tekan <strong>+</strong>, lalu di dialog file tekan <strong>⌘⇧G</strong> dan tempel path di atas — folder <code>.build</code> disembunyikan Finder, jadi tidak bisa diklik dari daftar biasa.</p>
 <p>Dua hal yang sering bikin bingung:</p>
 <ul><li><strong>Izin menempel pada aplikasi induk.</strong> Kalau <code>deckd</code> dijalankan dari Terminal, yang perlu diizinkan bisa jadi Terminal-nya. Kalau dijalankan lewat launchd (<code>make install</code>), yang diizinkan binary-nya langsung. <code>make doctor</code> mencetak rantai prosesnya supaya kelihatan siapa induknya.</li><li><strong>Setelah menambahkan izin, jalankan ulang <code>deckd</code>.</strong> macOS tidak memberi izin ke proses yang sudah jalan.</li></ul>
 <p>Untuk fitur pindah desktop dan App Exposé, macOS juga akan meminta izin <strong>Automation</strong> (System Events) sekali saat pertama dipakai.</p>
@@ -112,7 +112,7 @@ Kode pairing:    858417</code></pre>
 <ol><li>Buka alamat yang dicetak <code>make deckd</code> di browser tablet, misalnya <code>http://192.168.1.213:8777/</code>.</li><li>Masukkan <strong>kode 6 digit</strong> yang tercetak di terminal.</li><li>Tap <strong>Pasangkan</strong>.</li></ol>
 <p>Kode hanya sekali pakai dan ada rate-limit — tebakan beruntun langsung dijeda. Setelah berhasil, tablet menyimpan token-nya sendiri, jadi tidak perlu pairing lagi.</p>
 <p>Lupa kodenya? <code>make code</code> mencetaknya lagi.</p>
-<blockquote><p>📸 <strong>Butuh screenshot manual:</strong> layar pairing di tablet aslinya. Simpan sebagai <code>docs/img/ss-pairing-tablet.png</code>.</p></blockquote>
+<figure><img alt="Layar pairing di tablet" src="img/ss-pairing-tablet.png"><figcaption>Layar pairing di tablet</figcaption></figure>
 <hr>
 <h2 id="mengenal-layar">Mengenal layar</h2>
 <figure><img alt="Layar utama" src="img/ss-main.png"><figcaption>Layar utama</figcaption></figure>
@@ -185,7 +185,7 @@ Kode pairing:    858417</code></pre>
 <figure><img alt="Keyboard saja" src="img/ss-kbonly.png"><figcaption>Keyboard saja</figcaption></figure>
 <p>Trackpad hilang dan keyboard <strong>turun ke bawah dengan ukuran yang sama</strong> seperti mode sebelumnya — bukan melar. Keyboard yang dimelarkan sepenuh tablet punya baris lebih tinggi dari jempol, dan itu lebih susah diketik, bukan lebih enak.</p>
 <p>Pilihan tata letak diingat per perangkat.</p>
-<blockquote><p>📸 <strong>Butuh screenshot manual:</strong> tampilan <strong>portrait</strong> di tablet (deck jadi satu grid di atas, trackpad mengambil sisanya). Simpan sebagai <code>docs/img/ss-portrait.png</code>.</p></blockquote>
+<p><strong>Portrait ditangani terpisah.</strong> Tablet yang berdiri itu deck yang ditegakkan, bukan laptop — palm rest di kiri-kanan trackpad tidak masuk akal di lebar segitu. Jadi begitu tablet diputar, deck otomatis jadi <strong>satu grid di bagian atas</strong> dan trackpad mengambil sisanya. Tidak ada yang perlu disetel; cukup putar tabletnya.</p>
 <hr>
 <h2 id="beberapa-mac-sekaligus">Beberapa Mac sekaligus</h2>
 <p>Semua Mac tersambung <strong>barengan</strong>, tetapi hanya satu yang menerima input pada satu waktu. Tablet yang memegang semua koneksi — Mac tidak pernah saling bicara, jadi satu Mac mati tidak menjatuhkan yang lain.</p>
@@ -245,7 +245,6 @@ https://&lt;ip&gt;:8778/     setelah `make cert`</code></pre>
 <pre><code>make cert     # bikin sertifikat lokal
 # lalu restart deckd, dan di tablet buka https://&lt;ip&gt;:8778/</code></pre>
 <p>Halaman <code>/setup</code> di server memandu pemasangan sertifikat CA di tablet.</p>
-<blockquote><p>📸 <strong>Butuh screenshot manual:</strong> dialog <em>Add to Home screen</em> di browser tablet. Simpan sebagai <code>docs/img/ss-install-pwa.png</code>.</p></blockquote>
 <hr>
 <h2 id="jalan-otomatis-saat-mac-nyala">Jalan otomatis saat Mac nyala</h2>
 <pre><code>make install      # pasang sebagai layanan launchd
