@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwitchDeck — Dokumentasi</title>
+<style>
+  :root {
+    --bg:#0f1116; --panel:#161a21; --line:#252a34; --fg:#e6e8ec; --dim:#98a1b0;
+    --accent:#4d84e6; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:16px/1.65 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color:var(--accent); }
+  .wrap { display:flex; align-items:flex-start; max-width:1500px; margin:0 auto; }
+  nav { position:sticky; top:0; align-self:flex-start; flex:0 0 268px;
+        max-height:100vh; overflow-y:auto; padding:26px 16px 40px;
+        border-right:1px solid var(--line); font-size:13.5px; }
+  nav .brand { display:flex; align-items:center; gap:9px; margin-bottom:18px; }
+  nav .brand svg { width:26px; height:26px; }
+  nav .brand b { font-size:15px; letter-spacing:-.01em; }
+  nav .brand b span { color:var(--dim); font-weight:500; }
+  nav ol { list-style:none; margin:0; padding:0; counter-reset:s; }
+  nav li { counter-increment:s; }
+  nav ol a { display:block; padding:6px 10px; border-radius:7px; color:var(--dim);
+             text-decoration:none; }
+  nav ol a::before { content:counter(s) ". "; color:#5b6472; }
+  nav ol a:hover { background:var(--panel); color:var(--fg); }
+  main { flex:1 1 auto; min-width:0; padding:26px 34px 90px; max-width:920px; }
+  h1 { font-size:34px; letter-spacing:-.02em; margin:.2em 0 .1em; }
+  h2 { font-size:23px; letter-spacing:-.01em; margin:2.4em 0 .5em;
+       padding-top:.7em; border-top:1px solid var(--line); scroll-margin-top:14px; }
+  h3 { font-size:17px; margin:1.7em 0 .4em; color:#cfd6e2; }
+  p, li { color:#d3d8e0; }
+  code { font-family:var(--mono); font-size:.87em; background:#1c212b;
+         padding:2px 6px; border-radius:5px; color:#cbd5e6; }
+  pre { background:#12161d; border:1px solid var(--line); border-radius:10px;
+        padding:14px 16px; overflow-x:auto; font-size:13.5px; line-height:1.55; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  table { border-collapse:collapse; width:100%; margin:1em 0; font-size:14.5px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line);
+           vertical-align:top; }
+  th { color:var(--dim); font-weight:600; font-size:12.5px; text-transform:uppercase;
+       letter-spacing:.06em; }
+  tbody tr:hover { background:#141821; }
+  figure { margin:1.4em 0; }
+  figure img { width:100%; display:block; border:1px solid var(--line);
+               border-radius:11px; background:#0b0d12; }
+  figcaption { color:var(--dim); font-size:13px; margin-top:8px; }
+  blockquote { margin:1.3em 0; padding:13px 16px; border-radius:10px;
+               background:#1a1710; border:1px solid #4a3c17; color:#e8d9ae; }
+  blockquote p { margin:.3em 0; color:inherit; }
+  blockquote code { background:#241f14; color:#f0e2bb; }
+  hr { border:0; border-top:1px solid var(--line); margin:2em 0; }
+  .langswitch { display:flex; gap:6px; margin-bottom:16px; }
+  .langswitch a, .langswitch span {
+    flex:1; text-align:center; padding:6px 8px; border-radius:7px; font-size:12.5px;
+    border:1px solid var(--line); text-decoration:none; color:var(--dim);
+  }
+  .langswitch span { background:#1f2a3d; border-color:#3d6fd1; color:#cdd6e4; font-weight:600; }
+  @media (max-width:900px) { nav { display:none; } main { padding:20px 18px 60px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="6" fill="#3d6fd1"/>
+      <path d="M7.1 9.6h8.1M12.9 7.3l2.4 2.3-2.4 2.3" stroke="#fff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16.9 14.4H8.8M11.1 16.7l-2.4-2.3 2.4-2.3" stroke="#bcd4ff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <b><span>Switch</span>Deck</b>
+  </div>
+  <div class="langswitch"><span>English</span><a href="id.html">Bahasa Indonesia</a></div>
+  <ol id="toc"></ol>
+</nav>
+<main>
+<h1>SwitchDeck</h1>
+<p>Turn an Android tablet into a <strong>trackpad, keyboard and macro deck</strong> for a Mac — through the browser, with nothing to install on the tablet.</p>
+<p>One tablet can drive <strong>several Macs at once</strong>: all of them stay connected, and control crosses over by pushing the cursor into the edge of the screen.</p>
+<figure><img alt="SwitchDeck main screen" src="img/en/ss-main.png"><figcaption>SwitchDeck main screen</figcaption></figure>
+<hr>
+<h2 id="what-it-is-and-what-it-is-not">What it is, and what it is not</h2>
+<p><strong>It is:</strong> a control surface. The tablet sends motion, keystrokes and button ids; the Mac carries them out.</p>
+<p><strong>It is not:</strong></p>
+<ul><li><strong>Not screen mirroring or remote desktop.</strong> The Mac's screen is never sent to the tablet. If that is what you need, use Universal Control or VNC.</li><li><strong>Not meant for use away from home.</strong> It is built for a single local network.</li><li><strong>Not a product for other people.</strong> No accounts, no cloud, no multi-user.</li></ul>
+<hr>
+<h2 id="requirements">Requirements</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>Mac</strong></td><td>macOS with the Xcode command line tools (for <code>swift build</code>) and <strong>Node.js 18+</strong></td></tr><tr><td><strong>Tablet / phone</strong></td><td>anything with a modern browser and a multi-touch screen</td></tr><tr><td><strong>Network</strong></td><td>tablet and Mac on the <strong>same wifi</strong>. Tailscale also works, at higher latency</td></tr></tbody></table>
+<hr>
+<h2 id="install-on-the-mac">Install on the Mac</h2>
+<pre><code>git clone https://github.com/fadielse/switch-deck.git
+cd switch-deck
+make build      # compile the Swift helper (deckd-input)
+make deps       # Node dependencies for the server (deckd)
+make doctor     # check permissions and health
+make deckd      # run the server</code></pre>
+<p><code>make deckd</code> prints something like this:</p>
+<pre><code>Buka di tablet:  http://192.168.1.213:8777/
+Kode pairing:    858417</code></pre>
+<p>Leave that terminal open. To have it start on its own whenever the Mac boots, see <a href="#start-automatically-with-the-mac">Start automatically with the Mac</a>.</p>
+<hr>
+<h2 id="macos-permissions">macOS permissions</h2>
+<p>SwitchDeck injects input, so macOS requires the <strong>Accessibility</strong> permission.</p>
+<pre><code>make doctor</code></pre>
+<p>If it reports <code>trusted : TIDAK</code>, open:</p>
+<p><strong>System Settings → Privacy &amp; Security → Accessibility</strong>, and add this binary:</p>
+<pre><code>&lt;repo-folder&gt;/mac/deckd-input/.build/release/deckd-input</code></pre>
+<p>Press <strong>+</strong>, then in the file dialog press <strong>⌘⇧G</strong> and paste the path above — Finder hides the <code>.build</code> folder, so it cannot be reached by clicking through the list.</p>
+<p>Two things that regularly cause confusion:</p>
+<ul><li><strong>The permission belongs to the parent application.</strong> If <code>deckd</code> is started from Terminal, it may be Terminal that needs to be allowed. If it is started by launchd (<code>make install</code>), the binary itself is what gets allowed. <code>make doctor</code> prints the process chain so you can see which one it actually is.</li><li><strong>Restart <code>deckd</code> after granting the permission.</strong> macOS does not hand it to a process that is already running.</li></ul>
+<p>Switching desktops and App Exposé also make macOS ask once for the <strong>Automation</strong> (System Events) permission.</p>
+<hr>
+<h2 id="connect-the-tablet-pairing">Connect the tablet (pairing)</h2>
+<ol><li>Open the address printed by <code>make deckd</code> in the tablet's browser, for example <code>http://192.168.1.213:8777/</code>.</li><li>Type the <strong>6-digit code</strong> printed in the terminal.</li><li>Tap <strong>Pair</strong>.</li></ol>
+<figure><img alt="Pairing screen" src="img/en/ss-pairing.png"><figcaption>Pairing screen</figcaption></figure>
+<p>The code is single-use and rate-limited — repeated guesses are stalled immediately. Once it succeeds the tablet keeps its own token, so there is nothing to pair again.</p>
+<p>Lost the code? <code>make code</code> prints a fresh one.</p>
+<hr>
+<h2 id="the-screen-part-by-part">The screen, part by part</h2>
+<figure><img alt="Main screen" src="img/en/ss-main.png"><figcaption>Main screen</figcaption></figure>
+<p>Left to right along the top bar:</p>
+<table><thead><tr><th>Part</th><th>What it does</th></tr></thead><tbody><tr><td><strong>SwitchDeck wordmark</strong></td><td>identity; the name hides on a narrow screen</td></tr><tr><td><strong>Device chip</strong></td><td>status dot plus the name of the device being driven. Tap it to switch (when there is more than one)</td></tr><tr><td><strong>Deck page tabs</strong></td><td><code>None</code>, <code>Auto</code>, then a tab per page from <code>deck.json</code>. Scrolls sideways</td></tr><tr><td><strong>Layout button</strong></td><td>cycles through the four arrangements; the icon draws the one you are <strong>currently</strong> in</td></tr><tr><td><strong>⛶</strong></td><td>fullscreen</td></tr><tr><td><strong>⚙</strong></td><td>settings</td></tr></tbody></table>
+<p>The top bar has a <strong>fixed height</strong> — it never grows, however long the app name in the <code>Auto</code> tab happens to be.</p>
+<hr>
+<h2 id="trackpad">Trackpad</h2>
+<p>The large area in the middle. A touch is confirmed by <strong>a soft glow that follows the finger</strong> — two fingers for scrolling means two glows.</p>
+<table><thead><tr><th>Gesture</th><th>Result</th></tr></thead><tbody><tr><td>One finger, move</td><td>move the cursor</td></tr><tr><td>One finger, tap</td><td>left click</td></tr><tr><td><strong>Two quick taps</strong></td><td><strong>double click</strong> — open a file, select a word</td></tr><tr><td>Two fingers, move</td><td>scroll</td></tr><tr><td>Two fingers, tap</td><td>right click</td></tr><tr><td>Tap, then press again and move</td><td>drag</td></tr><tr><td><strong>Hold still ~0.45s, then move</strong></td><td><strong>drag</strong> — the glow turns <strong>green</strong> while it is active</td></tr><tr><td>Three fingers, swipe left/right</td><td>switch desktop (or switch app — selectable in settings)</td></tr><tr><td>Three fingers, swipe up</td><td>Mission Control</td></tr><tr><td>Three fingers, swipe down</td><td>App Exposé</td></tr></tbody></table>
+<p><strong>Why hold-to-drag matters:</strong> in Mission Control the first tap <em>selects a window and dismisses Mission Control</em>, so the "tap then press" gesture can never be used there. Hold-then-move is the only way to move a window between desktops from the tablet.</p>
+<p>The trackpad <strong>stays silent</strong> — it is a surface, not a key. Sound belongs to the keyboard and the deck, where it stands in for the key travel glass cannot give.</p>
+<hr>
+<h2 id="keyboard">Keyboard</h2>
+<p>The layout follows the Apple Magic Keyboard (US): same key names, same widths, a function row at two-thirds height, and an inverted-T arrow cluster.</p>
+<ul><li><strong>Modifiers are sticky</strong>: tap to arm for one key, tap again to lock, tap again to release. They can also be <strong>held down while another finger presses a letter</strong>.</li><li><strong>The function row has both roles</strong>, exactly like the hardware: the printed action (brightness, volume, media) by default, and plain <strong>F1–F12</strong> while <code>fn</code> is on.</li><li><strong>Caps Lock is a toggle on the tablet</strong>, not a key that gets sent — macOS treats caps as a hardware state that cannot be set by an event.</li><li><strong>Held keys repeat</strong> (450 ms delay, then every 45 ms). Modifiers and media keys deliberately do not.</li><li>Leaving the keyboard <strong>releases every modifier</strong>, so a modifier can never be left stuck on the Mac.</li></ul>
+<p>Typing is sent as <strong>the literal character</strong>, so the result does not depend on the Mac's own keyboard layout. Shortcuts are sent as <strong>keycodes with the modifiers genuinely held down</strong>, because a chord has to arrive as a chord.</p>
+<hr>
+<h2 id="deck">Deck</h2>
+<p>Macro buttons either side of the trackpad (in portrait: one grid across the top). Their contents come from:</p>
+<pre><code>~/.config/switchdeck/deck.json</code></pre>
+<p>That file is written on first run, and its App page is <strong>filled only with applications that are actually installed</strong> — so there are no dead buttons.</p>
+<p><strong>Edit the file and every connected tablet redraws instantly</strong> — no reconnect, no restart. A JSON typo leaves the last good deck on screen along with a warning, rather than emptying it.</p>
+<h3 id="shape-of-the-file">Shape of the file</h3>
+<pre><code>{
+  "pages": [
+    {
+      "name": "General",
+      "keys": [
+        { "id": "copy", "label": "Copy", "hint": "⌘C",
+          "action": { "type": "shortcut", "keys": ["cmd", "c"] } },
+        { "id": "sleep", "label": "Sleep Display", "color": "#3a2440",
+          "action": { "type": "shell", "command": "pmset", "args": ["displaysleepnow"] } }
+      ]
+    },
+    {
+      "name": "Xcode",
+      "match": ["Xcode"],
+      "keys": [
+        { "id": "xc-build", "label": "Build", "hint": "⌘B",
+          "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
+      ]
+    }
+  ]
+}</code></pre>
+<h3 id="fields-per-button">Fields per button</h3>
+<table><thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead><tbody><tr><td><code>id</code></td><td>yes</td><td>unique name; this is the only thing the tablet ever sends</td></tr><tr><td><code>label</code></td><td>—</td><td>text on the button (defaults to <code>id</code>)</td></tr><tr><td><code>hint</code></td><td>—</td><td>small second line under the label</td></tr><tr><td><code>color</code></td><td>—</td><td>background colour, e.g. <code>#2c405c</code></td></tr><tr><td><code>host</code></td><td>—</td><td>run it on <strong>another device</strong> — see <a href="#buttons-that-run-on-another-device">cross-device buttons</a></td></tr><tr><td><code>action</code></td><td>yes</td><td>what to carry out</td></tr></tbody></table>
+<h3 id="action-types">Action types</h3>
+<table><thead><tr><th>Type</th><th>Example</th></tr></thead><tbody><tr><td><code>shortcut</code></td><td><code>{ "type": "shortcut", "keys": ["cmd", "shift", "4"] }</code></td></tr><tr><td><code>text</code></td><td><code>{ "type": "text", "text": "me@example.com" }</code></td></tr><tr><td><code>media</code></td><td><code>{ "type": "media", "code": 16 }</code> — <code>NX_KEYTYPE_*</code> codes (play 16, next 17, previous 18, mute 7, volume up 0, volume down 1)</td></tr><tr><td><code>open_app</code></td><td><code>{ "type": "open_app", "app": "Xcode" }</code></td></tr><tr><td><code>url</code></td><td><code>{ "type": "url", "url": "https://github.com" }</code></td></tr><tr><td><code>applescript</code></td><td><code>{ "type": "applescript", "script": "display notification \"hello\"" }</code></td></tr><tr><td><code>shell</code></td><td><code>{ "type": "shell", "command": "pmset", "args": ["displaysleepnow"] }</code></td></tr></tbody></table>
+<p><strong><code>shell</code> takes a command plus an array of arguments, not a command line.</strong> Nothing reaches a shell to be parsed again, so there is nowhere for injection to happen.</p>
+<h3 id="pages-that-follow-the-front-app">Pages that follow the front app</h3>
+<p>Give a page a <code>match</code> field:</p>
+<pre><code>{ "name": "Xcode", "match": ["Xcode", "com.apple.dt.Xcode"], "keys": [ ... ] }</code></pre>
+<p>It accepts app names or bundle ids. Then <strong>select the <code>Auto</code> tab</strong> on the tablet: the deck follows whatever is in front (Xcode comes forward → the Xcode page).</p>
+<p><strong>Following the front app is a MODE, not the default behaviour.</strong> A deck that rearranges itself while your hand is reaching for a button is worse than one that stays put, so choosing a page pins it. The <code>Auto</code> tab only appears when some page actually asks for an app.</p>
+<p>Switching is debounced by 250 ms: alt-tabbing through three apps should land on the last one, not flicker through all three.</p>
+<hr>
+<h2 id="layouts">Layouts</h2>
+<p>The layout button in the top bar cycles through four arrangements. The icons share one vocabulary: <strong>two short lines mean keys, a dot means the trackpad.</strong></p>
+<h3 id="1-trackpad-only">1. Trackpad only</h3>
+<figure><img alt="Trackpad only" src="img/en/ss-pad.png"><figcaption>Trackpad only</figcaption></figure>
+<p>The trackpad takes everything the deck does not need. With the deck page set to <code>None</code>, it really is the whole screen.</p>
+<h3 id="2-keyboard-above-trackpad-below">2. Keyboard above, trackpad below</h3>
+<figure><img alt="Keyboard and trackpad" src="img/en/ss-main.png"><figcaption>Keyboard and trackpad</figcaption></figure>
+<p>The keyboard <strong>shrinks</strong> the trackpad rather than replacing it — the deck never leaves the screen.</p>
+<h3 id="3-trackpad-above-keyboard-below">3. Trackpad above, keyboard below</h3>
+<figure><img alt="Trackpad on top" src="img/en/ss-swap.png"><figcaption>Trackpad on top</figcaption></figure>
+<p>The same two halves, the other way up.</p>
+<h3 id="4-keyboard-only">4. Keyboard only</h3>
+<figure><img alt="Keyboard only" src="img/en/ss-kbonly.png"><figcaption>Keyboard only</figcaption></figure>
+<p>The trackpad goes and the keyboard <strong>drops to the bottom at the same size</strong> it had in the previous mode — it does not stretch. A keyboard stretched over a whole tablet has rows taller than a thumb, which is harder to type on, not easier.</p>
+<p>The chosen layout is remembered per device.</p>
+<p><strong>Portrait is handled separately.</strong> A tablet stood upright is a deck on its edge, not a laptop — palm rests either side of a trackpad make no sense at that width. So as soon as the tablet is turned, the deck becomes <strong>one grid across the top</strong> and the trackpad takes what is left. Nothing to configure; just turn it.</p>
+<hr>
+<h2 id="several-devices-at-once">Several devices at once</h2>
+<p>Every device is connected <strong>at the same time</strong>, but only one receives input at any moment. The tablet owns every connection — the devices never talk to each other, so one going down does not take the others with it.</p>
+<h3 id="adding-a-second-device">Adding a second device</h3>
+<p>On the new device: <code>make deckd</code>, then <code>make code</code> for its code. On the tablet: <strong>⚙ → Other devices → enter the address and code → Add</strong>.</p>
+<figure><img alt="Other devices settings" src="img/en/ss-set-hosts.png"><figcaption>Other devices settings</figcaption></figure>
+<h3 id="desk-order">Desk order</h3>
+<p>The strip above the list draws the <strong>physical</strong> arrangement of the devices on your desk, left to right:</p>
+<pre><code>left   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   right</code></pre>
+<p>Reorder with the <strong>◀ ▶</strong> buttons on each row. The same number appears in the list, so the vertical list does not have to be imagined as a horizontal row.</p>
+<p>This order is <strong>not cosmetic</strong> — it is what the crossing feature below reads.</p>
+<h3 id="crossing-at-the-screen-edge">Crossing at the screen edge</h3>
+<p>Keep pushing the cursor into the right edge and control moves to the device to its right. The cursor appears on the far machine at the facing edge, at the same height, so the crossing reads as continuous.</p>
+<p>To keep an ordinary bump against the edge from moving anything, <strong>both</strong> conditions must hold: about 90 px of motion swallowed <strong>and</strong> the push sustained for at least ~0.1 s. There is a 0.7 s pause afterwards. It can be switched off in settings.</p>
+<p>If it refuses to cross, the <strong>debug panel names the reason</strong> (<code>crossing failed</code>): no device on that side, or that device is not connected.</p>
+<h3 id="buttons-that-run-on-another-device">Buttons that run on another device</h3>
+<p>Give a deck button a <code>host</code> field:</p>
+<pre><code>{ "id": "build", "label": "Build", "host": "MacBook Pro",
+  "action": { "type": "shortcut", "keys": ["cmd", "b"] } }</code></pre>
+<p>That button always runs on the device it names, whichever one you are driving — build on the Mac mini while you carry on typing on the MacBook.</p>
+<p>Two things follow from the rule that the tablet sends an id and never a command:</p>
+<ul><li><strong>The id is resolved on the machine it reaches.</strong> <code>host: "MacBook Pro"</code> means <em>"run the macro called <code>build</code> over there"</em>, and the MacBook's own <code>deck.json</code> decides what <code>build</code> does. Each machine stays the authority on what its own ids mean.</li><li><strong>The <code>action</code> beside <code>host</code> is what runs locally</strong>, on the machine whose file this is. It is never sent anywhere.</li></ul>
+<p><code>host</code> is matched against the name shown in the tablet's device list (or the address). The button is drawn with a <strong>dashed border</strong> and the target's name, and goes <strong>dim</strong> when that device is not connected.</p>
+<hr>
+<h2 id="clipboard-between-devices">Clipboard between devices</h2>
+<p><strong>⚙ → Clipboard between devices.</strong></p>
+<figure><img alt="Clipboard and device status" src="img/en/ss-set-clip.png"><figcaption>Clipboard and device status</figcaption></figure>
+<ul><li><strong>Take from</strong> device X → the contents are held on the tablet.</li><li><strong>Put on</strong> device Y → the contents are written to that device's clipboard.</li></ul>
+<p><strong>Always manual, never automatic.</strong> Automatic clipboard sync between devices sounds like convenience and is actually a leak — password managers put passwords on the clipboard, and copying those elsewhere unasked is invisible until it is too late.</p>
+<p>The limits: <strong>text only</strong>, at most 16 KB, held in the <strong>tablet's memory alone</strong> (gone on reload, never written to storage), and <strong>never logged</strong> at any hop.</p>
+<hr>
+<h2 id="device-status">Device status</h2>
+<p><strong>⚙ → Device status.</strong> One row per device: the app in front, load, memory, uptime, latency, and whether Accessibility has been granted.</p>
+<p><strong>Load is shown per core</strong>, because that is the number meaning the same thing on a four-core laptop and a twelve-core desktop — which is the whole point of this view. It turns amber past 70%.</p>
+<p>The figures are <strong>only requested while the settings panel is open</strong>. Nothing is sampled in the background.</p>
+<hr>
+<h2 id="settings">Settings</h2>
+<figure><img alt="Trackpad settings" src="img/en/ss-set-trackpad.png"><figcaption>Trackpad settings</figcaption></figure>
+<p><strong>Interface language</strong> sits at the very top of the panel: Indonesia or English, applied immediately without a reload.</p>
+<p>What does <strong>not</strong> change with it — and must not: <strong>deck page names and deck button labels</strong>. Those live in <code>deck.json</code> on the device and belong to whoever wrote them; renaming a button you wrote is not the app's business.</p>
+<p>The starter deck it generates on first run <em>is</em> ours, so it is written in English (<code>General</code>, <code>Sleep Display</code>, <code>Wake Display</code>). An existing <code>deck.json</code> is never rewritten — to pick up the new starter deck, rename yours and restart <code>deckd</code>.</p>
+<table><thead><tr><th>Setting</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Language</strong></td><td>Indonesia or English. Applies immediately, saved per device</td></tr><tr><td><strong>About → Version</strong></td><td>the version this client is running</td></tr><tr><td><strong>Sensitivity</strong></td><td>cursor movement multiplier</td></tr><tr><td><strong>Acceleration</strong></td><td>how much a fast movement multiplies the distance</td></tr><tr><td><strong>Motion smoothing</strong></td><td><code>1.00</code> = raw, no smoothing; lower is smoother but adds 1–2 frames of lag</td></tr><tr><td><strong>Scroll speed</strong></td><td>two-finger scroll multiplier</td></tr><tr><td><strong>Natural scrolling</strong></td><td>content follows the finger</td></tr><tr><td><strong>Tap to click</strong></td><td>turn off if you click by accident</td></tr><tr><td><strong>Cross at the screen edge</strong></td><td>cursor handover between Macs</td></tr><tr><td><strong>Hold to drag</strong></td><td>hold still, then move, to drag</td></tr><tr><td><strong>Three-finger swipe left/right</strong></td><td><em>Switch desktop</em> or <em>Switch app</em></td></tr><tr><td><strong>Key sound</strong></td><td>type (Tik / Thock / Pop / Tipis) and volume; <code>0</code> = off. The trackpad stays silent by design</td></tr><tr><td><strong>Add to home screen</strong></td><td>see the PWA section below</td></tr><tr><td><strong>Ping / keepalive</strong></td><td>the smaller it is, the less the wifi radio sleeps — heavier on battery. When idle, the ping slows to 2 seconds on its own</td></tr><tr><td><strong>Other devices</strong></td><td>add, name, reorder, remove</td></tr><tr><td><strong>Clipboard between devices</strong></td><td>take / put</td></tr><tr><td><strong>Device status</strong></td><td>the state of each device</td></tr><tr><td><strong>Debug panel</strong></td><td>see below</td></tr><tr><td><strong>Paired tablets &amp; phones</strong></td><td>devices allowed to drive the active one; revoking disconnects them at once</td></tr></tbody></table>
+<p>Every setting is stored per device.</p>
+<hr>
+<h2 id="debug-panel">Debug panel</h2>
+<p><strong>⚙ → Debug → Debug panel.</strong> It floats at the bottom left, and <strong>touches pass straight through it</strong>.</p>
+<figure><img alt="Debug panel" src="img/en/ss-debug.png"><figcaption>Debug panel</figcaption></figure>
+<table><thead><tr><th>Group</th><th>Contents</th></tr></thead><tbody><tr><td><strong>connection</strong></td><td>active device, address, transport (ws/wss), status, Accessibility, a summary of the others</td></tr><tr><td><strong>latency</strong></td><td>last rtt, p50/p95 (coloured by threshold), min/max, sample count, ping mode active/idle</td></tr><tr><td><strong>traffic</strong></td><td>frames per second, total sent, the Mac's refresh rate, animation-loop state</td></tr><tr><td><strong>touch</strong></td><td>finger count, mode, drag, gesture distance against its threshold, sub-pixel remainder</td></tr><tr><td><strong>deck</strong></td><td>active page, front app, page count</td></tr><tr><td><strong>tablet</strong></td><td>screen size, orientation, fullscreen, wake lock, secure context, audio state</td></tr></tbody></table>
+<p>While it is off, this panel <strong>costs nothing</strong> — its timer exists only while the panel is open.</p>
+<p>When something misbehaves, start here. Two rows answer most questions:</p>
+<ul><li><strong><code>crossing failed</code></strong> — why the cursor handover did not happen.</li><li><strong><code>injector refused</code></strong> — that Mac rejected a frame. Almost always means its Swift binary is older than the client talking to it (<code>git pull</code> without <code>make build</code>).</li></ul>
+<hr>
+<h2 id="add-to-home-screen-pwa-https">Add to home screen (PWA) &amp; HTTPS</h2>
+<p><strong>⚙ → Add to home screen.</strong> It then runs without a browser bar, opened from an icon like any other app.</p>
+<p>If the button does not appear, the panel says why rather than showing a dead button. In some browsers the route is the ⋮ menu → <em>Add to Home screen</em>.</p>
+<p><strong>HTTPS is an improvement, not a gate.</strong> The app is served on two ports at once:</p>
+<pre><code>http://&lt;ip&gt;:8777/      always available
+https://&lt;ip&gt;:8778/     after `make cert`</code></pre>
+<p>Why bother? <strong>Wake Lock</strong> — keeping the tablet's screen awake — only works in a secure context. So if the tablet keeps falling asleep, that is the sign it is going over plain HTTP.</p>
+<pre><code>make cert     # create a local certificate
+# then restart deckd and open https://&lt;ip&gt;:8778/ on the tablet</code></pre>
+<p>The server's <code>/setup</code> page walks through installing the CA certificate on the tablet.</p>
+<hr>
+<h2 id="start-automatically-with-the-mac">Start automatically with the Mac</h2>
+<pre><code>make install      # install as a launchd service
+make status       # check whether it is running
+make uninstall    # remove it again</code></pre>
+<p><strong>Important:</strong> launchd has no parent application to lend it the Accessibility permission. So the <code>deckd-input</code> binary must be allowed <strong>directly</strong>, not Terminal. <code>make doctor</code> prints the process chain to make it obvious which one actually needs ticking.</p>
+<hr>
+<h2 id="when-something-goes-wrong">When something goes wrong</h2>
+<table><thead><tr><th>Symptom</th><th>Most likely cause</th></tr></thead><tbody><tr><td>The cursor does not move at all</td><td>Accessibility. Run <code>make doctor</code> — if <code>trusted: TIDAK</code>, grant it and <strong>restart</strong> deckd</td></tr><tr><td>The tablet cannot open the address</td><td>Different network, or the Mac's firewall. Check with <code>make ip</code></td></tr><tr><td>The pairing code is always wrong</td><td>The code is single-use. Get a fresh one with <code>make code</code></td></tr><tr><td>The tablet screen keeps sleeping</td><td>You are on plain HTTP. Wake Lock needs HTTPS — <code>make cert</code></td></tr><tr><td>A feature works on one device but not another</td><td>That device has not been rebuilt after <code>git pull</code>. The debug panel will show <code>injector refused</code></td></tr><tr><td>Crossing at the edge does nothing</td><td>Check the desk order in <strong>⚙ → Other devices</strong>, and the <code>crossing failed</code> row in the debug panel</td></tr><tr><td>Three-finger gestures do not switch desktops</td><td>Check <em>System Settings → Keyboard → Shortcuts → Mission Control</em> is still enabled</td></tr><tr><td>A strange popup appears on a two-finger hold</td><td>That belongs to the browser, not to SwitchDeck. Try another browser — Vivaldi on Android, for instance, raises a QR popup the page cannot suppress</td></tr><tr><td>Double tap opens nothing</td><td>Make sure <code>make build</code> has been run; the click-count fix lives on the Swift side</td></tr></tbody></table>
+<p>Still stuck? Turn on the <strong>debug panel</strong> and read the <code>connection</code> group — nearly every "why is it silent" question is answered there.</p>
+<hr>
+<h2 id="make-command-reference"><code>make</code> command reference</h2>
+<table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody><tr><td><code>make build</code></td><td>compile the Swift helper</td></tr><tr><td><code>make deps</code></td><td>install Node dependencies</td></tr><tr><td><code>make deckd</code></td><td>run the server</td></tr><tr><td><code>make doctor</code></td><td>check permissions, process chain, health</td></tr><tr><td><code>make code</code></td><td>print a fresh pairing code</td></tr><tr><td><code>make ip</code></td><td>the Mac's address on the local network</td></tr><tr><td><code>make cert</code></td><td>create a certificate for HTTPS</td></tr><tr><td><code>make install</code> / <code>make uninstall</code></td><td>install / remove the launchd service</td></tr><tr><td><code>make status</code></td><td>service status</td></tr><tr><td><code>make docs</code></td><td>rebuild the HTML documentation from the README files</td></tr><tr><td><code>make version</code></td><td>check the version on screen matches package.json</td></tr><tr><td><strong>Tests</strong></td><td></td></tr><tr><td><code>make e2e</code></td><td>the full chain, WebSocket → deckd → deckd-input</td></tr><tr><td><code>make client</code></td><td>every client-side check (no Mac, no build, no permission needed)</td></tr><tr><td><code>make idle</code></td><td>proves the client lets the CPU sleep</td></tr><tr><td><code>make debug-panel</code></td><td>proves the debug panel renders in every state, in both languages</td></tr><tr><td><code>make dblclick</code></td><td>proves a double tap becomes a real double click</td></tr><tr><td><code>make selftest</code></td><td>direct input-injection test</td></tr><tr><td><code>make verify-copy</code></td><td>full chain through to the macOS clipboard</td></tr><tr><td><code>make latency</code></td><td>measure latency</td></tr></tbody></table>
+<hr>
+<h2 id="how-it-works-inside">How it works inside</h2>
+<pre><code>Tablet (browser)  ──WebSocket──▶  deckd (Node)  ──stdin JSON──▶  deckd-input (Swift)  ──▶  macOS
+                                    │                                                       CGEvent
+                                    └── deck.json, device tokens, pairing</code></pre>
+<p>Three processes, three responsibilities:</p>
+<ul><li><strong>The web client</strong> — all of the UI. Edited most often, needs no compilation.</li><li><strong><code>deckd</code> (Node)</strong> — the router: WebSocket, tokens, deck, validation. <strong>It does not know what a CGEvent is.</strong></li><li><strong><code>deckd-input</code> (Swift)</strong> — the only part that touches macOS APIs. Every OS-specific line is confined here, so adding Windows later will not disturb the other two layers.</li></ul>
+<p>Contributions are welcome — see <strong><a href="CONTRIBUTING.md">CONTRIBUTING.md</a></strong> for the setup, the tests to run, and the list of things deliberately left out. Agents working on this repository should read <strong><a href="CLAUDE.md">CLAUDE.md</a></strong> first.</p>
+<p>One rule has held from the beginning and has never been relaxed: <strong>the tablet sends an id, not a command.</strong> The tablet never learns what a button's <code>action</code> contains; it only knows the id and the label. Every frame is validated in <code>deckd</code> before it is passed on — non-finite numbers, out-of-range keycodes, unknown modifier names and over-long text are all rejected rather than quietly repaired.</p>
+</main>
+</div>
+<script>
+  // Sidebar dibangun dari isi halaman, jadi tidak ada daftar kedua yang bisa
+  // basi terhadap judul yang sebenarnya ada.
+  var toc = document.getElementById('toc');
+  document.querySelectorAll('main h2').forEach(function (h) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    li.appendChild(a); toc.appendChild(li);
+  });
+</script>
+</body>
+</html>

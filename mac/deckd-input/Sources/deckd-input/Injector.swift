@@ -152,8 +152,16 @@ final class Injector {
         // Clamp, otherwise pushing into an edge keeps accumulating off-screen
         // and the cursor appears stuck until the movement is undone.
         let area = displayBounds()
+        let wanted = target
         target.x = min(max(target.x, area.minX), area.maxX - 1)
         target.y = min(max(target.y, area.minY), area.maxY - 1)
+
+        // The clamp above already knows something nobody has been told: motion
+        // was asked for and the screen had nowhere to put it. That is exactly
+        // what "the cursor is pressed against the right edge" means, and it is
+        // what a handover to the next machine needs. Report it rather than
+        // building a second edge detector on top of the same fact.
+        reportEdge(wanted: wanted, clamped: target, area: area, dx: dx, dy: dy)
 
         virtualPosition = target
         lastMoveAt = now
@@ -188,6 +196,107 @@ final class Injector {
         event.post(tap: Injector.tap)
     }
 
+    /// How far the cursor may drift between two taps and still be the same
+    /// double click. Generous on purpose: a finger is allowed to wander up to
+    /// the client's tap slop and that wander is multiplied by pointer gain
+    /// before it reaches here, so a few pixels of tolerance would throw away
+    /// double clicks that the user made correctly. Two clicks this close
+    /// together in space AND inside the double-click interval are a double
+    /// click by any reasonable reading.
+    private static let doubleClickSlop: CGFloat = 24
+
+    private var lastClickAt: [MouseButton: TimeInterval] = [:]
+    private var lastClickPos: [MouseButton: CGPoint] = [:]
+    private var clickState: [MouseButton: Int64] = [:]
+
+    /// Called with the edge being pushed against and how much motion the clamp
+    /// swallowed. Set by main.swift; the injector itself knows nothing about
+    /// the protocol.
+    var onEdge: ((String, Double, Double) -> Void)?
+
+    private var edgeOverflow: Double = 0
+    private var edgeSide: String?
+    private var edgeReportedAt: TimeInterval = 0
+    private static let edgeReportEvery: TimeInterval = 0.05
+
+    private func reportEdge(wanted: CGPoint, clamped: CGPoint, area: CGRect,
+                            dx: Double, dy: Double) {
+        var side: String?
+        var lost: Double = 0
+        // Direction matters: sitting at the right edge while moving left is not
+        // pushing against it.
+        if dx > 0, wanted.x > clamped.x { side = "r"; lost = wanted.x - clamped.x }
+        else if dx < 0, wanted.x < clamped.x { side = "l"; lost = clamped.x - wanted.x }
+        else if dy > 0, wanted.y > clamped.y { side = "b"; lost = wanted.y - clamped.y }
+        else if dy < 0, wanted.y < clamped.y { side = "t"; lost = clamped.y - wanted.y }
+
+        guard let side else {
+            edgeOverflow = 0
+            edgeSide = nil
+            return
+        }
+        if side != edgeSide { edgeOverflow = 0; edgeSide = side }
+        edgeOverflow += lost
+
+        // Batched: pressed against an edge this fires every frame, and ninety
+        // messages a second down the socket is the shape of the problem the
+        // client just finished removing.
+        let now = Date().timeIntervalSince1970
+        guard now - edgeReportedAt >= Injector.edgeReportEvery else { return }
+        edgeReportedAt = now
+
+        // Where along the edge, as a fraction. The next machine uses it to put
+        // the cursor at the same height on its own screen, so the crossing
+        // reads as continuous rather than as a jump.
+        let ratio = side == "l" || side == "r"
+            ? (area.height > 0 ? (clamped.y - area.minY) / area.height : 0.5)
+            : (area.width > 0 ? (clamped.x - area.minX) / area.width : 0.5)
+        onEdge?(side, edgeOverflow, ratio)
+        edgeOverflow = 0
+    }
+
+    /// Place the cursor on one edge at a given fraction along it — the other
+    /// half of a handover, run on the machine being handed to.
+    func warp(side: String, ratio: Double) {
+        guard ratio.isFinite else { return }
+        let area = displayBounds()
+        let r = min(max(ratio, 0), 1)
+        var point: CGPoint
+        switch side {
+        case "l": point = CGPoint(x: area.minX + 2, y: area.minY + area.height * r)
+        case "r": point = CGPoint(x: area.maxX - 3, y: area.minY + area.height * r)
+        case "t": point = CGPoint(x: area.minX + area.width * r, y: area.minY + 2)
+        case "b": point = CGPoint(x: area.minX + area.width * r, y: area.maxY - 3)
+        default: return
+        }
+        virtualPosition = point
+        lastMoveAt = Date().timeIntervalSince1970
+        edgeOverflow = 0
+        edgeSide = nil
+        guard let event = CGEvent(mouseEventSource: source, mouseType: .mouseMoved,
+                                  mouseCursorPosition: point, mouseButton: .left) else { return }
+        event.post(tap: Injector.tap)
+    }
+
+    // MARK: - clipboard
+    //
+    // NSPasteboard rather than pbpaste/pbcopy in the server: reading the
+    // clipboard is OS-specific, and K10 puts OS-specific code on this side of
+    // the pipe. deckd stays a router that never learns what a pasteboard is.
+    //
+    // Text only, on purpose. Images and files are a different feature with
+    // different limits, not a quiet widening of this one.
+    func clipboardRead(limit: Int) -> String? {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return nil }
+        return text.count > limit ? String(text.prefix(limit)) : text
+    }
+
+    func clipboardWrite(_ text: String) {
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(text, forType: .string)
+    }
+
     func button(_ button: MouseButton, down: Bool) {
         guard let current = CGEvent(source: nil)?.location else { return }
         let type = down ? button.downType : button.upType
@@ -197,8 +306,30 @@ final class Injector {
                                   mouseCursorPosition: current,
                                   mouseButton: button.cgButton) else { return }
 
-        // Some apps ignore clicks whose click state is left at 0.
-        event.setIntegerValueField(.mouseEventClickState, value: 1)
+        // macOS does not time your clicks and decide for itself: the click
+        // count travels IN the event, and an event that always says 1 is always
+        // a single click no matter how fast the taps arrive. That is why double
+        // tap never opened anything — two perfect single clicks, forever.
+        //
+        // The up event has to carry the same count as its down, or the pair
+        // does not describe one click.
+        var state: Int64 = 1
+        if down {
+            let now = Date().timeIntervalSince1970
+            let elapsed = now - (lastClickAt[button] ?? -.greatestFiniteMagnitude)
+            let previous = lastClickPos[button] ?? CGPoint(x: -9999, y: -9999)
+            let moved = hypot(current.x - previous.x, current.y - previous.y)
+            if elapsed <= NSEvent.doubleClickInterval, moved <= Injector.doubleClickSlop {
+                // Capped at 3: macOS counts triple clicks and nothing beyond.
+                state = min((clickState[button] ?? 1) + 1, 3)
+            }
+            clickState[button] = state
+            lastClickAt[button] = now
+            lastClickPos[button] = current
+        } else {
+            state = clickState[button] ?? 1
+        }
+        event.setIntegerValueField(.mouseEventClickState, value: state)
         event.post(tap: Injector.tap)
 
         virtualPosition = current

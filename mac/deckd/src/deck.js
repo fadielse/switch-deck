@@ -2,7 +2,12 @@ import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const FILE = join(homedir(), '.config', 'switchdeck', 'deck.json');
+// Same override as config.js. It was missing here, so every `make e2e` read —
+// and on a fresh machine would have written — the user's real deck. config.js
+// was given this override when the test harness was found trampling real
+// device tokens; deck.json sat in the same directory and was left behind.
+const DIR = process.env.SWITCHDECK_CONFIG_DIR || join(homedir(), '.config', 'switchdeck');
+const FILE = join(DIR, 'deck.json');
 
 /// Seeded with apps that are actually installed, so the starter deck has no
 /// dead buttons. Anything missing is dropped rather than shipped as a key that
@@ -27,14 +32,20 @@ function defaultDeck() {
   return {
     pages: [
       {
-        name: 'Umum',
+        name: 'General',
         keys: [
           { id: 'copy', label: 'Copy', hint: '⌘C', action: { type: 'shortcut', keys: ['cmd', 'c'] } },
           { id: 'paste', label: 'Paste', hint: '⌘V', action: { type: 'shortcut', keys: ['cmd', 'v'] } },
           { id: 'undo', label: 'Undo', hint: '⌘Z', action: { type: 'shortcut', keys: ['cmd', 'z'] } },
           { id: 'shot', label: 'Screenshot', hint: '⌘⇧4', action: { type: 'shortcut', keys: ['cmd', 'shift', '4'] } },
           { id: 'mission', label: 'Mission Control', color: '#2c405c', action: { type: 'open_app', app: 'Mission Control' } },
-          { id: 'sleep', label: 'Tidurkan Layar', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } }
+          { id: 'sleep', label: 'Sleep Display', color: '#3a2440', action: { type: 'shell', command: 'pmset', args: ['displaysleepnow'] } },
+          // The counterpart to sleep. It was added to a live deck.json while
+          // the feature was built and never made it back here, so every new
+          // install had a way to switch the display off and none to switch it
+          // on again — which is exactly the walk to the physical mouse the
+          // deck exists to avoid.
+          { id: 'wake', label: 'Wake Display', color: '#24402c', action: { type: 'shell', command: 'caffeinate', args: ['-u', '-t', '1'] } }
         ]
       },
       {
@@ -62,7 +73,7 @@ function defaultDeck() {
           { id: 'xc-nav', label: 'Navigator', hint: '⌘0', action: { type: 'shortcut', keys: ['cmd', '0'] } }
         ]
       },
-      { name: 'App', keys: appPage() }
+      { name: 'Apps', keys: appPage() }
     ]
   };
 }
@@ -124,7 +135,17 @@ export class Deck {
       pages: this.deck.pages.map((p) => ({
         name: p.name,
         match: p.match,
-        keys: p.keys.map((k) => ({ id: k.id, label: k.label ?? k.id, hint: k.hint, color: k.color }))
+        // `host` names another machine this button should run on. It is not an
+        // action and never becomes one: the tablet still sends nothing but an
+        // id, and the machine it is sent to looks that id up in ITS OWN
+        // deck.json. Each machine stays the authority on what its ids mean.
+        keys: p.keys.map((k) => ({
+          id: k.id,
+          label: k.label ?? k.id,
+          hint: k.hint,
+          color: k.color,
+          host: typeof k.host === 'string' && k.host.trim() ? k.host.trim() : undefined
+        }))
       })),
       error: this.error ?? null
     };

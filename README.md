@@ -1,211 +1,524 @@
 # SwitchDeck
 
-Turn a tablet into a trackpad, keyboard and macro deck for the machines on your desk.
-Currently targets macOS (MacBook + Mac mini); a mini PC is planned, which is why the
-name is OS-neutral and all platform-specific code is confined to `deckd-input`.
+Turn an Android tablet into a **trackpad, keyboard and macro deck** for a Mac — through the browser, with nothing to install on the tablet.
 
-Design docs live in the Obsidian vault, not here:
+One tablet can drive **several Macs at once**: all of them stay connected, and control crosses over by pushing the cursor into the edge of the screen.
 
-- `10-projects/SwitchDeck.md` — architecture, protocol, decisions K1-K10, risks R1-R5
-- `10-projects/SwitchDeck - Roadmap Fase 0-9.md` — phases and their DoD
-- `10-projects/SwitchDeck - Status.md` — read this first in a new session
+![SwitchDeck main screen](docs/img/en/ss-main.png)
 
-## Layout
+> 🇮🇩 **Bahasa Indonesia:** [README.id.md](README.id.md) · 📖 HTML version with larger images: open **[docs/index.html](docs/index.html)** in a browser.
 
-```
-mac/deckd-input/    Swift binary — the only OS-specific piece (CGEvent injection)
-tools/browser-check/  Standalone page to probe what the tablet's browser supports
-```
+---
 
-`deckd` (the Bun/Node server) and the web client arrive in F1.
+## Contents
 
-## Phase F5 — more than one Mac
+1. [What it is, and what it is not](#what-it-is-and-what-it-is-not)
+2. [Requirements](#requirements)
+3. [Install on the Mac](#install-on-the-mac)
+4. [macOS permissions](#macos-permissions)
+5. [Connect the tablet (pairing)](#connect-the-tablet-pairing)
+6. [The screen, part by part](#the-screen-part-by-part)
+7. [Trackpad](#trackpad)
+8. [Keyboard](#keyboard)
+9. [Deck](#deck)
+10. [Layouts](#layouts)
+11. [Several devices at once](#several-devices-at-once)
+12. [Clipboard between devices](#clipboard-between-devices)
+13. [Device status](#device-status)
+14. [Settings](#settings)
+15. [Debug panel](#debug-panel)
+16. [Add to home screen (PWA) & HTTPS](#add-to-home-screen-pwa--https)
+17. [Start automatically with the Mac](#start-automatically-with-the-mac)
+18. [When something goes wrong](#when-something-goes-wrong)
+19. [`make` command reference](#make-command-reference)
+20. [How it works inside](#how-it-works-inside)
 
-The tablet holds a socket to every host and sends to whichever is active.
-Decision K6 rejected the alternative — one Mac relaying to the other — because
-it makes one machine a single point of failure for both and adds a hop of
-latency. Keeping all sockets open is also what makes switching instant: each
-connection caches its own deck, so a switch redraws from memory rather than
-waiting for a round trip.
+---
 
-Add a Mac from the settings drawer with its address and its six-digit code.
-Pairing a second host is a cross-origin request, so `/pair` answers preflight
-and allows any origin — safe because the code is the guard and it is throttled.
+## What it is, and what it is not
 
-Each host chip carries a status dot, so a machine that has dropped is visible
-before you switch to it and wonder why nothing moves. Deck, latency figures,
-Accessibility warning and the send-rate cap all follow the active host, since
-the cap belongs to that Mac's refresh rate rather than the tablet's.
+**It is:** a control surface. The tablet sends motion, keystrokes and button ids; the Mac carries them out.
 
-## Phase F7 — always on
+**It is not:**
 
-```sh
-make install     # start at login, come back after a crash
-make status      # is it running, and what has it been saying
-make code        # the pairing code
-make uninstall
-```
+- **Not screen mirroring or remote desktop.** The Mac's screen is never sent to the tablet. If that is what you need, use Universal Control or VNC.
+- **Not meant for use away from home.** It is built for a single local network.
+- **Not a product for other people.** No accounts, no cloud, no multi-user.
 
-A LaunchAgent pointing at node, not a compiled binary. The single binary was
-for handing this to other people, which the design notes list as an anti-goal —
-dropping it also dissolved the "Bun is not installed" blocker that had been
-sitting against this phase since F1.
+---
 
-Running headless removes the terminal the pairing code used to print to, so the
-code is written to `~/.config/switchdeck/pairing-code` at mode 0600 and read
-back with `make code`. It stays a credential until it is used, so it is
-readable only by you and never served over HTTP.
+## Requirements
 
-Accessibility is the thing to watch here. Started by launchd there is no parent
-application to lend its grant the way a terminal does, so run `make doctor`
-after installing; if it comes back red, add `deckd-input` itself to Privacy &
-Security.
-
-## Phase F4 — the deck
-
-Buttons come from `~/.config/switchdeck/deck.json`, written with a starter deck
-on first run and seeded only with apps that are actually installed, so nothing
-ships as a key that does nothing. Edit the file and every connected tablet
-redraws — the directory is watched, writes are debounced past an editor's
-save burst, and a syntax error keeps the last good deck on screen rather than
-emptying it.
-
-Action types: `shortcut`, `text`, `media`, `open_app`, `url`, `applescript`,
-`shell`. Shortcuts are held rather than fired — the modifier goes down, a beat
-passes, the key strikes — because macOS does not read a chord that arrives all
-at once.
-
-`shell` takes a command and an argument array, never a command line, so nothing
-is handed to a shell to re-parse. The tablet is sent ids and labels only; the
-actions never leave the Mac. Pressing a button sends its id, which is looked up
-here — the same rule that has bounded the attack surface since F1.
-
-## Phase F3 — keyboard
-
-A full on-screen keyboard behind a mode tab. Two dispatch paths, deliberately:
-
-- **Typing** sends `{t:'txt'}` with the exact character. It is layout
-  independent — the Mac types what was asked for regardless of its own keyboard
-  layout — and it keeps a shifted-character table out of the Swift side.
-- **Shortcuts** send real keycodes with the modifier physically held. A chord
-  has to arrive as a chord: sending "c" as text while Command is down types a
-  letter instead of copying.
-
-Modifiers are real key events rather than flags on the target key, which is
-what makes Cmd+Tab behave like hardware. Verified: driving keycode 55 down,
-48 down/up, 55 up moves the frontmost application, so posting to
-`.cghidEventTap` was the right call — that was the last open assumption in the
-design notes.
-
-Modifiers are sticky, since holding two fingers on glass is not practical: tap
-latches for one key, tap again locks, tap again releases. Leaving the keyboard
-tab releases anything still held, so a modifier can never be left stuck down.
-
-## Phase F2 — trackpad (done)
-
-The client is now a trackpad plus the deck strip. One finger moves and taps to
-click, two fingers scroll and tap for right click, tap-then-hold drags. A
-settings drawer tunes sensitivity, acceleration, scroll speed, natural scroll
-and tap-to-click, all persisted per device.
-
-Two things the phase forced into the injector:
-
-- **The cursor position is tracked internally, not read back per move.** Reading
-  the live position before each move is a race: posting faster than the window
-  server updates makes consecutive moves read the same stale point and one is
-  lost. At 90 Hz that reads as motion that sticks. The internal position resyncs
-  after 200 ms of idle so the physical mouse still wins, and is clamped to the
-  union of active displays so pushing into an edge cannot accumulate off-screen.
-- **Non-finite deltas are rejected on both sides.** `Int64(Double.nan)` traps in
-  Swift, so one malformed frame would kill the binary. `JSON.stringify` turns
-  NaN into `null`, so the server distinguishes an absent field (defaults to 0)
-  from a present-but-null one (drops the frame).
-
-## Phase F1 — one button, end to end (done)
-
-Closed 2026-08-22: `make verify-copy` watched a planted sentinel get replaced
-by text selected on the Mac after a tap on the tablet.
-
-```sh
-make deckd      # start the server; prints the URL to open on the tablet
-make e2e        # chain test: WebSocket -> deckd -> deckd-input
-```
-
-`deckd` serves the client, holds the WebSocket and drives `deckd-input` over a
-pipe. A token is generated into `~/.config/switchdeck/config.json` (mode 0600)
-on first run and required on every connection — there is no unauthenticated
-mode, since this server types into your Mac.
-
-The tablet sends a macro **id**, never a key sequence or a command string. That
-is what bounds the damage an attacker on your LAN could do to "the macros you
-defined" instead of "anything at all".
-
-## Phase F0 — prove CGEvent works (done)
-
-F0 deliberately produces nothing visual. Its whole job is to kill the biggest risk
-before any UI exists: if relative mouse deltas can't be injected correctly, the
-whole plan is void.
-
-```sh
-make build      # compile deckd-input
-make doctor     # which app needs the Accessibility grant, and is it granted?
-make selftest   # automated proof that events really reach macOS
-```
-
-### Permission gotcha
-
-macOS attributes a CLI tool's permission request to the **app that launched it**,
-not the binary itself. So grant Accessibility to your terminal (Terminal.app,
-iTerm, VS Code — whichever you run `make` from), then fully quit and reopen it.
-`make check` exits non-zero until that's done, and without it macOS drops every
-event silently — no error, just nothing happening.
-
-### Self-test
-
-`make selftest` asserts against a `CGEventTap` rather than against eyeballs. It
-checks that the cursor moves by exactly the requested amount, that
-`mouseEventDeltaX/Y` survive into the event stream (risk R1), that keycode
-events arrive, and that text sent via `keyboardSetUnicodeString` arrives intact.
-Its probes are swallowed at the tap and the cursor is restored, so running it
-never types into whatever window happens to be focused.
-
-What it cannot prove: whether an app that reads raw deltas *interprets* them
-correctly. That still needs a human with Blender or Figma open.
-
-### F0 acceptance
-
-```sh
-make type       # focus TextEdit within 3s; text should appear
-make move       # cursor traces a square
-make click      # single left click
-make cmd-c      # Cmd+C via modifier flags
-make serve      # serve the browser check page to the tablet on your LAN
-```
-
-Still needs a human:
-
-- [x] Injection path proven end to end — `make selftest`, 4/4
-- [x] Browser check run on the Huawei tablet (Chrome/Android, `touch-action:
-      none` holds, 5 touch points, fullscreen works)
-- [ ] Re-run the browser check with a single finger — the first two runs used
-      a rate counter that spanned multiple gestures, so the Hz figure is not
-      trustworthy yet
-- [x] **R1 closed** — `make r1` read 16 events at exactly 7/5, and the summed
-      movement over an out-and-back probe was exactly (0, 0). A perfect
-      cancellation means macOS passes our deltas through untouched; pointer
-      acceleration would have made the two bursts disagree.
-
-## Protocol (stdin, JSON Lines)
-
-One frame per line. This is the contract a future Windows/Linux `deckd-input`
-must also honour.
-
-| Frame | Meaning |
+| | |
 |---|---|
-| `{"t":"m","dx":3,"dy":-2}` | relative mouse move |
-| `{"t":"b","btn":"l","d":1}` | button down/up — `l`/`r`/`m` |
-| `{"t":"k","code":8,"d":1,"flags":["cmd"]}` | key by virtual keycode |
-| `{"t":"txt","s":"halo"}` | type literal text |
-| `{"t":"ping","ts":123}` | latency probe, answered with `pong` |
+| **Mac** | macOS with the Xcode command line tools (for `swift build`) and **Node.js 18+** |
+| **Tablet / phone** | anything with a modern browser and a multi-touch screen |
+| **Network** | tablet and Mac on the **same wifi**. Tailscale also works, at higher latency |
 
-Scroll (`s`) lands in F2, the full keycode table in F3.
+---
+
+## Install on the Mac
+
+```bash
+git clone https://github.com/fadielse/switch-deck.git
+cd switch-deck
+make build      # compile the Swift helper (deckd-input)
+make deps       # Node dependencies for the server (deckd)
+make doctor     # check permissions and health
+make deckd      # run the server
+```
+
+`make deckd` prints something like this:
+
+```
+Buka di tablet:  http://192.168.1.213:8777/
+Kode pairing:    858417
+```
+
+Leave that terminal open. To have it start on its own whenever the Mac boots, see [Start automatically with the Mac](#start-automatically-with-the-mac).
+
+---
+
+## macOS permissions
+
+SwitchDeck injects input, so macOS requires the **Accessibility** permission.
+
+```bash
+make doctor
+```
+
+If it reports `trusted : TIDAK`, open:
+
+**System Settings → Privacy & Security → Accessibility**, and add this binary:
+
+```
+<repo-folder>/mac/deckd-input/.build/release/deckd-input
+```
+
+Press **+**, then in the file dialog press **⌘⇧G** and paste the path above — Finder hides the `.build` folder, so it cannot be reached by clicking through the list.
+
+Two things that regularly cause confusion:
+
+- **The permission belongs to the parent application.** If `deckd` is started from Terminal, it may be Terminal that needs to be allowed. If it is started by launchd (`make install`), the binary itself is what gets allowed. `make doctor` prints the process chain so you can see which one it actually is.
+- **Restart `deckd` after granting the permission.** macOS does not hand it to a process that is already running.
+
+Switching desktops and App Exposé also make macOS ask once for the **Automation** (System Events) permission.
+
+---
+
+## Connect the tablet (pairing)
+
+1. Open the address printed by `make deckd` in the tablet's browser, for example `http://192.168.1.213:8777/`.
+2. Type the **6-digit code** printed in the terminal.
+3. Tap **Pair**.
+
+![Pairing screen](docs/img/en/ss-pairing.png)
+
+The code is single-use and rate-limited — repeated guesses are stalled immediately. Once it succeeds the tablet keeps its own token, so there is nothing to pair again.
+
+Lost the code? `make code` prints a fresh one.
+
+---
+
+## The screen, part by part
+
+![Main screen](docs/img/en/ss-main.png)
+
+Left to right along the top bar:
+
+| Part | What it does |
+|---|---|
+| **SwitchDeck wordmark** | identity; the name hides on a narrow screen |
+| **Device chip** | status dot plus the name of the device being driven. Tap it to switch (when there is more than one) |
+| **Deck page tabs** | `None`, `Auto`, then a tab per page from `deck.json`. Scrolls sideways |
+| **Layout button** | cycles through the four arrangements; the icon draws the one you are **currently** in |
+| **⛶** | fullscreen |
+| **⚙** | settings |
+
+The top bar has a **fixed height** — it never grows, however long the app name in the `Auto` tab happens to be.
+
+---
+
+## Trackpad
+
+The large area in the middle. A touch is confirmed by **a soft glow that follows the finger** — two fingers for scrolling means two glows.
+
+| Gesture | Result |
+|---|---|
+| One finger, move | move the cursor |
+| One finger, tap | left click |
+| **Two quick taps** | **double click** — open a file, select a word |
+| Two fingers, move | scroll |
+| Two fingers, tap | right click |
+| Tap, then press again and move | drag |
+| **Hold still ~0.45s, then move** | **drag** — the glow turns **green** while it is active |
+| Three fingers, swipe left/right | switch desktop (or switch app — selectable in settings) |
+| Three fingers, swipe up | Mission Control |
+| Three fingers, swipe down | App Exposé |
+
+**Why hold-to-drag matters:** in Mission Control the first tap *selects a window and dismisses Mission Control*, so the "tap then press" gesture can never be used there. Hold-then-move is the only way to move a window between desktops from the tablet.
+
+The trackpad **stays silent** — it is a surface, not a key. Sound belongs to the keyboard and the deck, where it stands in for the key travel glass cannot give.
+
+---
+
+## Keyboard
+
+The layout follows the Apple Magic Keyboard (US): same key names, same widths, a function row at two-thirds height, and an inverted-T arrow cluster.
+
+- **Modifiers are sticky**: tap to arm for one key, tap again to lock, tap again to release. They can also be **held down while another finger presses a letter**.
+- **The function row has both roles**, exactly like the hardware: the printed action (brightness, volume, media) by default, and plain **F1–F12** while `fn` is on.
+- **Caps Lock is a toggle on the tablet**, not a key that gets sent — macOS treats caps as a hardware state that cannot be set by an event.
+- **Held keys repeat** (450 ms delay, then every 45 ms). Modifiers and media keys deliberately do not.
+- Leaving the keyboard **releases every modifier**, so a modifier can never be left stuck on the Mac.
+
+Typing is sent as **the literal character**, so the result does not depend on the Mac's own keyboard layout. Shortcuts are sent as **keycodes with the modifiers genuinely held down**, because a chord has to arrive as a chord.
+
+---
+
+## Deck
+
+Macro buttons either side of the trackpad (in portrait: one grid across the top). Their contents come from:
+
+```
+~/.config/switchdeck/deck.json
+```
+
+That file is written on first run, and its App page is **filled only with applications that are actually installed** — so there are no dead buttons.
+
+**Edit the file and every connected tablet redraws instantly** — no reconnect, no restart. A JSON typo leaves the last good deck on screen along with a warning, rather than emptying it.
+
+### Shape of the file
+
+```json
+{
+  "pages": [
+    {
+      "name": "General",
+      "keys": [
+        { "id": "copy", "label": "Copy", "hint": "⌘C",
+          "action": { "type": "shortcut", "keys": ["cmd", "c"] } },
+        { "id": "sleep", "label": "Sleep Display", "color": "#3a2440",
+          "action": { "type": "shell", "command": "pmset", "args": ["displaysleepnow"] } }
+      ]
+    },
+    {
+      "name": "Xcode",
+      "match": ["Xcode"],
+      "keys": [
+        { "id": "xc-build", "label": "Build", "hint": "⌘B",
+          "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
+      ]
+    }
+  ]
+}
+```
+
+### Fields per button
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | unique name; this is the only thing the tablet ever sends |
+| `label` | — | text on the button (defaults to `id`) |
+| `hint` | — | small second line under the label |
+| `color` | — | background colour, e.g. `#2c405c` |
+| `host` | — | run it on **another device** — see [cross-device buttons](#buttons-that-run-on-another-device) |
+| `action` | yes | what to carry out |
+
+### Action types
+
+| Type | Example |
+|---|---|
+| `shortcut` | `{ "type": "shortcut", "keys": ["cmd", "shift", "4"] }` |
+| `text` | `{ "type": "text", "text": "me@example.com" }` |
+| `media` | `{ "type": "media", "code": 16 }` — `NX_KEYTYPE_*` codes (play 16, next 17, previous 18, mute 7, volume up 0, volume down 1) |
+| `open_app` | `{ "type": "open_app", "app": "Xcode" }` |
+| `url` | `{ "type": "url", "url": "https://github.com" }` |
+| `applescript` | `{ "type": "applescript", "script": "display notification \"hello\"" }` |
+| `shell` | `{ "type": "shell", "command": "pmset", "args": ["displaysleepnow"] }` |
+
+**`shell` takes a command plus an array of arguments, not a command line.** Nothing reaches a shell to be parsed again, so there is nowhere for injection to happen.
+
+### Pages that follow the front app
+
+Give a page a `match` field:
+
+```json
+{ "name": "Xcode", "match": ["Xcode", "com.apple.dt.Xcode"], "keys": [ ... ] }
+```
+
+It accepts app names or bundle ids. Then **select the `Auto` tab** on the tablet: the deck follows whatever is in front (Xcode comes forward → the Xcode page).
+
+**Following the front app is a MODE, not the default behaviour.** A deck that rearranges itself while your hand is reaching for a button is worse than one that stays put, so choosing a page pins it. The `Auto` tab only appears when some page actually asks for an app.
+
+Switching is debounced by 250 ms: alt-tabbing through three apps should land on the last one, not flicker through all three.
+
+---
+
+## Layouts
+
+The layout button in the top bar cycles through four arrangements. The icons share one vocabulary: **two short lines mean keys, a dot means the trackpad.**
+
+### 1. Trackpad only
+
+![Trackpad only](docs/img/en/ss-pad.png)
+
+The trackpad takes everything the deck does not need. With the deck page set to `None`, it really is the whole screen.
+
+### 2. Keyboard above, trackpad below
+
+![Keyboard and trackpad](docs/img/en/ss-main.png)
+
+The keyboard **shrinks** the trackpad rather than replacing it — the deck never leaves the screen.
+
+### 3. Trackpad above, keyboard below
+
+![Trackpad on top](docs/img/en/ss-swap.png)
+
+The same two halves, the other way up.
+
+### 4. Keyboard only
+
+![Keyboard only](docs/img/en/ss-kbonly.png)
+
+The trackpad goes and the keyboard **drops to the bottom at the same size** it had in the previous mode — it does not stretch. A keyboard stretched over a whole tablet has rows taller than a thumb, which is harder to type on, not easier.
+
+The chosen layout is remembered per device.
+
+**Portrait is handled separately.** A tablet stood upright is a deck on its edge, not a laptop — palm rests either side of a trackpad make no sense at that width. So as soon as the tablet is turned, the deck becomes **one grid across the top** and the trackpad takes what is left. Nothing to configure; just turn it.
+
+---
+
+## Several devices at once
+
+Every device is connected **at the same time**, but only one receives input at any moment. The tablet owns every connection — the devices never talk to each other, so one going down does not take the others with it.
+
+### Adding a second device
+
+On the new device: `make deckd`, then `make code` for its code. On the tablet: **⚙ → Other devices → enter the address and code → Add**.
+
+![Other devices settings](docs/img/en/ss-set-hosts.png)
+
+### Desk order
+
+The strip above the list draws the **physical** arrangement of the devices on your desk, left to right:
+
+```
+left   ● Mac mini 1  →  [● MacBook Pro 2]  →  ● mini PC 3   right
+```
+
+Reorder with the **◀ ▶** buttons on each row. The same number appears in the list, so the vertical list does not have to be imagined as a horizontal row.
+
+This order is **not cosmetic** — it is what the crossing feature below reads.
+
+### Crossing at the screen edge
+
+Keep pushing the cursor into the right edge and control moves to the device to its right. The cursor appears on the far machine at the facing edge, at the same height, so the crossing reads as continuous.
+
+To keep an ordinary bump against the edge from moving anything, **both** conditions must hold: about 90 px of motion swallowed **and** the push sustained for at least ~0.1 s. There is a 0.7 s pause afterwards. It can be switched off in settings.
+
+If it refuses to cross, the **debug panel names the reason** (`crossing failed`): no device on that side, or that device is not connected.
+
+### Buttons that run on another device
+
+Give a deck button a `host` field:
+
+```json
+{ "id": "build", "label": "Build", "host": "MacBook Pro",
+  "action": { "type": "shortcut", "keys": ["cmd", "b"] } }
+```
+
+That button always runs on the device it names, whichever one you are driving — build on the Mac mini while you carry on typing on the MacBook.
+
+Two things follow from the rule that the tablet sends an id and never a command:
+
+- **The id is resolved on the machine it reaches.** `host: "MacBook Pro"` means *"run the macro called `build` over there"*, and the MacBook's own `deck.json` decides what `build` does. Each machine stays the authority on what its own ids mean.
+- **The `action` beside `host` is what runs locally**, on the machine whose file this is. It is never sent anywhere.
+
+`host` is matched against the name shown in the tablet's device list (or the address). The button is drawn with a **dashed border** and the target's name, and goes **dim** when that device is not connected.
+
+---
+
+## Clipboard between devices
+
+**⚙ → Clipboard between devices.**
+
+![Clipboard and device status](docs/img/en/ss-set-clip.png)
+
+- **Take from** device X → the contents are held on the tablet.
+- **Put on** device Y → the contents are written to that device's clipboard.
+
+**Always manual, never automatic.** Automatic clipboard sync between devices sounds like convenience and is actually a leak — password managers put passwords on the clipboard, and copying those elsewhere unasked is invisible until it is too late.
+
+The limits: **text only**, at most 16 KB, held in the **tablet's memory alone** (gone on reload, never written to storage), and **never logged** at any hop.
+
+---
+
+## Device status
+
+**⚙ → Device status.** One row per device: the app in front, load, memory, uptime, latency, and whether Accessibility has been granted.
+
+**Load is shown per core**, because that is the number meaning the same thing on a four-core laptop and a twelve-core desktop — which is the whole point of this view. It turns amber past 70%.
+
+The figures are **only requested while the settings panel is open**. Nothing is sampled in the background.
+
+---
+
+## Settings
+
+![Trackpad settings](docs/img/en/ss-set-trackpad.png)
+
+**Interface language** sits at the very top of the panel: Indonesia or English, applied immediately without a reload.
+
+What does **not** change with it — and must not: **deck page names and deck button labels**. Those live in `deck.json` on the device and belong to whoever wrote them; renaming a button you wrote is not the app's business.
+
+The starter deck it generates on first run *is* ours, so it is written in English (`General`, `Sleep Display`, `Wake Display`). An existing `deck.json` is never rewritten — to pick up the new starter deck, rename yours and restart `deckd`.
+
+| Setting | Meaning |
+|---|---|
+| **Language** | Indonesia or English. Applies immediately, saved per device |
+| **About → Version** | the version this client is running |
+| **Sensitivity** | cursor movement multiplier |
+| **Acceleration** | how much a fast movement multiplies the distance |
+| **Motion smoothing** | `1.00` = raw, no smoothing; lower is smoother but adds 1–2 frames of lag |
+| **Scroll speed** | two-finger scroll multiplier |
+| **Natural scrolling** | content follows the finger |
+| **Tap to click** | turn off if you click by accident |
+| **Cross at the screen edge** | cursor handover between Macs |
+| **Hold to drag** | hold still, then move, to drag |
+| **Three-finger swipe left/right** | *Switch desktop* or *Switch app* |
+| **Key sound** | type (Tik / Thock / Pop / Tipis) and volume; `0` = off. The trackpad stays silent by design |
+| **Add to home screen** | see the PWA section below |
+| **Ping / keepalive** | the smaller it is, the less the wifi radio sleeps — heavier on battery. When idle, the ping slows to 2 seconds on its own |
+| **Other devices** | add, name, reorder, remove |
+| **Clipboard between devices** | take / put |
+| **Device status** | the state of each device |
+| **Debug panel** | see below |
+| **Paired tablets & phones** | devices allowed to drive the active one; revoking disconnects them at once |
+
+Every setting is stored per device.
+
+---
+
+## Debug panel
+
+**⚙ → Debug → Debug panel.** It floats at the bottom left, and **touches pass straight through it**.
+
+![Debug panel](docs/img/en/ss-debug.png)
+
+| Group | Contents |
+|---|---|
+| **connection** | active device, address, transport (ws/wss), status, Accessibility, a summary of the others |
+| **latency** | last rtt, p50/p95 (coloured by threshold), min/max, sample count, ping mode active/idle |
+| **traffic** | frames per second, total sent, the Mac's refresh rate, animation-loop state |
+| **touch** | finger count, mode, drag, gesture distance against its threshold, sub-pixel remainder |
+| **deck** | active page, front app, page count |
+| **tablet** | screen size, orientation, fullscreen, wake lock, secure context, audio state |
+
+While it is off, this panel **costs nothing** — its timer exists only while the panel is open.
+
+When something misbehaves, start here. Two rows answer most questions:
+
+- **`crossing failed`** — why the cursor handover did not happen.
+- **`injector refused`** — that Mac rejected a frame. Almost always means its Swift binary is older than the client talking to it (`git pull` without `make build`).
+
+---
+
+## Add to home screen (PWA) & HTTPS
+
+**⚙ → Add to home screen.** It then runs without a browser bar, opened from an icon like any other app.
+
+If the button does not appear, the panel says why rather than showing a dead button. In some browsers the route is the ⋮ menu → *Add to Home screen*.
+
+**HTTPS is an improvement, not a gate.** The app is served on two ports at once:
+
+```
+http://<ip>:8777/      always available
+https://<ip>:8778/     after `make cert`
+```
+
+Why bother? **Wake Lock** — keeping the tablet's screen awake — only works in a secure context. So if the tablet keeps falling asleep, that is the sign it is going over plain HTTP.
+
+```bash
+make cert     # create a local certificate
+# then restart deckd and open https://<ip>:8778/ on the tablet
+```
+
+The server's `/setup` page walks through installing the CA certificate on the tablet.
+
+---
+
+## Start automatically with the Mac
+
+```bash
+make install      # install as a launchd service
+make status       # check whether it is running
+make uninstall    # remove it again
+```
+
+**Important:** launchd has no parent application to lend it the Accessibility permission. So the `deckd-input` binary must be allowed **directly**, not Terminal. `make doctor` prints the process chain to make it obvious which one actually needs ticking.
+
+---
+
+## When something goes wrong
+
+| Symptom | Most likely cause |
+|---|---|
+| The cursor does not move at all | Accessibility. Run `make doctor` — if `trusted: TIDAK`, grant it and **restart** deckd |
+| The tablet cannot open the address | Different network, or the Mac's firewall. Check with `make ip` |
+| The pairing code is always wrong | The code is single-use. Get a fresh one with `make code` |
+| The tablet screen keeps sleeping | You are on plain HTTP. Wake Lock needs HTTPS — `make cert` |
+| A feature works on one device but not another | That device has not been rebuilt after `git pull`. The debug panel will show `injector refused` |
+| Crossing at the edge does nothing | Check the desk order in **⚙ → Other devices**, and the `crossing failed` row in the debug panel |
+| Three-finger gestures do not switch desktops | Check *System Settings → Keyboard → Shortcuts → Mission Control* is still enabled |
+| A strange popup appears on a two-finger hold | That belongs to the browser, not to SwitchDeck. Try another browser — Vivaldi on Android, for instance, raises a QR popup the page cannot suppress |
+| Double tap opens nothing | Make sure `make build` has been run; the click-count fix lives on the Swift side |
+
+Still stuck? Turn on the **debug panel** and read the `connection` group — nearly every "why is it silent" question is answered there.
+
+---
+
+## `make` command reference
+
+| Command | What it does |
+|---|---|
+| `make build` | compile the Swift helper |
+| `make deps` | install Node dependencies |
+| `make deckd` | run the server |
+| `make doctor` | check permissions, process chain, health |
+| `make code` | print a fresh pairing code |
+| `make ip` | the Mac's address on the local network |
+| `make cert` | create a certificate for HTTPS |
+| `make install` / `make uninstall` | install / remove the launchd service |
+| `make status` | service status |
+| `make docs` | rebuild the HTML documentation from the README files |
+| `make version` | check the version on screen matches package.json |
+| **Tests** | |
+| `make e2e` | the full chain, WebSocket → deckd → deckd-input |
+| `make client` | every client-side check (no Mac, no build, no permission needed) |
+| `make idle` | proves the client lets the CPU sleep |
+| `make debug-panel` | proves the debug panel renders in every state, in both languages |
+| `make dblclick` | proves a double tap becomes a real double click |
+| `make selftest` | direct input-injection test |
+| `make verify-copy` | full chain through to the macOS clipboard |
+| `make latency` | measure latency |
+
+---
+
+## How it works inside
+
+```
+Tablet (browser)  ──WebSocket──▶  deckd (Node)  ──stdin JSON──▶  deckd-input (Swift)  ──▶  macOS
+                                    │                                                       CGEvent
+                                    └── deck.json, device tokens, pairing
+```
+
+Three processes, three responsibilities:
+
+- **The web client** — all of the UI. Edited most often, needs no compilation.
+- **`deckd` (Node)** — the router: WebSocket, tokens, deck, validation. **It does not know what a CGEvent is.**
+- **`deckd-input` (Swift)** — the only part that touches macOS APIs. Every OS-specific line is confined here, so adding Windows later will not disturb the other two layers.
+
+Contributions are welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for the setup, the tests to run, and the list of things deliberately left out. Agents working on this repository should read **[CLAUDE.md](CLAUDE.md)** first.
+
+One rule has held from the beginning and has never been relaxed: **the tablet sends an id, not a command.** The tablet never learns what a button's `action` contains; it only knows the id and the label. Every frame is validated in `deckd` before it is passed on — non-finite numbers, out-of-range keycodes, unknown modifier names and over-long text are all rejected rather than quietly repaired.

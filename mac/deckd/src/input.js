@@ -5,10 +5,13 @@ import { createInterface } from 'node:readline';
 /// the far side of this pipe (decision K10), so this file never learns what a
 /// CGEvent is.
 export class InputBridge {
-  constructor(binaryPath, { onStatus, onFront } = {}) {
+  constructor(binaryPath, { onStatus, onFront, onEdge, onInputError, onClip } = {}) {
     this.binaryPath = binaryPath;
     this.onStatus = onStatus ?? (() => {});
     this.onFront = onFront ?? (() => {});
+    this.onEdge = onEdge ?? (() => {});
+    this.onInputError = onInputError ?? (() => {});
+    this.onClip = onClip ?? (() => {});
     this.child = null;
     this.trusted = null;
     this.refreshHz = 60;
@@ -32,8 +35,22 @@ export class InputBridge {
       } else if (frame.t === 'front') {
         this.front = { app: frame.app, bundle: frame.bundle };
         this.onFront(this.front);
+      } else if (frame.t === 'clip' || frame.t === 'clipok') {
+        // Deliberately not logged. The clipboard is where password managers
+        // put passwords, and a console line is a file on somebody's disk.
+        this.onClip(frame);
+      } else if (frame.t === 'edge') {
+        // The cursor is pressed against an edge and motion is being thrown
+        // away. Only the tablet knows what is next to this machine, so it
+        // decides what that means.
+        this.onEdge({ side: frame.side, over: frame.over, ry: frame.ry });
       } else if (frame.t === 'err') {
+        // Also sent onward. A rejection that only reaches this machine's
+        // console is invisible to the one place someone is actually looking —
+        // and "unknown frame type" is exactly what a binary that was pulled but
+        // not rebuilt says about a frame the client has just started sending.
         console.error('[deckd-input]', frame.msg, frame.raw ?? '');
+        this.onInputError({ msg: frame.msg, type: frame.type ?? null });
       }
     });
 

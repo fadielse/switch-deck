@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -22,13 +22,33 @@ function check(ok, label, detail = '') {
   if (!ok) failures += 1;
 }
 
+const CONFIG_DIR = mkdtempSync(join(tmpdir(), 'switchdeck-test-'));
+
+// A deck with a button that runs somewhere else. Written before the server
+// starts so it is read as a real config rather than patched in afterwards.
+writeFileSync(join(CONFIG_DIR, 'deck.json'), JSON.stringify({
+  pages: [{
+    name: 'Umum',
+    keys: [
+      { id: 'copy', label: 'Copy', hint: '⌘C', action: { type: 'shortcut', keys: ['cmd', 'c'] } },
+      { id: 'build-there', label: 'Build', host: 'MacBook Pro',
+        action: { type: 'shortcut', keys: ['cmd', 'b'] } },
+      { id: 'blank-host', label: 'Salah', host: '   ',
+        action: { type: 'shortcut', keys: ['cmd', 'x'] } }
+    ]
+  }, {
+    name: 'Xcode', match: ['Xcode'],
+    keys: [{ id: 'xc-build', label: 'Build', action: { type: 'shortcut', keys: ['cmd', 'b'] } }]
+  }]
+}, null, 2));
+
 const server = spawn(process.execPath, [join(here, '..', 'src', 'server.js')], {
   env: {
     ...process.env,
     PORT: String(PORT),
     // Its own config directory: the real one holds real device tokens and the
     // pairing code the user is reading.
-    SWITCHDECK_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'switchdeck-test-')),
+    SWITCHDECK_CONFIG_DIR: CONFIG_DIR,
     DECKD_INPUT: join(here, 'stub-input.js'),
     STUB_OUT,
   },
@@ -154,6 +174,89 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(passed.some((f) => f.t === 'm' && f.dx === 5 && f.dy === -3), 'frame gerak diteruskan');
   check(passed.some((f) => f.t === 's' && f.dy === 4), 'frame scroll diteruskan');
   check(passed.some((f) => f.t === 'b' && f.btn === 'r'), 'frame klik kanan diteruskan');
+
+  // --- tombol deck yang menyasar mesin lain ---
+  const allKeys = pages.flatMap((p) => p.keys);
+  const away = allKeys.find((k) => k.id === 'build-there');
+  check(away?.host === 'MacBook Pro', 'tombol lintas-mesin bawa nama host-nya',
+        'tablet perlu tahu ini jalan di mana, biar labelnya tidak menipu');
+  check(away?.action === undefined,
+        'tombol lintas-mesin TETAP tidak bawa action',
+        'aturan sejak F1 tidak longgar cuma karena tujuannya mesin lain');
+  check(allKeys.find((k) => k.id === 'blank-host')?.host === undefined,
+        'host kosong/spasi dibuang, bukan diteruskan sebagai nama palsu');
+
+  // --- N3: kurir papan klip ---
+  const beforeClip = readSent().length;
+  const seenClip = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'clipget' }));
+  await wait(300);
+  const clip = good.frames.slice(seenClip).find((f) => f.t === 'clip');
+  check(clip?.s === 'halo dari mesin sebelah — ünïcode ✓',
+        'papan klip terbaca dan sampai utuh ke tablet', 'termasuk unicode');
+
+  const seenOk = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 'ditaruh ke mesin ini' }));
+  // Ditolak: kosong, dan lebih besar dari batas.
+  good.ws.send(JSON.stringify({ t: 'clipset', s: '' }));
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 'x'.repeat(16385) }));
+  good.ws.send(JSON.stringify({ t: 'clipset', s: 42 }));
+  await wait(300);
+  check(good.frames.slice(seenOk).some((f) => f.t === 'clipok' && f.n === 20),
+        'papan klip ditulis ke mesin tujuan');
+  const clipSent = readSent().slice(beforeClip).filter((f) => f.t === 'clipset');
+  check(clipSent.length === 1 && clipSent[0].s === 'ditaruh ke mesin ini',
+        'clipset kosong / kepanjangan / bukan string DITOLAK',
+        'cuma 1 dari 4 yang lolos');
+
+  // --- N5: status mesin ---
+  const seenStat = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'stat' }));
+  await wait(300);
+  const stat = good.frames.slice(seenStat).find((f) => f.t === 'stat');
+  check(!!stat && typeof stat.load === 'number' && stat.cores > 0 && stat.memTotal > 0,
+        'status mesin dijawab dengan beban, core, dan memori',
+        JSON.stringify(stat ? { load: stat.load, cores: stat.cores } : null));
+  check(stat?.front === 'Xcode', 'status ikut membawa app depan');
+
+  // --- serah-terima kursor di tepi layar ---
+  const beforeWarp = readSent().length;
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 0.42 }));
+  // Rejected: an unknown edge, and a fraction that is not a number. NaN would
+  // reach Swift, where the arithmetic on it is silent nonsense rather than an
+  // error, so it is stopped here like every other number.
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'diagonal', v: 0.5 }));
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: null }));
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 4 }));
+  await wait(250);
+  const warps = readSent().slice(beforeWarp).filter((f) => f.t === 'warp');
+  check(warps.some((f) => f.side === 'l' && Math.abs(f.v - 0.42) < 0.001),
+        'frame warp diteruskan');
+  check(!warps.some((f) => f.side === 'diagonal' || f.v === null),
+        'warp cacat DITOLAK', 'tepi ngawur dan nilai bukan angka');
+  check(warps.every((f) => f.v >= 0 && f.v <= 1),
+        'pecahan warp diclamp ke 0..1, bukan diteruskan mentah');
+
+  // Arah sebaliknya: laporan tepi dari injector harus sampai ke tablet, karena
+  // tablet satu-satunya yang tahu ada mesin apa di sebelahnya.
+  const seenBefore = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'm', dx: 5000, dy: 0 }));
+  await wait(300);
+  const edge = good.frames.slice(seenBefore).find((f) => f.t === 'edge');
+  check(!!edge, 'laporan tepi dari injector sampai ke client');
+  check(edge?.side === 'r' && typeof edge?.ry === 'number',
+        'laporan tepi bawa sisi dan posisi sepanjang tepi', JSON.stringify(edge ?? null));
+
+  // Frame yang ditolak injector harus SAMPAI ke tablet, bukan cuma ke console
+  // Mac-nya. Binary yang di-pull tapi belum di-build bilang persis ini soal
+  // frame yang baru saja mulai dikirim client.
+  const beforeErr = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 0.5 }));
+  await wait(300);
+  const inputErr = good.frames.slice(beforeErr).find((f) => f.t === 'inputerr');
+  check(!!inputErr && /unknown frame type/i.test(inputErr.msg || ''),
+        'penolakan dari injector diteruskan ke client',
+        'stub sengaja tidak kenal warp — ini yang bikin binary lama kelihatan');
 
   // --- F3: keyboard ---
   const beforeKb = readSent().length;

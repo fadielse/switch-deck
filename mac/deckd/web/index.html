@@ -25,16 +25,71 @@
        save: it is a control surface. */
     -webkit-touch-callout: none;
   }
-  header { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
-  .host { font-weight: 700; }
+  /* One row, fixed height, and nothing in it is allowed to wrap. The bar used
+     to grow when its content did — an Auto tab carrying a long app name pushed
+     the whole surface down — so every child here either truncates or scrolls. */
+  header { display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+           height: 34px; min-height: 34px; }
   .pill { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
   .up { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
   .down { background: #34181b; color: #f2777f; border: 1px solid #5e2a2f; }
   .mid { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
-  .metrics { margin-left: auto; display: flex; gap: 12px; color: var(--dim); font-size: 12px;
-             font-variant-numeric: tabular-nums; }
-  .gear { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
-          background: var(--panel); color: var(--fg); font-size: 13px; }
+  /* A normal button by default. The bar's copies are square icons, but the
+     settings sheet reuses this class for "Tambah" and "Pasang" — squaring it
+     globally flattened those into 32 px stubs. */
+  .gear { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+          background: var(--panel); color: var(--fg); font-size: 13px; font-weight: 600; }
+  header .gear { width: 32px; height: 32px; padding: 0; flex: 0 0 auto; font-size: 14px;
+                 display: flex; align-items: center; justify-content: center; }
+  header .gear svg { width: 17px; height: 17px; }
+
+  /* One chip for the active Mac instead of a chip per Mac: the old row grew
+     with every host paired, and the header has no room to grow. The dot is the
+     connection state; the list behind it scales to any number of machines. */
+  /* The wordmark went missing when the bar was compacted. It earns its place:
+     this is the only thing on screen that says what is being driven. The name
+     hides on a narrow screen and the mark stays — the mark is the part that is
+     recognisable at a glance anyway. */
+  .brand { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; margin-right: 2px; }
+  .brand svg { width: 21px; height: 21px; display: block; }
+  .brand .wm { font-size: 13.5px; letter-spacing: -.01em; white-space: nowrap; }
+  .brand .wm .a { color: var(--dim); font-weight: 500; }
+  .brand .wm .b { color: var(--fg); font-weight: 800; }
+  @media (max-width: 720px), (orientation: portrait) {
+    .brand .wm { display: none; }
+  }
+
+  .hostbtn {
+    flex: 0 1 auto; min-width: 0; max-width: 30%; height: 32px;
+    display: flex; align-items: center; gap: 6px; padding: 0 9px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--fg); font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .hostbtn .nm { overflow: hidden; text-overflow: ellipsis; }
+  .hostbtn .caret { color: var(--dim); font-size: 9px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #5b636f; flex: 0 0 auto; }
+  .dot.state-on { background: #57d68b; }
+  .dot.state-connecting { background: #e2b356; }
+  .dot.state-rejected, .dot.state-off { background: #f2777f; }
+
+  #hostmenu { display: none; position: fixed; inset: 0; z-index: 12; }
+  #hostmenu.open { display: block; }
+  #hostmenu .list {
+    position: absolute; top: 48px; left: 10px; min-width: 210px; max-width: 70vw;
+    max-height: 60dvh; overflow-y: auto; padding: 6px;
+    background: #14171d; border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .55);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  #hostmenu .list button {
+    display: flex; align-items: center; gap: 9px; width: 100%; padding: 10px 11px;
+    border-radius: 9px; border: 1px solid transparent; background: transparent;
+    color: var(--dim); font-size: 14px; font-weight: 600; text-align: left;
+  }
+  #hostmenu .list button .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+                               white-space: nowrap; }
+  #hostmenu .list button .st { font-size: 11px; font-weight: 500; color: #6b7280; }
+  #hostmenu .list button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
 
   /* Both panels stay mounted. Opening the keyboard shrinks the trackpad
      instead of replacing it, so the deck never leaves the screen. */
@@ -72,11 +127,37 @@
     background: #14181f; border: 1px solid var(--line);
     display: flex; align-items: center; justify-content: center;
     color: #4b535f; font-size: 13px; text-align: center;
+    overflow: hidden;            /* the glow must stop at the rounded corners */
   }
-  #pad.active { border-color: #3d6fd1; background: #161d2b; }
+
+  /* Touch feedback that stays under the finger instead of lighting the whole
+     surface. Repainting the entire pad on contact reads as a box blinking on
+     and off; a real trackpad gives no light at all, and what is actually
+     wanted here is confirmation that this exact spot was registered. One glow
+     per contact point, so two-finger scroll shows two.
+     Only opacity is animated — position follows the finger with no transition,
+     otherwise the glow lags behind the very thing it is confirming. */
+  .glow {
+    position: absolute; left: 0; top: 0; width: 128px; height: 128px;
+    margin: -64px 0 0 -64px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle closest-side,
+                rgba(93, 141, 232, .26), rgba(93, 141, 232, .09) 55%,
+                rgba(93, 141, 232, 0) 78%);
+    opacity: 0; transform: translate3d(-999px, -999px, 0);
+    transition: opacity .22s ease;
+  }
+  .glow.on { opacity: 1; }
+  /* Drag is the one trackpad state with no visible counterpart on the Mac
+     until something actually moves, so it has to announce itself here. */
+  .glow.drag {
+    background: radial-gradient(circle closest-side,
+                rgba(87, 214, 139, .34), rgba(87, 214, 139, .12) 55%,
+                rgba(87, 214, 139, 0) 78%);
+  }
   #pad .badge {
     position: absolute; top: 10px; left: 12px; font-size: 12px; color: #78a9e8;
     font-variant-numeric: tabular-nums;
+    z-index: 1;                  /* glows are appended after it, so lift it */
   }
 
   .key {
@@ -86,6 +167,13 @@
     transition: transform .06s, background .12s, border-color .12s;
   }
   .key .hint { font-size: 11px; font-weight: 500; color: var(--dim); }
+  /* Runs somewhere else: marked, because a button that fires on another
+     machine looking identical to one that fires here is a trap. */
+  .key.away { border-style: dashed; }
+  .key .on-host { color: #78a9e8; font-weight: 600; }
+  .key.away .on-host::before { content: '⇢ '; }
+  .key.dead { opacity: .45; }
+  .key.dead .on-host { color: #f2777f; }
   .key span:first-child { font-size: 14px; line-height: 1.15; }
   .key { transition: transform .09s ease, background .12s ease, box-shadow .12s ease; }
   .key.down {
@@ -103,32 +191,64 @@
   .key.ok { background: #10331f; border-color: #1d5c37; }
   .key.fail { background: #34181b; border-color: #5e2a2f; }
 
-  .hosts { display: flex; gap: 5px; }
-  .hosts button {
-    padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600;
-    display: flex; align-items: center; gap: 6px;
+  /* The tabs take whatever room is left and scroll sideways when there are
+     more pages than fit. Scrolling is the only behaviour here that stays
+     correct as the deck grows; wrapping would steal height from the deck. */
+  .pages {
+    flex: 1 1 auto; min-width: 0; display: flex; gap: 5px; height: 32px;
+    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; touch-action: pan-x;
   }
-  /* A dot per host, so a machine that has dropped is visible before you switch
-     to it and wonder why nothing moves. */
-  .hosts button::before {
-    content: ''; width: 6px; height: 6px; border-radius: 50%; background: #5b636f;
-  }
-  .hosts button.host-on::before { background: #57d68b; }
-  .hosts button.host-connecting::before { background: #e2b356; }
-  .hosts button.host-rejected::before { background: #f2777f; }
-  .hosts button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
-
-  .pages { display: flex; gap: 5px; }
+  .pages::-webkit-scrollbar { display: none; }
   .pages button {
-    padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600;
+    flex: 0 0 auto; max-width: 42vw; padding: 0 11px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
   }
   .pages button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
-  #kbtoggle.on, #fs.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
+  /* The app name is the part that can be arbitrarily long, so it is the part
+     that gets clipped — the word Auto stays readable. */
+  .pages button .app {
+    font-weight: 500; color: inherit; opacity: .8;
+  }
+  #fs.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
+  #layout { color: #9dc0f5; }
 
   #kb { flex: 1.7 1 0; display: none; flex-direction: column; gap: 5px; min-height: 0; }
-  #kb.on { display: flex; }
+
+  /* Three layouts, not a drawer that is open or shut.
+     pad  — the trackpad takes everything the deck does not need.
+     both — unchanged: the keyboard shrinks the trackpad rather than replacing it.
+     kb   — the trackpad goes away and the keyboard DROPS to the bottom at the
+            same size it has in `both`, rather than stretching to fill. A
+            keyboard stretched over a whole tablet has rows taller than a
+            thumb, which is worse to type on, not better. `main` keeps its
+            share of the column and only its contents are hidden, so the
+            keyboard geometry is identical in both modes. */
+  body.lay-both #kb, body.lay-swap #kb, body.lay-kb #kb { display: flex; }
+  /* Same trick as lay-kb, both halves visible: the document order is keyboard
+     then main, so swapping which one comes first is a matter of order, not of
+     moving elements around and re-deriving the geometry. */
+  body.lay-swap main { order: 1; }
+  body.lay-swap #kb { order: 2; }
+  /* The keyboard sits before <main> in the document, so simply emptying main
+     leaves the gap BELOW the keys — it floats up instead of dropping down.
+     Reordering is what actually puts it at the bottom. */
+  body.lay-kb main { visibility: hidden; pointer-events: none; order: 1; }
+  body.lay-kb #kb { order: 2; }
+
+  body.lay-pad #pad { flex: 1 1 auto; }
+  /* Landscape only: in portrait `main` is a column, so a flex-basis here would
+     become the deck's HEIGHT and squash the grid rather than narrowing it. */
+  @media (orientation: landscape) {
+    body.lay-pad .palm { flex: 0 0 108px; }
+  }
+  /* Only in `pad`, where the whole point is that the trackpad takes the screen.
+     Applying this everywhere changed `both` too: with the deck page set to
+     Kosong the palm rests vanished and the trackpad went full width, which is
+     exactly the layout that was meant to stay untouched. */
+  body.lay-pad .palm:empty { display: none; }
   /* Magic Keyboard proportions: every row is 15 units wide, and the function
      row sits at roughly two-thirds height like the real thing. */
   .krow { display: flex; gap: 5px; flex: 1 1 0; min-height: 0; }
@@ -162,6 +282,31 @@
   .kkey.mod.lock { background: #10331f; border-color: #1d5c37; color: #57d68b; }
   .kkey.small { font-size: 12px; }
 
+
+  /* Everything the app knows, in one place, on top of whatever is underneath.
+     pointer-events: none — the panel floats over the trackpad and the keys, and
+     touches must pass straight through it. Fixed, so it never takes part in the
+     layout it is reporting on. */
+  #debug {
+    display: none; position: fixed; left: 8px; bottom: 8px; z-index: 9;
+    pointer-events: none; max-width: min(390px, 62vw); max-height: 72dvh;
+    overflow: hidden; padding: 8px 10px; border-radius: 10px;
+    background: rgba(9, 11, 15, .82); border: 1px solid #2b3140;
+    font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #9aa4b4; font-variant-numeric: tabular-nums;
+  }
+  #debug.on { display: block; }
+  #debug h4 {
+    margin: 6px 0 2px; font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+    color: #5b6472; font-weight: 700;
+  }
+  #debug h4:first-child { margin-top: 0; }
+  #debug .d { display: flex; gap: 8px; }
+  #debug .d span:first-child { flex: 0 0 96px; color: #6b7280; }
+  #debug .d span:last-child { flex: 1; color: #cdd6e4; word-break: break-all; }
+  #debug .good { color: #57d68b !important; }
+  #debug .bad { color: #f2777f !important; }
+  #debug .warnv { color: #e2b356 !important; }
 
   #warn { display: none; background: #34181b; border: 1px solid #5e2a2f; color: #f2b0b5;
           border-radius: 10px; padding: 10px 12px; font-size: 12px; flex: 0 0 auto; }
@@ -235,16 +380,61 @@
   }
   .picker button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
 
-  .hostadd { display: flex; gap: 7px; }
+  .hostadd { display: flex; gap: 7px; align-items: stretch; }
   .hostadd input {
-    padding: 11px; font-size: 14px; border-radius: 9px; border: 1px solid var(--line);
+    padding: 10px 11px; font-size: 14px; border-radius: 9px; border: 1px solid var(--line);
     background: var(--panel); color: var(--fg); min-width: 0;
   }
+  /* An address is at most "255.255.255.255:8778" and a code is six digits.
+     Sizing them by their real content leaves the button room to be a button. */
+  #h-addr { flex: 1 1 auto; max-width: 220px; }
+  #h-code { flex: 0 0 118px; text-align: center; font-variant-numeric: tabular-nums; }
+  #h-add { flex: 0 0 auto; white-space: nowrap; }
   .hostrow {
     display: flex; gap: 10px; align-items: center; font-size: 13px;
     padding: 7px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
   }
   .hostrow .who { flex: 1; min-width: 0; }
+  /* The list is vertical but the arrows say left and right, which is fine for
+     two machines and pure guesswork at four. This strip draws the desk the way
+     it actually is, so the list above it stops needing to be imagined. */
+  .desk {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 9px 10px; margin-bottom: 9px; border-radius: 10px;
+    background: #12151b; border: 1px solid #22262f;
+  }
+  .desk .lbl { font-size: 11px; color: #6b7280; margin-right: 2px; }
+  .desk .m {
+    display: flex; align-items: center; gap: 6px; padding: 5px 9px;
+    border-radius: 8px; background: var(--panel); border: 1px solid var(--line);
+    font-size: 12px; font-weight: 600; color: var(--dim); white-space: nowrap;
+  }
+  .desk .m.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
+  .desk .m .n { font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; }
+  .desk .arrow { color: #4b535f; font-size: 11px; }
+
+  .cliprow { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0; }
+  .cliprow button { flex: 0 0 auto; }
+  .cliprow .lbl { font-size: 12px; color: #6b7280; align-self: center; margin-right: 2px; }
+  #clip-held { font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+               word-break: break-all; color: var(--dim); }
+
+  .statrow {
+    display: flex; gap: 10px; align-items: baseline; font-size: 12px;
+    padding: 8px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
+  }
+  .statrow .nm { font-weight: 700; color: var(--fg); flex: 0 0 auto; }
+  .statrow .facts { flex: 1; color: var(--dim); font-variant-numeric: tabular-nums;
+                    display: flex; gap: 10px; flex-wrap: wrap; }
+  .statrow .busy { color: #e2b356; }
+
+  .hostpos {
+    flex: 0 0 auto; width: 20px; text-align: center; font-size: 11px;
+    color: #6b7280; font-variant-numeric: tabular-nums;
+  }
+  .hostorder { display: flex; gap: 4px; flex: 0 0 auto; }
+  .hostorder .iconbtn { width: 30px; height: 30px; font-size: 11px; }
+  .hostorder .iconbtn:disabled { opacity: .3; }
   .hostrow .hostname {
     width: 100%; padding: 5px 8px; font-size: 14px; color: var(--fg);
     background: #12151b; border: 1px solid #262a33; border-radius: 7px;
@@ -269,27 +459,38 @@
 <body>
 
 <header>
-  <span class="host" id="host">SwitchDeck</span>
-  <span class="pill mid" id="status">connecting</span>
-  <span class="hosts" id="hosts"></span>
-  <span class="pages" id="pages"></span>
-  <span class="pill down" id="wake" title="wake lock">—</span>
-  <span class="metrics">
-    <span id="lat">— ms</span>
-    <span id="rate">— f/s</span>
+  <span class="brand" aria-label="SwitchDeck">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="6" fill="#3d6fd1"/>
+      <path d="M7.1 9.6h8.1M12.9 7.3l2.4 2.3-2.4 2.3" stroke="#fff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16.9 14.4H8.8M11.1 16.7l-2.4-2.3 2.4-2.3" stroke="#bcd4ff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="wm"><span class="a">Switch</span><span class="b">Deck</span></span>
   </span>
-  <button class="gear" id="kbtoggle" title="keyboard">⌨</button>
-  <button class="gear" id="fs" title="fullscreen">⛶</button>
-  <button class="gear" id="gear">⚙︎</button>
+  <button class="hostbtn" id="hostbtn" data-i18n-title="bar.host">
+    <span class="dot" id="hostdot"></span>
+    <span class="nm" id="host">SwitchDeck</span>
+    <span class="caret" id="hostcaret" style="display:none">▾</span>
+  </button>
+  <span class="pages" id="pages"></span>
+  <button class="gear" id="layout" data-i18n-title="bar.layout"></button>
+  <button class="gear" id="fs" data-i18n-title="bar.fullscreen">⛶</button>
+  <button class="gear" id="gear" data-i18n-title="bar.settings">⚙︎</button>
 </header>
+
+<div id="hostmenu"><div class="list" id="hostlist"></div></div>
 
 <div id="warn"></div>
 
+<div id="debug"></div>
+
 <div id="pair">
-  <p style="margin:0 0 4px;color:var(--dim);font-size:13px">Masukkan kode 6 digit yang dicetak di terminal Mac.</p>
+  <p style="margin:0 0 4px;color:var(--dim);font-size:13px" data-i18n="pair.hint"></p>
   <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000"
          autocapitalize="off" autocorrect="off" spellcheck="false">
-  <button id="save">Pasangkan</button>
+  <button id="save" data-i18n="pair.button"></button>
   <p id="pairmsg" style="margin:0;font-size:13px;color:#f2777f;min-height:18px"></p>
 </div>
 
@@ -306,56 +507,91 @@
 <div id="settings">
   <div class="sheet">
     <div class="sheet-head">
-      <span class="sheet-title">Setelan</span>
-      <button class="iconbtn" id="close" aria-label="tutup">✕</button>
+      <span class="sheet-title" data-i18n="set.title"></span>
+      <button class="iconbtn" id="close" data-i18n-title="set.close">✕</button>
     </div>
     <div class="sheet-body">
 
       <section>
-        <h3>Trackpad</h3>
-        <div class="row"><label>Sensitivitas</label><input type="range" id="s-sens" min="0.4" max="3" step="0.1"><span class="val" id="v-sens"></span></div>
-        <div class="row"><label>Akselerasi</label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
-        <div class="row"><label>Kehalusan gerak<small>1.00 = mentah, tanpa penghalusan</small></label><input type="range" id="s-smooth" min="0.25" max="1" step="0.05"><span class="val" id="v-smooth"></span></div>
-        <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
-        <div class="row"><label>Scroll natural<small>konten ikut arah jari</small></label><input type="checkbox" id="s-natural"></div>
-        <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
-        <div class="row"><label>Geser 3 jari kiri/kanan<small>kalau pindah desktop tidak jalan, cek System Settings → Keyboard → Shortcuts → Mission Control</small></label><span class="picker" id="s-swipe"></span></div>
+        <h3 data-i18n="set.lang"></h3>
+        <div class="row"><label><span data-i18n="set.lang"></span><small data-i18n="set.lang.hint"></small></label><span class="picker" id="s-lang"></span></div>
       </section>
 
       <section>
-        <h3>Suara</h3>
-        <div class="row"><label>Jenis</label><span class="picker" id="s-sound"></span></div>
-        <div class="row"><label>Volume<small>0 = mati</small></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
+        <h3 data-i18n="set.trackpad"></h3>
+        <div class="row"><label data-i18n="set.sens"></label><input type="range" id="s-sens" min="0.4" max="3" step="0.1"><span class="val" id="v-sens"></span></div>
+        <div class="row"><label data-i18n="set.accel"></label><input type="range" id="s-accel" min="0" max="4" step="0.1"><span class="val" id="v-accel"></span></div>
+        <div class="row"><label><span data-i18n="set.smooth"></span><small data-i18n="set.smooth.hint"></small></label><input type="range" id="s-smooth" min="0.25" max="1" step="0.05"><span class="val" id="v-smooth"></span></div>
+        <div class="row"><label data-i18n="set.scroll"></label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
+        <div class="row"><label><span data-i18n="set.natural"></span><small data-i18n="set.natural.hint"></small></label><input type="checkbox" id="s-natural"></div>
+        <div class="row"><label data-i18n="set.tap"></label><input type="checkbox" id="s-tap"></div>
+        <div class="row"><label><span data-i18n="set.edge"></span><small data-i18n="set.edge.hint"></small></label><input type="checkbox" id="s-edge"></div>
+        <div class="row"><label><span data-i18n="set.holddrag"></span><small data-i18n="set.holddrag.hint"></small></label><input type="checkbox" id="s-holddrag"></div>
+        <div class="row"><label><span data-i18n="set.swipe"></span><small data-i18n="set.swipe.hint"></small></label><span class="picker" id="s-swipe"></span></div>
       </section>
 
       <section>
-        <h3>Pasang ke layar depan</h3>
+        <h3 data-i18n="set.sound"></h3>
+        <div class="row"><label data-i18n="set.sound.kind"></label><span class="picker" id="s-sound"></span></div>
+        <div class="row"><label><span data-i18n="set.volume"></span><small data-i18n="set.volume.hint"></small></label><input type="range" id="s-click" min="0" max="1" step="0.05"><span class="val" id="v-click"></span></div>
+      </section>
+
+      <section>
+        <h3 data-i18n="set.install"></h3>
         <div class="row" id="installrow" style="display:none">
-          <label>SwitchDeck sebagai aplikasi<small>tanpa bar browser, buka lewat ikon</small></label>
-          <button class="gear" id="install" style="flex:1">Pasang</button>
+          <label><span data-i18n="set.install.label"></span><small data-i18n="set.install.hint"></small></label>
+          <button class="gear" id="install" style="flex:1" data-i18n="set.install.button"></button>
         </div>
         <p class="note" id="installnote"></p>
       </section>
 
       <section>
-        <h3>Koneksi</h3>
-        <div class="row"><label>Ping / keepalive<small>makin kecil, radio wifi makin jarang tidur — boros baterai</small></label><input type="range" id="s-keepalive" min="40" max="1000" step="20"><span class="val" id="v-keepalive"></span></div>
+        <h3 data-i18n="set.conn"></h3>
+        <div class="row"><label><span data-i18n="set.conn.status"></span><small id="lat">— ms</small></label><span class="pill mid" id="status">connecting</span></div>
+        <div class="row"><label><span data-i18n="set.screen"></span><small data-i18n="set.screen.hint"></small></label><span class="pill down" id="wake">—</span></div>
+        <div class="row"><label><span data-i18n="set.keepalive"></span><small data-i18n="set.keepalive.hint"></small></label><input type="range" id="s-keepalive" min="40" max="1000" step="20"><span class="val" id="v-keepalive"></span></div>
       </section>
 
       <section>
-        <h3>Mac lain</h3>
+        <h3 data-i18n="set.hosts"></h3>
         <div class="hostadd">
           <input id="h-addr" placeholder="192.168.1.50" autocapitalize="off" spellcheck="false" style="flex:2">
-          <input id="h-code" inputmode="numeric" maxlength="6" placeholder="kode 6 digit" style="flex:1">
-          <button class="gear" id="h-add">Tambah</button>
+          <input id="h-code" inputmode="numeric" maxlength="6" data-i18n-ph="set.hosts.code" style="flex:1">
+          <button class="gear" id="h-add" data-i18n="set.hosts.add"></button>
         </div>
-        <p class="note" id="h-msg">Jalankan <code>make code</code> di Mac itu untuk kodenya.</p>
+        <p class="note" id="h-msg" data-i18n-html="set.hosts.msg"></p>
+        <p class="note" data-i18n="set.hosts.order"></p>
+        <div class="desk" id="desk"></div>
         <div id="h-list" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
       <section>
-        <h3>Device yang dipasangkan</h3>
-        <p class="note">Tablet atau HP yang boleh mengendalikan Mac aktif. Mencabut langsung memutus koneksinya.</p>
+        <h3 data-i18n="set.clip"></h3>
+        <p class="note" data-i18n="set.clip.hint"></p>
+        <div class="cliprow" id="clip-take"></div>
+        <p class="note" id="clip-held"></p>
+        <div class="cliprow" id="clip-put"></div>
+      </section>
+
+      <section>
+        <h3 data-i18n="set.stat"></h3>
+        <p class="note" data-i18n="set.stat.hint"></p>
+        <div id="statlist" style="display:flex;flex-direction:column;gap:7px"></div>
+      </section>
+
+      <section>
+        <h3 data-i18n="set.debug"></h3>
+        <div class="row"><label><span data-i18n="set.debug.panel"></span><small data-i18n="set.debug.hint"></small></label><input type="checkbox" id="s-debug"></div>
+      </section>
+
+      <section>
+        <h3 data-i18n="set.about"></h3>
+        <div class="row"><label><span data-i18n="set.version"></span><small data-i18n="set.about.hint"></small></label><span class="val" id="v-version" style="flex:0 0 auto"></span></div>
+      </section>
+
+      <section>
+        <h3 data-i18n="set.devices"></h3>
+        <p class="note" data-i18n="set.devices.hint"></p>
         <div id="d-list" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
@@ -368,7 +604,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', swipe: 'space', natural: true, tapClick: true
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', swipe: 'space', natural: true, tapClick: true, holdDrag: true, edgeSwitch: true, debug: false, lang: 'id'
   }, readCfg());
 
   function readCfg() {
@@ -396,15 +632,511 @@
   document.addEventListener('selectstart', function (e) {
     if (!isTextField(e.target)) e.preventDefault();
   });
-  var sentThisSecond = 0, rateWindow = Date.now();
   var minSendGap = 1000 / 60;   // replaced by the active host's real refresh
+
+
+  // ---------- debug panel ----------
+  // Every number the client knows, gathered in one place. Scattered across a
+  // header, a settings sheet and a badge, each one was too little to answer a
+  // question on its own — latency means one thing at 90 Hz and another at 60,
+  // and "the deck is on the wrong page" needs the front app beside it.
+  //
+  // The whole thing costs nothing while it is off: the repaint timer only
+  // exists while the panel is open, and the frame counter only counts then.
+  var dbgTimer = null, sentCount = 0, sentRate = 0, sentWindow = 0, sentTotal = 0;
+
+  function countSend() {
+    if (!cfg.debug) return;
+    sentTotal += 1; sentCount += 1;
+    var now = Date.now();
+    if (!sentWindow) sentWindow = now;
+    if (now - sentWindow >= 1000) {
+      sentRate = Math.round((sentCount * 1000) / (now - sentWindow));
+      sentCount = 0; sentWindow = now;
+    }
+  }
+
+  function dbgRow(k, v, cls) {
+    return '<div class="d"><span>' + k + '</span><span' + (cls ? ' class="' + cls + '"' : '')
+      + '>' + v + '</span></div>';
+  }
+
+  function paintDebug() {
+    var box = el('debug');
+    box.classList.toggle('on', !!cfg.debug);
+    if (!cfg.debug) return;
+
+    var c = activeId && conns[activeId];
+    var host = activeHost();
+    var out = '';
+
+    out += '<h4>' + t('dbg.conn') + '</h4>';
+    out += dbgRow(t('dbg.mac'), host ? (host.name || host.url) : '—');
+    out += dbgRow(t('dbg.addr'), host ? host.url : '—');
+    out += dbgRow(t('dbg.transport'), host ? (host.secure ? t('dbg.tls') : t('dbg.plain')) : '—',
+                  host && host.secure ? 'good' : 'warnv');
+    out += dbgRow('status', c ? (stateLabel(c.state)) : 'off',
+                  c && c.state === 'on' ? 'good' : 'bad');
+    out += dbgRow(t('dbg.access'), c ? (c.trusted ? 'trusted' : t('stat.untrusted')) : '—',
+                  c && c.trusted ? 'good' : 'bad');
+    if (c && c.lastError) {
+      out += dbgRow(t('dbg.rejected'), c.lastError + ' · '
+        + Math.round((Date.now() - c.lastErrorAt) / 1000) + ' s lalu', 'bad');
+    }
+    out += dbgRow(t('dbg.others'), hosts.map(function (h) {
+      return (h.name || h.url) + '(' + (conns[h.id] ? conns[h.id].state[0] : '-') + ')';
+    }).join(' ') || '—');
+
+    out += '<h4>' + t('dbg.latency') + '</h4>';
+    if (c && c.rtts.length) {
+      var sorted = c.rtts.slice().sort(function (a, b) { return a - b; });
+      var q = function (n) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * n))]; };
+      out += dbgRow(t('dbg.last'), c.rtts[c.rtts.length - 1] + ' ms');
+      out += dbgRow('p50 / p95', q(0.5) + ' / ' + q(0.95) + ' ms',
+                    q(0.95) < 40 ? 'good' : q(0.95) < 90 ? 'warnv' : 'bad');
+      out += dbgRow(t('dbg.minmax'), sorted[0] + ' / ' + sorted[sorted.length - 1] + ' ms');
+      out += dbgRow(t('dbg.samples'), t('dbg.samplesmax', c.rtts.length));
+    } else {
+      out += dbgRow('rtt', t('dbg.nosample'));
+    }
+    var idle = Date.now() - lastInputAt > ACTIVE_WINDOW;
+    out += dbgRow(t('dbg.ping'), (idle ? IDLE_PING : cfg.keepalive) + ' ms · ' + (idle ? t('dbg.idle') : t('dbg.active')),
+                  idle ? '' : 'good');
+    out += dbgRow(t('dbg.lastinput'), lastInputAt ? t('dbg.ago', Math.round((Date.now() - lastInputAt) / 100) / 10) : '—');
+
+    out += '<h4>' + t('dbg.traffic') + '</h4>';
+    out += dbgRow(t('dbg.fps'), sentRate + ' f/s');
+    out += dbgRow(t('dbg.total'), sentTotal);
+    out += dbgRow(t('dbg.refresh'), (c && c.refreshHz ? c.refreshHz + ' Hz' : t('dbg.noreport'))
+      + ' · ' + t('dbg.gap') + ' ' + minSendGap.toFixed(1) + ' ms');
+    out += dbgRow(t('dbg.loop'), flushing ? t('dbg.running') : t('dbg.sleeping'), flushing ? 'warnv' : 'good');
+
+    out += '<h4>' + t('dbg.touch') + '</h4>';
+    out += dbgRow(t('dbg.fingers'), pointers.size + (gestureMax > pointers.size ? ' (' + t('dbg.max') + ' ' + gestureMax + ')' : ''));
+    out += dbgRow(t('dbg.mode'), mode || '—');
+    out += dbgRow(t('dbg.drag'), dragging ? t('dbg.yes') : t('dbg.no'), dragging ? 'warnv' : '');
+    out += dbgRow(t('dbg.holddrag'), holdTimer ? t('dbg.counting') : (cfg.holdDrag ? t('dbg.ready') : t('set.off')));
+    out += dbgRow(t('dbg.edgepush'), cfg.edgeSwitch
+      ? (edgeSide ? edgeSide + ' ' + Math.round(edgePush) + '/' + EDGE_PUSH + 'px · '
+          + edgeReports + '/' + EDGE_REPORTS + ' ' + t('dbg.reports') : t('dbg.ready'))
+      : t('set.off'), edgeSide ? 'warnv' : '');
+    if (edgeBlocked) out += dbgRow(t('dbg.edgefail'), edgeBlocked, 'bad');
+    out += dbgRow(t('dbg.deskorder'), hosts.map(function (h) {
+      return (h.id === activeId ? '[' : '') + (h.name || h.url) + (h.id === activeId ? ']' : '');
+    }).join(' → ') || '—');
+    if (mode === 'gesture' || lastGesture) {
+      out += dbgRow(t('dbg.gesture'), Math.round(Math.abs(gx) > Math.abs(gy) ? gx : gy) + ' px / ' + t('dbg.threshold') + ' 55'
+        + (gestureFired ? ' · ' + t('dbg.sent') : ''), gestureFired ? 'good' : '');
+      out += dbgRow(t('dbg.last'), lastGesture || '—');
+    }
+    out += dbgRow(t('dbg.subpx'), accX.toFixed(2) + ', ' + accY.toFixed(2)
+      + ' · ' + t('dbg.scroll') + ' ' + accSX.toFixed(2) + ', ' + accSY.toFixed(2));
+
+    out += '<h4>' + t('dbg.deck') + '</h4>';
+    var pageName = activePage === AUTO ? 'Auto → ' + (deckPages[autoPage] ? deckPages[autoPage].name : '?')
+      : activePage === NO_PAGE ? 'Kosong'
+      : (deckPages[activePage] ? deckPages[activePage].name : '?');
+    out += dbgRow(t('dbg.page'), pageName + ' (' + activePage + ')');
+    out += dbgRow(t('dbg.frontapp'), frontApp || '—');
+    out += dbgRow(t('dbg.pagecount'), deckPages.length);
+
+    out += '<h4>' + t('dbg.tablet') + '</h4>';
+    out += dbgRow(t('dbg.screen'), window.innerWidth + '×' + window.innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x');
+    out += dbgRow(t('dbg.orientation'), window.matchMedia('(orientation: portrait)').matches ? t('dbg.portrait') : t('dbg.landscape'));
+    out += dbgRow(t('dbg.fullscreen'), document.fullscreenElement ? t('dbg.yes') : t('dbg.no'));
+    out += dbgRow(t('dbg.wakelock'), wakeLock ? t('dbg.wakeheld') : t('dbg.wakefree'), wakeLock ? 'good' : 'warnv');
+    out += dbgRow(t('dbg.secure'), window.isSecureContext ? t('dbg.yes') : t('dbg.nohttp'),
+                  window.isSecureContext ? 'good' : 'warnv');
+    out += dbgRow(t('dbg.audio'), audio ? audio.state : t('dbg.audionone'), audio && audio.state === 'running' ? 'warnv' : 'good');
+    out += dbgRow(t('dbg.layout'), layoutLabel(layout));
+
+    box.innerHTML = out;
+  }
+
+  // Fast-moving fields already repaint from the pointer handlers; this only has
+  // to catch the ones that drift on their own — latency, ping mode, idle time.
+  function debugTimer() {
+    clearInterval(dbgTimer);
+    dbgTimer = null;
+    if (!cfg.debug) return;
+    dbgTimer = setInterval(paintDebug, 400);
+  }
+
+
+  // Dijaga oleh test/version.js supaya tidak melenceng dari package.json.
+  // Angka versi yang ditulis di dua tempat akan berbeda cepat atau lambat.
+  var VERSION = '1.0.0';
+
+  // ---------- bahasa / language ----------
+  //
+  // Dua peta lengkap, bukan satu peta plus tambalan. Bahasa cadangan yang
+  // separuh terisi menghasilkan layar campur aduk, dan itu lebih buruk
+  // daripada satu bahasa yang konsisten.
+  var I18N = {
+    id: {
+      'pair.hint': 'Masukkan kode 6 digit yang dicetak di terminal perangkat itu.',
+      'pair.button': 'Pasangkan',
+      'pair.noaddr': 'alamatnya belum diisi',
+      'pair.unreachable': 'tidak bisa menghubungi ',
+      'pair.https': 'Perlu HTTPS. Buka <code>/setup</code> untuk pasang sertifikatnya dulu.',
+      'pair.ratelimit': 'terlalu banyak percobaan, tunggu ',
+      'pair.wrong': 'kode salah',
+
+      'set.title': 'Setelan',
+      'set.close': 'tutup',
+      'set.lang': 'Bahasa',
+      'set.lang.hint': 'berlaku seketika, disimpan di perangkat ini',
+
+      'set.trackpad': 'Trackpad',
+      'set.sens': 'Sensitivitas',
+      'set.accel': 'Akselerasi',
+      'set.smooth': 'Kehalusan gerak',
+      'set.smooth.hint': '1.00 = mentah, tanpa penghalusan',
+      'set.smooth.raw': 'mentah',
+      'set.scroll': 'Kecepatan scroll',
+      'set.natural': 'Scroll natural',
+      'set.natural.hint': 'konten ikut arah jari',
+      'set.tap': 'Tap buat klik',
+      'set.edge': 'Nyeberang di tepi layar',
+      'set.edge.hint': 'dorong kursor terus ke tepi kiri/kanan sampai mentok, kendali pindah ke perangkat sebelahnya. Urutannya diatur di "Perangkat lain" di bawah',
+      'set.holddrag': 'Tahan buat drag',
+      'set.holddrag.hint': 'tahan diam ~0,45 detik lalu geser — cahayanya berubah hijau saat aktif. Ini satu-satunya cara drag di Mission Control, karena tap di sana malah menutupnya',
+      'set.swipe': 'Geser 3 jari kiri/kanan',
+      'set.swipe.hint': 'kalau pindah desktop tidak jalan, cek System Settings → Keyboard → Shortcuts → Mission Control',
+      'set.swipe.space': 'Pindah desktop',
+      'set.swipe.app': 'Ganti app',
+
+      'set.sound': 'Suara tombol',
+      'set.sound.kind': 'Jenis',
+      'sound.tik': 'Tik', 'sound.thock': 'Thock', 'sound.pop': 'Pop', 'sound.tipis': 'Tipis',
+      'set.volume': 'Volume',
+      'set.volume.hint': '0 = mati. Trackpad tidak berbunyi — permukaan, bukan tombol',
+      'set.off': 'mati',
+
+      'set.install': 'Pasang ke layar depan',
+      'set.install.label': 'SwitchDeck sebagai aplikasi',
+      'set.install.hint': 'tanpa bar browser, buka lewat ikon',
+      'set.install.button': 'Pasang',
+      'set.install.done': 'Sudah terpasang — ini lagi jalan sebagai aplikasi.',
+      'set.install.no': 'Browser belum menawarkan pemasangan. Coba lewat menu ⋮ → Add to Home screen.',
+
+      'set.conn': 'Koneksi',
+      'set.conn.status': 'Status perangkat aktif',
+      'set.screen': 'Layar tablet',
+      'set.screen.hint': 'wake lock browser — mati kalau bukan https',
+      'set.keepalive': 'Ping / keepalive',
+      'set.keepalive.hint': 'makin kecil, radio wifi makin jarang tidur — boros baterai',
+
+      'set.hosts': 'Perangkat lain',
+      'set.hosts.add': 'Tambah',
+      'set.hosts.code': 'kode 6 digit',
+      'set.hosts.msg': 'Jalankan <code>make code</code> di perangkat itu untuk kodenya.',
+      'set.hosts.order': 'Susunan perangkat di meja, kiri ke kanan — ini yang dipakai "nyeberang di tepi layar". Geser pakai ◀ ▶ di tiap baris.',
+      'set.hosts.name': 'kasih nama',
+      'set.hosts.left': 'geser kiri',
+      'set.hosts.right': 'geser kanan',
+      'set.hosts.remove': 'hapus',
+      'desk.left': 'kiri',
+      'desk.right': 'kanan',
+
+      'set.clip': 'Papan klip antar perangkat',
+      'set.clip.hint': 'Selalu manual — tidak ada yang tersalin sendiri. Isinya cuma disimpan di memori tablet, tidak pernah ditulis ke penyimpanan dan tidak pernah masuk log.',
+      'clip.take': 'Ambil dari:',
+      'clip.put': 'Taruh ke:',
+      'clip.forget': 'Lupakan',
+      'clip.none': 'Belum ada yang diambil.',
+      'clip.empty': 'Papan klip {0} kosong.',
+      'clip.held': 'Dari {0} · {1} karakter · "{2}"',
+
+      'set.stat': 'Status perangkat',
+      'set.stat.hint': 'Cuma diminta selagi panel ini terbuka — tidak ada yang disampel di belakang layar.',
+      'stat.load': 'beban',
+      'stat.ram': 'RAM',
+      'stat.uptime': 'nyala {0} jam',
+      'stat.noapp': 'app?',
+      'stat.untrusted': 'BELUM diizinkan',
+
+      'set.debug': 'Debug',
+      'set.debug.panel': 'Panel debug',
+      'set.debug.hint': 'koneksi, latency, ping, frame/s, sentuhan & gestur, deck, dan kondisi tablet — melayang di pojok kiri bawah, sentuhan tetap tembus',
+
+      'set.about': 'Tentang',
+      'set.version': 'Versi',
+      'set.about.hint': 'SwitchDeck — tablet jadi trackpad, keyboard, dan deck makro',
+      'set.devices': 'Tablet & HP terpasang',
+      'set.devices.hint': 'Tablet atau HP yang boleh mengendalikan perangkat aktif. Mencabut langsung memutus koneksinya.',
+      'set.devices.this': 'ini',
+      'set.devices.paired': 'dipasangkan ',
+      'set.devices.confirm': 'Ini device yang lagi kamu pakai. Cabut dan putus sekarang?',
+      'set.devices.none': 'belum ada',
+
+      'state.on': 'terhubung',
+      'state.connecting': 'menyambung',
+      'state.off': 'putus',
+      'state.rejected': 'perlu dipasangkan',
+
+      'layout.pad': 'trackpad saja',
+      'layout.both': 'keyboard atas + trackpad bawah',
+      'layout.swap': 'trackpad atas + keyboard bawah',
+      'layout.kb': 'keyboard saja',
+      'bar.layout': 'tata letak',
+      'bar.host': 'pilih perangkat',
+      'bar.fullscreen': 'layar penuh',
+      'bar.settings': 'setelan',
+
+      'deck.empty': 'Kosong',
+      'deck.auto': 'Auto',
+      'deck.error': 'deck.json ada salah ketik, jadi deck terakhir yang benar tetap dipakai: ',
+
+      'warn.trust': 'Perangkat ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.',
+      'warn.relay': 'Nyambung lewat Tailscale, bukan jaringan lokal — bisa kerelai lewat server di negara lain. Kalau tablet ini satu wifi sama perangkatnya, buka <b>{0}</b> dan pasangkan ulang.',
+
+      'gest.next': 'desktop berikutnya',
+      'gest.prev': 'desktop sebelumnya',
+      'gest.appnext': '⌘⇥ app berikutnya',
+      'gest.appprev': '⌘⇧⇥ app sebelumnya',
+      'gest.mission': 'Mission Control',
+      'gest.expose': 'App Exposé',
+      'gest.held': '(ditahan, terlalu cepat)',
+
+      'wake.held': 'layar dijaga',
+      'wake.free': 'layar bisa tidur',
+      'wake.http': 'http — layar bisa tidur',
+
+      'dbg.conn': 'koneksi', 'dbg.mac': 'perangkat', 'dbg.addr': 'alamat',
+      'dbg.transport': 'transport', 'dbg.tls': 'wss (tls)', 'dbg.plain': 'ws (polos)',
+      'dbg.status': 'status', 'dbg.access': 'accessibility', 'dbg.others': 'host lain',
+      'dbg.latency': 'latency', 'dbg.last': 'terakhir', 'dbg.minmax': 'min / max',
+      'dbg.samples': 'sampel', 'dbg.samplesmax': '{0} (maks 60)', 'dbg.nosample': 'belum ada sampel',
+      'dbg.ping': 'ping', 'dbg.idle': 'idle', 'dbg.active': 'aktif',
+      'dbg.lastinput': 'input terakhir', 'dbg.ago': '{0} s lalu',
+      'dbg.traffic': 'trafik', 'dbg.fps': 'frame/s', 'dbg.total': 'total kirim',
+      'dbg.refresh': 'refresh mac', 'dbg.noreport': 'belum lapor', 'dbg.gap': 'gap',
+      'dbg.loop': 'loop rAF', 'dbg.running': 'JALAN', 'dbg.sleeping': 'tidur',
+      'dbg.touch': 'sentuhan', 'dbg.fingers': 'jari', 'dbg.max': 'maks',
+      'dbg.mode': 'mode', 'dbg.drag': 'drag', 'dbg.yes': 'YA', 'dbg.no': 'tidak',
+      'dbg.holddrag': 'tahan-drag', 'dbg.counting': 'menghitung...', 'dbg.ready': 'siap',
+      'dbg.edgepush': 'dorong tepi', 'dbg.reports': 'laporan',
+      'dbg.edgefail': 'nyeberang gagal', 'dbg.deskorder': 'urutan meja',
+      'dbg.gesture': 'gestur', 'dbg.threshold': 'ambang', 'dbg.sent': 'KIRIM',
+      'dbg.subpx': 'sisa sub-px', 'dbg.scroll': 'scroll',
+      'dbg.deck': 'deck', 'dbg.page': 'halaman', 'dbg.frontapp': 'app depan',
+      'dbg.pagecount': 'jml halaman',
+      'dbg.tablet': 'tablet', 'dbg.screen': 'layar', 'dbg.orientation': 'orientasi',
+      'dbg.portrait': 'portrait', 'dbg.landscape': 'landscape',
+      'dbg.fullscreen': 'fullscreen', 'dbg.wakelock': 'wake lock',
+      'dbg.wakeheld': 'dipegang', 'dbg.wakefree': 'lepas',
+      'dbg.secure': 'secure ctx', 'dbg.nohttp': 'tidak (http)',
+      'dbg.audio': 'audio', 'dbg.audionone': 'belum dibuat',
+      'dbg.layout': 'tata letak', 'dbg.rejected': 'injector nolak',
+      'dbg.none': '—', 'dbg.unmapped': 'tepi {0} belum dipetakan',
+      'dbg.nohostside': 'tidak ada perangkat di sebelah {0} — atur urutan di Setelan → Perangkat lain',
+      'dbg.hostgone': '{0} tidak terhubung', 'dbg.noactive': 'host aktif tidak ada di daftar',
+      'dbg.sideleft': 'kiri', 'dbg.sideright': 'kanan'
+    },
+
+    en: {
+      'pair.hint': 'Enter the 6-digit code printed in that device’s terminal.',
+      'pair.button': 'Pair',
+      'pair.noaddr': 'address is empty',
+      'pair.unreachable': 'cannot reach ',
+      'pair.https': 'HTTPS required. Open <code>/setup</code> to install the certificate first.',
+      'pair.ratelimit': 'too many attempts, wait ',
+      'pair.wrong': 'wrong code',
+
+      'set.title': 'Settings',
+      'set.close': 'close',
+      'set.lang': 'Language',
+      'set.lang.hint': 'applies immediately, saved on this device',
+
+      'set.trackpad': 'Trackpad',
+      'set.sens': 'Sensitivity',
+      'set.accel': 'Acceleration',
+      'set.smooth': 'Motion smoothing',
+      'set.smooth.hint': '1.00 = raw, no smoothing',
+      'set.smooth.raw': 'raw',
+      'set.scroll': 'Scroll speed',
+      'set.natural': 'Natural scrolling',
+      'set.natural.hint': 'content follows the finger',
+      'set.tap': 'Tap to click',
+      'set.edge': 'Cross at the screen edge',
+      'set.edge.hint': 'keep pushing the cursor into the left/right edge and control moves to the device beside it. Set the order under "Other devices" below',
+      'set.holddrag': 'Hold to drag',
+      'set.holddrag.hint': 'hold still for ~0.45s then move — the glow turns green while dragging. This is the only way to drag in Mission Control, where a tap dismisses it instead',
+      'set.swipe': 'Three-finger swipe left/right',
+      'set.swipe.hint': 'if switching desktops does nothing, check System Settings → Keyboard → Shortcuts → Mission Control',
+      'set.swipe.space': 'Switch desktop',
+      'set.swipe.app': 'Switch app',
+
+      'set.sound': 'Key sound',
+      'set.sound.kind': 'Type',
+      'sound.tik': 'Tick', 'sound.thock': 'Thock', 'sound.pop': 'Pop', 'sound.tipis': 'Soft',
+      'set.volume': 'Volume',
+      'set.volume.hint': '0 = off. The trackpad stays silent — it is a surface, not a key',
+      'set.off': 'off',
+
+      'set.install': 'Add to home screen',
+      'set.install.label': 'SwitchDeck as an app',
+      'set.install.hint': 'no browser bar, opens from an icon',
+      'set.install.button': 'Install',
+      'set.install.done': 'Already installed — this is running as an app.',
+      'set.install.no': 'The browser has not offered installation. Try the ⋮ menu → Add to Home screen.',
+
+      'set.conn': 'Connection',
+      'set.conn.status': 'Active device',
+      'set.screen': 'Tablet screen',
+      'set.screen.hint': 'browser wake lock — unavailable without https',
+      'set.keepalive': 'Ping / keepalive',
+      'set.keepalive.hint': 'the smaller it is, the less the wifi radio sleeps — heavier on battery',
+
+      'set.hosts': 'Other devices',
+      'set.hosts.add': 'Add',
+      'set.hosts.code': '6-digit code',
+      'set.hosts.msg': 'Run <code>make code</code> on that device to get its code.',
+      'set.hosts.order': 'Arrangement of devices on the desk, left to right — this is what "cross at the screen edge" reads. Reorder with ◀ ▶ on each row.',
+      'set.hosts.name': 'give it a name',
+      'set.hosts.left': 'move left',
+      'set.hosts.right': 'move right',
+      'set.hosts.remove': 'remove',
+      'desk.left': 'left',
+      'desk.right': 'right',
+
+      'set.clip': 'Clipboard between devices',
+      'set.clip.hint': 'Always manual — nothing is copied on its own. It is held in the tablet’s memory only: never written to storage, never logged.',
+      'clip.take': 'Take from:',
+      'clip.put': 'Put on:',
+      'clip.forget': 'Forget',
+      'clip.none': 'Nothing taken yet.',
+      'clip.empty': '{0}’s clipboard is empty.',
+      'clip.held': 'From {0} · {1} characters · "{2}"',
+
+      'set.stat': 'Device status',
+      'set.stat.hint': 'Asked for only while this panel is open — nothing is sampled in the background.',
+      'stat.load': 'load',
+      'stat.ram': 'RAM',
+      'stat.uptime': 'up {0}h',
+      'stat.noapp': 'app?',
+      'stat.untrusted': 'NOT allowed',
+
+      'set.debug': 'Debug',
+      'set.debug.panel': 'Debug panel',
+      'set.debug.hint': 'connection, latency, ping, frames/s, touch & gestures, deck, and tablet state — floats bottom-left, touches pass straight through',
+
+      'set.about': 'About',
+      'set.version': 'Version',
+      'set.about.hint': 'SwitchDeck — a tablet as trackpad, keyboard and macro deck',
+      'set.devices': 'Paired tablets & phones',
+      'set.devices.hint': 'Tablets or phones allowed to drive the active device. Revoking disconnects it immediately.',
+      'set.devices.this': 'this one',
+      'set.devices.paired': 'paired ',
+      'set.devices.confirm': 'This is the device you are using. Revoke and disconnect now?',
+      'set.devices.none': 'none yet',
+
+      'state.on': 'connected',
+      'state.connecting': 'connecting',
+      'state.off': 'disconnected',
+      'state.rejected': 'pairing required',
+
+      'layout.pad': 'trackpad only',
+      'layout.both': 'keyboard above, trackpad below',
+      'layout.swap': 'trackpad above, keyboard below',
+      'layout.kb': 'keyboard only',
+      'bar.layout': 'layout',
+      'bar.host': 'choose a device',
+      'bar.fullscreen': 'fullscreen',
+      'bar.settings': 'settings',
+
+      'deck.empty': 'None',
+      'deck.auto': 'Auto',
+      'deck.error': 'deck.json has a typo, so the last good deck is still in use: ',
+
+      'warn.trust': 'This device has not granted Accessibility — every movement will be dropped silently. Run `make doctor` on it.',
+      'warn.relay': 'Connected over Tailscale rather than the local network — it may be relayed through a server abroad. If this tablet is on the same wifi as the device, open <b>{0}</b> and pair again.',
+
+      'gest.next': 'next desktop',
+      'gest.prev': 'previous desktop',
+      'gest.appnext': '⌘⇥ next app',
+      'gest.appprev': '⌘⇧⇥ previous app',
+      'gest.mission': 'Mission Control',
+      'gest.expose': 'App Exposé',
+      'gest.held': '(held back, too fast)',
+
+      'wake.held': 'screen held awake',
+      'wake.free': 'screen may sleep',
+      'wake.http': 'http — screen may sleep',
+
+      'dbg.conn': 'connection', 'dbg.mac': 'device', 'dbg.addr': 'address',
+      'dbg.transport': 'transport', 'dbg.tls': 'wss (tls)', 'dbg.plain': 'ws (plain)',
+      'dbg.status': 'status', 'dbg.access': 'accessibility', 'dbg.others': 'other hosts',
+      'dbg.latency': 'latency', 'dbg.last': 'last', 'dbg.minmax': 'min / max',
+      'dbg.samples': 'samples', 'dbg.samplesmax': '{0} (max 60)', 'dbg.nosample': 'no samples yet',
+      'dbg.ping': 'ping', 'dbg.idle': 'idle', 'dbg.active': 'active',
+      'dbg.lastinput': 'last input', 'dbg.ago': '{0}s ago',
+      'dbg.traffic': 'traffic', 'dbg.fps': 'frames/s', 'dbg.total': 'total sent',
+      'dbg.refresh': 'mac refresh', 'dbg.noreport': 'not reported', 'dbg.gap': 'gap',
+      'dbg.loop': 'rAF loop', 'dbg.running': 'RUNNING', 'dbg.sleeping': 'asleep',
+      'dbg.touch': 'touch', 'dbg.fingers': 'fingers', 'dbg.max': 'max',
+      'dbg.mode': 'mode', 'dbg.drag': 'drag', 'dbg.yes': 'YES', 'dbg.no': 'no',
+      'dbg.holddrag': 'hold-drag', 'dbg.counting': 'counting...', 'dbg.ready': 'ready',
+      'dbg.edgepush': 'edge push', 'dbg.reports': 'reports',
+      'dbg.edgefail': 'crossing failed', 'dbg.deskorder': 'desk order',
+      'dbg.gesture': 'gesture', 'dbg.threshold': 'threshold', 'dbg.sent': 'SENT',
+      'dbg.subpx': 'sub-px left', 'dbg.scroll': 'scroll',
+      'dbg.deck': 'deck', 'dbg.page': 'page', 'dbg.frontapp': 'front app',
+      'dbg.pagecount': 'pages',
+      'dbg.tablet': 'tablet', 'dbg.screen': 'screen', 'dbg.orientation': 'orientation',
+      'dbg.portrait': 'portrait', 'dbg.landscape': 'landscape',
+      'dbg.fullscreen': 'fullscreen', 'dbg.wakelock': 'wake lock',
+      'dbg.wakeheld': 'held', 'dbg.wakefree': 'released',
+      'dbg.secure': 'secure ctx', 'dbg.nohttp': 'no (http)',
+      'dbg.audio': 'audio', 'dbg.audionone': 'not created',
+      'dbg.layout': 'layout', 'dbg.rejected': 'injector refused',
+      'dbg.none': '—', 'dbg.unmapped': 'edge {0} is not mapped',
+      'dbg.nohostside': 'no device to the {0} — set the order in Settings → Other devices',
+      'dbg.hostgone': '{0} is not connected', 'dbg.noactive': 'active host is not in the list',
+      'dbg.sideleft': 'left', 'dbg.sideright': 'right'
+    }
+  };
+
+  function t(key) {
+    var pack = I18N[cfg.lang] || I18N.id;
+    var out = pack[key];
+    if (out === undefined) out = I18N.id[key];
+    if (out === undefined) return key;
+    for (var i = 1; i < arguments.length; i += 1) {
+      out = out.split('{' + (i - 1) + '}').join(arguments[i]);
+    }
+    return out;
+  }
+
+  // Teks statis diberi tanda di markup, jadi tidak ada daftar kedua berisi
+  // selector yang bisa basi terhadap HTML yang sebenarnya ada.
+  function applyI18n() {
+    document.documentElement.lang = cfg.lang;
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < nodes.length; i += 1) {
+      nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
+    }
+    nodes = document.querySelectorAll('[data-i18n-html]');
+    for (i = 0; i < nodes.length; i += 1) {
+      nodes[i].innerHTML = t(nodes[i].getAttribute('data-i18n-html'));
+    }
+    nodes = document.querySelectorAll('[data-i18n-ph]');
+    for (i = 0; i < nodes.length; i += 1) {
+      nodes[i].placeholder = t(nodes[i].getAttribute('data-i18n-ph'));
+    }
+    nodes = document.querySelectorAll('[data-i18n-title]');
+    for (i = 0; i < nodes.length; i += 1) {
+      nodes[i].title = t(nodes[i].getAttribute('data-i18n-title'));
+    }
+  }
 
   // ---------- click sound ----------
   // The tablet has no haptic motor, so touch feedback has to be audible. The
   // sound is synthesised rather than shipped as a file: one short noise burst
   // through a bandpass filter, which is what a key tick actually is. Keeps the
   // page self-contained and costs nothing to load.
-  var audio = null, noise = null;
+  var audio = null, noise = null, audioIdle = null;
 
   function ensureAudio() {
     if (!audio) {
@@ -420,6 +1152,13 @@
     }
     // Mobile browsers start suspended until a gesture; every caller is one.
     if (audio.state === 'suspended') audio.resume();
+    // A running AudioContext keeps a real-time audio thread awake between
+    // every quantum, silence included. Typing keeps it busy; a pause of a few
+    // seconds means nobody is, so let it go back to sleep.
+    clearTimeout(audioIdle);
+    audioIdle = setTimeout(function () {
+      if (audio && audio.state === 'running') audio.suspend();
+    }, 4000);
     return audio;
   }
 
@@ -537,7 +1276,35 @@
     var c = activeId && conns[activeId];
     if (!c || !c.ws || c.ws.readyState !== 1) return;
     c.ws.send(JSON.stringify(frame));
-    sentThisSecond += 1;
+    countSend();
+    // Coming back from idle: re-arm the fast ping now rather than waiting out
+    // the slow one, so the first move after a pause is not the one that pays
+    // for waking the radio.
+    var wasIdle = Date.now() - lastInputAt > ACTIVE_WINDOW;
+    lastInputAt = Date.now();
+    if (wasIdle) hosts.forEach(function (h) { schedulePing(h.id); });
+  }
+
+  // A ping every 120 ms, forever, per host is what keeps a wifi radio out of
+  // power save — the tablet stays warm doing nothing. The fast rate is only
+  // worth paying for while the thing is actually being used: it keeps the
+  // radio awake so the first packet of a swipe is not delayed, and it notices
+  // a dead Mac quickly. Idle, neither matters.
+  var ACTIVE_WINDOW = 4000;    // still counts as "in use" this long after input
+  var IDLE_PING = 2000;
+  var lastInputAt = 0;
+
+  function schedulePing(id) {
+    var c = conns[id];
+    if (!c) return;
+    clearTimeout(c.pingTimer);
+    var gap = Date.now() - lastInputAt > ACTIVE_WINDOW ? IDLE_PING : cfg.keepalive;
+    c.pingTimer = setTimeout(function () {
+      if (c.ws && c.ws.readyState === 1) {
+        c.ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
+      }
+      schedulePing(id);
+    }, gap);
   }
 
   function setState(id, state) {
@@ -546,13 +1313,43 @@
     if (id === activeId) paintStatus();
   }
 
+  function stateLabel(state) {
+    var out = t('state.' + state);
+    return out === 'state.' + state ? state : out;
+  }
+
   function paintStatus() {
     var c = activeId && conns[activeId];
     var state = c ? c.state : 'off';
-    var label = { on: 'connected', connecting: 'connecting', off: 'disconnected',
-                  rejected: 'pairing required' }[state] || state;
-    el('status').textContent = label;
-    el('status').className = 'pill ' + (state === 'on' ? 'up' : state === 'connecting' ? 'mid' : 'down');
+    var label = stateLabel(state);
+
+    // The header carries the state as a dot on the host chip; the words live in
+    // settings. A colour is enough to notice a Mac has dropped, and it costs no
+    // width — which is the whole reason the pill left the bar.
+    el('hostdot').className = 'dot state-' + state;
+    el('hostbtn').title = (activeHost() ? activeHost().name || activeHost().url : 'SwitchDeck')
+      + ' — ' + label;
+
+    var pill = el('status');
+    if (!pill) return;
+    pill.textContent = label;
+    pill.className = 'pill ' + (state === 'on' ? 'up' : state === 'connecting' ? 'mid' : 'down');
+  }
+
+  // Deck buttons name a machine the way a person does — by the name shown in
+  // the host list — not by an id the deck.json author has no way of knowing.
+  function hostByName(name) {
+    var want = String(name).trim().toLowerCase();
+    for (var i = 0; i < hosts.length; i++) {
+      var h = hosts[i];
+      if ((h.name || '').toLowerCase() === want || (h.url || '').toLowerCase() === want) return h;
+    }
+    return null;
+  }
+
+  function activeHost() {
+    for (var i = 0; i < hosts.length; i++) if (hosts[i].id === activeId) return hosts[i];
+    return null;
   }
 
   function connectHost(host) {
@@ -570,10 +1367,7 @@
     ws.onopen = function () {
       setState(host.id, 'on');
       holdScreen();
-      clearInterval(c.pingTimer);
-      c.pingTimer = setInterval(function () {
-        if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'ping', ts: Date.now() }));
-      }, cfg.keepalive);
+      schedulePing(host.id);
     };
 
     ws.onmessage = function (ev) {
@@ -594,6 +1388,23 @@
         }
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'clip') {
+        clipHeld = f.s || '';
+        renderClip();
+      } else if (f.t === 'clipok') {
+        renderClip();
+      } else if (f.t === 'stat') {
+        c.stat = f;
+        c.trusted = f.trusted;
+        if (el('settings').classList.contains('open')) renderStats();
+      } else if (f.t === 'inputerr') {
+        // The Mac's injector refused a frame. Almost always means its binary is
+        // older than the client that is talking to it.
+        c.lastError = (f.type ? f.type + ': ' : '') + (f.msg || '');
+        c.lastErrorAt = Date.now();
+        if (host.id === activeId) updateBadge();
+      } else if (f.t === 'edge') {
+        onEdge(host.id, f);
       } else if (f.t === 'front') {
         c.front = f;
         if (host.id === activeId) applyFront(f);
@@ -617,7 +1428,7 @@
     };
 
     ws.onclose = function (ev) {
-      clearInterval(c.pingTimer);
+      clearTimeout(c.pingTimer);
       // 1006 straight after the upgrade is what a refused token looks like.
       var refused = ev.code === 1006 && c.state === 'connecting';
       setState(host.id, refused ? 'rejected' : 'off');
@@ -635,14 +1446,13 @@
     renderDeck(c.deck || { pages: [] });
     if (c.trusted === false) {
       el('warn').style.display = 'block';
-      el('warn').textContent = 'Mac ini belum ngasih izin Accessibility — semua gerakan bakal dibuang diam-diam. Jalanin `make doctor` di sana.';
+      el('warn').textContent = t('warn.trust');
     } else if (c.lanUrl) {
       // Reaching the Mac over Tailscale can mean a relay in another country,
       // which is tens of milliseconds on every packet. Say it, with the address
       // that avoids it.
       el('warn').style.display = 'block';
-      el('warn').innerHTML = 'Nyambung lewat Tailscale, bukan jaringan lokal — bisa kerelai lewat server di negara lain. '
-        + 'Kalau tablet ini satu wifi sama Mac-nya, buka <b>' + c.lanUrl + '</b> dan pasangkan ulang.';
+      el('warn').innerHTML = t('warn.relay', c.lanUrl);
     } else {
       el('warn').style.display = 'none';
     }
@@ -666,25 +1476,55 @@
     renderHosts();
   }
 
+  // One chip in the bar, the full list behind it. A row per host in the header
+  // was fine at two Macs and stops being fine at four; a menu does not change
+  // shape as machines are added.
   function renderHosts() {
-    var box = el('hosts');
+    if (el('settings').classList.contains('open')) renderDesk();
+    var active = activeHost();
+    // The chip used to fall back to the product name, which now sits two
+    // centimetres to its left as the wordmark — the bar read "SwitchDeck
+    // SwitchDeck". With nothing paired there is no Mac to name, and the
+    // pairing panel below is already saying so.
+    el('hostbtn').style.display = hosts.length ? '' : 'none';
+    el('host').textContent = active ? (active.name || active.url) : '';
+    el('hostcaret').style.display = hosts.length > 1 ? '' : 'none';
+
+    var box = el('hostlist');
     box.innerHTML = '';
-    // Even a single host gets a chip: knowing which Mac is being driven matters
-    // more than saving a few pixels, and it was showing an IP before.
-    if (!hosts.length) return;
     hosts.forEach(function (h) {
       var c = conn(h.id);
       var b = document.createElement('button');
-      b.className = (h.id === activeId ? 'on ' : '') + 'host-' + c.state;
-      b.textContent = h.name || h.url;
+      b.className = h.id === activeId ? 'on' : '';
+      b.innerHTML = '<span class="dot state-' + c.state + '"></span>'
+        + '<span class="nm"></span><span class="st"></span>';
+      b.querySelector('.nm').textContent = h.name || h.url;
+      b.querySelector('.st').textContent = stateLabel(c.state);
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
         clickSound(true);
         setActive(h.id);
+        closeHostMenu();
       });
       box.appendChild(b);
     });
   }
+
+  function openHostMenu() { renderHosts(); el('hostmenu').classList.add('open'); }
+  function closeHostMenu() { el('hostmenu').classList.remove('open'); }
+
+  el('hostbtn').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    // With a single Mac there is nothing to choose between, so the chip is just
+    // a label — opening an empty menu would be a dead end.
+    if (hosts.length < 2) return;
+    clickSound(true);
+    if (el('hostmenu').classList.contains('open')) closeHostMenu(); else openHostMenu();
+  });
+  // Anywhere outside the list closes it: the backdrop covers the screen.
+  el('hostmenu').addEventListener('pointerdown', function (e) {
+    if (e.target === el('hostmenu')) { e.preventDefault(); closeHostMenu(); }
+  });
 
   function pushRtt(id, ms) {
     var c = conn(id);
@@ -694,16 +1534,26 @@
   }
 
   function paintLatency() {
+    // Behind a closed sheet this was a DOM write per pong, several times a
+    // second, that nobody could read.
+    if (!el('settings').classList.contains('open')) return;
+    var box = el('lat');
+    if (!box) return;
     var c = activeId && conns[activeId];
-    if (!c || !c.rtts.length) { el('lat').textContent = '— ms'; return; }
+    if (!c || !c.rtts.length) { box.textContent = '— ms'; return; }
     var sorted = c.rtts.slice().sort(function (a, b) { return a - b; });
     var p = function (q) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]; };
-    el('lat').textContent = 'p50 ' + p(0.5) + ' / p95 ' + p(0.95) + ' ms (' + c.rtts.length + ')';
+    box.textContent = 'p50 ' + p(0.5) + ' / p95 ' + p(0.95) + ' ms (' + c.rtts.length + ')';
   }
 
   function startAll() {
     loadHosts();
-    if (!hosts.length) { el('pair').style.display = 'flex'; paintStatus(); return; }
+    if (!hosts.length) {
+      el('pair').style.display = 'flex';
+      renderHosts();     // hides the chip: with nothing paired it has no name
+      paintStatus();
+      return;
+    }
     el('pair').style.display = 'none';
     var saved = null;
     try { saved = localStorage.getItem('switchdeck.active'); } catch (e) {}
@@ -739,9 +1589,15 @@
     var tabs = el('pages');
     tabs.innerHTML = '';
 
-    function tab(label, index) {
+    function tab(label, index, app) {
       var b = document.createElement('button');
       b.textContent = label;
+      if (app) {
+        var sub = document.createElement('span');
+        sub.className = 'app';
+        sub.textContent = ' · ' + app;
+        b.appendChild(sub);
+      }
       b.className = index === activePage ? 'on' : '';
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
@@ -755,13 +1611,18 @@
 
     // Always offer the empty option, even with a single page — wanting nothing
     // beside the trackpad is a choice, not a consequence of having no deck.
-    tab('Kosong', NO_PAGE);
+    tab(t('deck.empty'), NO_PAGE);
     // Only offer Auto if some page actually asks for an app; otherwise it would
     // be a mode that never does anything.
     if (deckPages.some(function (p) { return (p.match || []).length; })) {
-      tab(activePage === AUTO && frontApp ? 'Auto · ' + frontApp : 'Auto', AUTO);
+      tab(t('deck.auto'), AUTO, activePage === AUTO ? frontApp : '');
     }
     deckPages.forEach(function (page, index) { tab(page.name, index); });
+
+    // The strip scrolls, so the selected tab can end up off-screen after a
+    // redraw — most visibly in Auto, which redraws on every app switch.
+    var on = tabs.querySelector('button.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
     var left = el('deck-l'), right = el('deck-r');
     left.innerHTML = ''; right.innerHTML = '';
@@ -778,13 +1639,43 @@
       var b = document.createElement('button');
       b.className = 'key'; b.id = 'key-' + k.id;
       if (k.color) b.style.background = k.color;
-      b.innerHTML = '<span>' + k.label + '</span>' + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+
+      // A button may name another machine. Every socket is already open, so
+      // this costs nothing but the decision of which one to write to — and it
+      // is the whole reason multi-host is interesting: build on the Mac mini
+      // while still typing on the MacBook.
+      var target = k.host ? hostByName(k.host) : null;
+      var away = !!k.host;
+      var reachable = !away || (target && conns[target.id] && conns[target.id].state === 'on');
+      if (away) {
+        b.classList.add('away');
+        // Which machine it runs on is not something to guess at: a Build that
+        // fires somewhere else is the one label that must never be ambiguous.
+        b.innerHTML = '<span>' + k.label + '</span>'
+          + '<span class="hint on-host">' + (target ? (target.name || target.url) : k.host) + '</span>';
+        if (!reachable) b.classList.add('dead');
+      } else {
+        b.innerHTML = '<span>' + k.label + '</span>'
+          + (k.hint ? '<span class="hint">' + k.hint + '</span>' : '');
+      }
+
       b.addEventListener('pointerdown', function (e) {
         e.preventDefault();
         b.setPointerCapture(e.pointerId);
         b.classList.add('down');
+        if (!reachable) {
+          // Silence here would be indistinguishable from the macro failing on
+          // the other side, which is a different problem with a different fix.
+          flash(k.id, 'fail');
+          return;
+        }
         clickSound(true);
-        send({ t: 'macro', id: k.id });
+        if (away) {
+          var c = conns[target.id];
+          c.ws.send(JSON.stringify({ t: 'macro', id: k.id }));
+        } else {
+          send({ t: 'macro', id: k.id });
+        }
       });
       ['pointerup', 'pointercancel'].forEach(function (name) {
         b.addEventListener(name, function () { b.classList.remove('down'); });
@@ -794,8 +1685,7 @@
 
     if (description && description.error) {
       el('warn').style.display = 'block';
-      el('warn').textContent = 'deck.json ada salah ketik, jadi deck terakhir yang benar tetap dipakai: '
-        + description.error;
+      el('warn').textContent = t('deck.error') + description.error;
     }
   }
 
@@ -818,6 +1708,31 @@
   var TAP_MS = 220;       // longer than this is a press, not a tap
   var TAP_SLOP = 14;      // css px of wander still counted as a tap
   var DRAG_GAP_MS = 280;  // tap, then press again this soon = drag
+  var HOLD_DRAG_MS = 450; // or just hold still this long: press-and-hold to drag
+  var holdTimer = null;
+
+  // Tap-then-press was the only way to start a drag, and it is unusable in the
+  // one place a drag matters most: in Mission Control the first tap selects a
+  // window and dismisses Mission Control, so the second press never happens.
+  // Press-and-hold reaches it, and is the idiom a touch surface already implies.
+  function armHoldDrag() {
+    clearTimeout(holdTimer);
+    if (!cfg.holdDrag) return;
+    holdTimer = setTimeout(function () {
+      // Still one finger, still where it started, still not dragging.
+      if (dragging || pointers.size !== 1 || mode !== 'move') return;
+      if (gestureMoved >= TAP_SLOP) return;
+      dragging = true;
+      send({ t: 'b', btn: 'l', d: 1 });
+      glows.forEach(function (g) { g.classList.add('drag'); });
+      updateBadge();
+    }, HOLD_DRAG_MS);
+  }
+
+  function cancelHoldDrag() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
 
   function gain(speed) {
     // speed in css px per ms. Slow stays near 1:1 for precision; fast multiplies
@@ -826,8 +1741,45 @@
     return cfg.sens * (1 + cfg.accel * (capped / 3));
   }
 
+  // One glow element per live contact, recycled. The pad cannot move while a
+  // finger is on it, so its rect is measured once per touch rather than per
+  // move — reading it every move would force a layout on every frame of a
+  // swipe, which is exactly the kind of cost this pass just removed.
+  var glows = new Map(), glowPool = [], padRect = null;
+
+  function moveGlow(id, clientX, clientY) {
+    if (!padRect) return;
+    var g = glows.get(id);
+    if (!g) {
+      g = glowPool.pop();
+      if (!g) { g = document.createElement('div'); g.className = 'glow'; pad.appendChild(g); }
+      glows.set(id, g);
+    }
+    g.style.transform = 'translate3d(' + (clientX - padRect.left) + 'px,'
+      + (clientY - padRect.top) + 'px, 0)';
+    g.classList.add('on');
+  }
+
+  function dropGlow(id) {
+    var g = glows.get(id);
+    if (!g) return;
+    glows.delete(id);
+    g.classList.remove('on');
+    // Back to the pool only once it has finished fading: reusing it mid-fade
+    // would teleport a visible glow to the next finger that lands.
+    setTimeout(function () { if (!g.classList.contains('on')) glowPool.push(g); }, 260);
+  }
+
+  // Every other control on this page cancels the default on pointerdown; the
+  // pad never did. On a touch surface the browser keeps its own long-press and
+  // multi-finger handling alive until something says otherwise, which is how a
+  // gesture nobody wrote — a QR/share popup on a two-finger hold — can appear
+  // over a trackpad. There is nothing here to select, share or scan.
   pad.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
     pad.setPointerCapture(e.pointerId);
+    if (pointers.size === 0) padRect = pad.getBoundingClientRect();
+    moveGlow(e.pointerId, e.clientX, e.clientY);
     if (pointers.size === 0) {
       gestureStart = performance.now();
       gestureMax = 0; gestureMoved = 0;
@@ -838,9 +1790,12 @@
       if (cfg.tapClick && performance.now() - lastTapEnd < DRAG_GAP_MS) {
         dragging = true;
         send({ t: 'b', btn: 'l', d: 1 });
+      } else {
+        armHoldDrag();
       }
     }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
+    kick();
     gestureMax = Math.max(gestureMax, pointers.size);
     if (pointers.size >= 3 && !dragging) {
       // Three fingers is a system gesture, and it outranks scrolling — except
@@ -855,14 +1810,15 @@
       // first hands the remaining one back to the cursor and it jumps.
       mode = 'scroll';
       accX = 0; accY = 0;
+      cancelHoldDrag();
     }
-    pad.classList.add('active');
     updateBadge();
   });
 
   pad.addEventListener('pointermove', function (e) {
     var prev = pointers.get(e.pointerId);
     if (!prev) return;
+    moveGlow(e.pointerId, e.clientX, e.clientY);
     var now = performance.now();
     var dx = e.clientX - prev.x;
     var dy = e.clientY - prev.y;
@@ -871,6 +1827,7 @@
     var dt = Math.max(4, now - prev.t);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: now });
     gestureMoved += Math.abs(dx) + Math.abs(dy);
+    if (holdTimer && gestureMoved >= TAP_SLOP) cancelHoldDrag();
 
     if (mode === 'gesture') {
       gx += dx / pointers.size;
@@ -888,7 +1845,7 @@
           lastGestureAt = performance.now();
           lastGesture = fireGesture(gx, gy);
         } else {
-          lastGesture = '(ditahan, terlalu cepat)';
+          lastGesture = t('gest.held');
         }
       }
       updateBadge();
@@ -901,6 +1858,7 @@
       var dir = cfg.natural ? 1 : -1;
       accSX += (dx * cfg.scroll * dir) / 2;
       accSY += (dy * cfg.scroll * dir) / 2;
+      kick();
       return;
     }
 
@@ -914,6 +1872,7 @@
     var g = gain(smoothSpeed);
     accX += dx * g;
     accY += dy * g;
+    kick();
   }, { passive: true });
 
   // macOS multi-touch gestures come from the trackpad's own recogniser and are
@@ -936,30 +1895,29 @@
       if (cfg.swipe === 'app') {
         // Command+Tab is verified to work — the Dock handles it through a path
         // that does accept synthetic events.
-        if (forward) { sendChord(55, 48, ['cmd']); clickSound(true); return '⌘⇥ app berikutnya'; }
-        sendChord([55, 56], 48, ['cmd', 'shift']); clickSound(true); return '⌘⇧⇥ app sebelumnya';
+        if (forward) { sendChord(55, 48, ['cmd']); return t('gest.appnext'); }
+        sendChord([55, 56], 48, ['cmd', 'shift']); return t('gest.appprev');
       }
 
       // Not a synthetic keystroke: macOS ignores those for its own Mission
       // Control shortcuts. This goes through System Events on the Mac, which
       // reaches them by a different route.
       send({ t: 'sys', id: forward ? 'space-right' : 'space-left' });
-      clickSound(true);
-      return forward ? 'desktop berikutnya' : 'desktop sebelumnya';
+      return forward ? t('gest.next') : t('gest.prev');
     }
 
     if (dy < 0) {
       send({ t: 'sys', id: 'mission-control' });
-      clickSound(true);
-      return 'Mission Control';
+      return t('gest.mission');
     }
     send({ t: 'sys', id: 'app-expose' });
-    clickSound(true);
-    return 'App Exposé';
+    return t('gest.expose');
   }
 
   function release(e) {
     pointers.delete(e.pointerId);
+    dropGlow(e.pointerId);
+    cancelHoldDrag();
 
     if (pointers.size > 0) {
       // Mid-drag, a second finger is a scroll to reach text that is off screen;
@@ -977,7 +1935,6 @@
       return;
     }
 
-    pad.classList.remove('active');
     var held = performance.now() - gestureStart;
     var wasGesture = mode === 'gesture';
     mode = null; primaryId = null; gestureFired = false;
@@ -985,11 +1942,11 @@
     if (dragging) {
       send({ t: 'b', btn: 'l', d: 0 });
       dragging = false;
+      glows.forEach(function (g) { g.classList.remove('drag'); });
     } else if (cfg.tapClick && !wasGesture && held < TAP_MS && gestureMoved < TAP_SLOP) {
       // A two-finger tap locks into 'scroll' mode on the second finger down,
       // but nothing moved, so it is still a right click rather than a scroll.
       var button = gestureMax >= 2 ? 'r' : 'l';
-      clickSound(true);
       send({ t: 'b', btn: button, d: 1 });
       send({ t: 'b', btn: button, d: 0 });
       lastTapEnd = performance.now();
@@ -999,9 +1956,39 @@
   pad.addEventListener('pointerup', release);
   pad.addEventListener('pointercancel', release);
 
+  // pointerdown alone does not always reach the gesture recognisers that run
+  // off raw touches, and pointermove is registered passive so it cannot cancel
+  // anything. This is the one place left that can, and it matters most for the
+  // second finger — the popup being chased shows up on a two-finger hold.
+  //
+  // Note what this cannot reach: a gesture belonging to the tablet's own
+  // system layer rather than the browser. If the popup survives this, that is
+  // the answer — see the note in the README.
+  ['touchstart', 'touchmove'].forEach(function (name) {
+    pad.addEventListener(name, function (e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  });
+
   // Live readout while a gesture is in progress. Guessing why three fingers do
   // nothing is the expensive way to find out; this answers it in one touch.
+  // The readout answers "why did three fingers do nothing" in one touch, which
+  // is worth a lot while a gesture is being tuned and worth nothing afterwards
+  // — by then it is just numbers flickering over the surface being used. So it
+  // is off unless asked for.
+  var badgeText = '';
+
+  function setBadge(text) {
+    // Called on every pointermove: skipping the unchanged case keeps a swipe
+    // from writing the same string to the DOM ninety times a second.
+    if (text === badgeText) return;
+    badgeText = text;
+    el('badge').textContent = text;
+  }
+
   function updateBadge() {
+    if (!cfg.debug) { setBadge(''); return; }
+    paintDebug();
     var text = '';
     if (pointers.size) {
       text = pointers.size + ' jari';
@@ -1011,7 +1998,7 @@
           + (gestureFired ? ' · KIRIM ⌃' + lastGesture : ' (ambang 55)');
       }
     }
-    el('badge').textContent = text;
+    setBadge(text);
   }
 
   // One flush per frame. The tablet samples at ~93 Hz and animation frames run
@@ -1030,6 +2017,19 @@
   }
 
   var lastSendAt = 0;
+  var flushing = false;
+
+  // The loop used to reschedule itself unconditionally from page load, so the
+  // browser could never let the main thread idle: ~90 wake-ups a second for a
+  // buffer that is empty whenever no finger is on the glass. That is most of
+  // the time — typing on the keyboard panel never touches these accumulators
+  // at all. Now the loop runs only while there is motion to drain, and input
+  // starts it again.
+  function kick() {
+    if (flushing) return;
+    flushing = true;
+    requestAnimationFrame(flush);
+  }
 
   function flush(now) {
     // Animation frames run at the tablet's refresh (~90 Hz), which is faster
@@ -1046,9 +2046,20 @@
     var sx = drain(accSX, take), sy = drain(accSY, take);
     if (sx || sy) { accSX -= sx; accSY -= sy; send({ t: 's', dx: sx, dy: sy }); }
 
+    if (pointers.size) { requestAnimationFrame(flush); return; }
+
+    // No finger down. Whatever is left below one whole pixel can never be
+    // emitted — trunc() will keep returning 0 — so a "still pending" test on
+    // the raw value would spin this loop forever on a 0.4 px remainder. Drop
+    // the crumbs and let the CPU sleep.
+    if (Math.abs(accX) < 1 && Math.abs(accY) < 1
+        && Math.abs(accSX) < 1 && Math.abs(accSY) < 1) {
+      accX = 0; accY = 0; accSX = 0; accSY = 0;
+      flushing = false;
+      return;
+    }
     requestAnimationFrame(flush);
   }
-  requestAnimationFrame(flush);
 
   // ---------- keyboard ----------
   // Two paths, on purpose:
@@ -1405,21 +2416,291 @@
   }
   renderKeyboard();
 
-  // ---------- keyboard drawer ----------
-  var kbOpen = false;
+  // ---------- clipboard courier (N3) ----------
+  //
+  // Explicit both ways, never automatic (KM4). Automatic clipboard sync
+  // between machines is a privacy trap dressed as convenience: password
+  // managers put passwords on the clipboard, and copying those to another
+  // machine unasked is a leak nobody sees until it is too late.
+  //
+  // Held in a plain variable: not localStorage, not sessionStorage. It should
+  // not survive a reload, and it should never touch disk.
+  var clipHeld = null, clipFrom = '';
 
-  function setKeyboard(open) {
-    kbOpen = open;
-    // Never leave a modifier physically held down on the Mac when the keyboard
-    // goes away — there would be no way to release it from here.
-    if (!open) releaseAllMods();
-    el('kb').classList.toggle('on', open);
-    el('kbtoggle').classList.toggle('on', open);
-    try { localStorage.setItem('switchdeck.kb', open ? '1' : '0'); } catch (e) {}
+  function clipTake() {
+    var c = activeId && conns[activeId];
+    if (!c || c.state !== 'on') return;
+    clipFrom = (activeHost() && (activeHost().name || activeHost().url)) || '';
+    c.ws.send(JSON.stringify({ t: 'clipget' }));
   }
 
-  el('kbtoggle').addEventListener('click', function () { setKeyboard(!kbOpen); });
-  try { setKeyboard(localStorage.getItem('switchdeck.kb') === '1'); } catch (e) { setKeyboard(false); }
+  function clipPut(hostId) {
+    if (clipHeld === null) return;
+    var c = conns[hostId];
+    if (!c || c.state !== 'on' || !c.ws) return;
+    c.ws.send(JSON.stringify({ t: 'clipset', s: clipHeld }));
+  }
+
+  function renderClip() {
+    var take = el('clip-take'), put = el('clip-put'), held = el('clip-held');
+    take.innerHTML = ''; put.innerHTML = '';
+
+    var lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = t('clip.take');
+    take.appendChild(lbl);
+    hosts.forEach(function (h) {
+      var b = document.createElement('button');
+      b.className = 'gear';
+      b.textContent = h.name || h.url;
+      var c = conns[h.id];
+      b.disabled = !c || c.state !== 'on';
+      b.addEventListener('click', function () {
+        setActive(h.id);
+        clipTake();
+      });
+      take.appendChild(b);
+    });
+
+    if (clipHeld === null) {
+      held.textContent = t('clip.none');
+    } else if (!clipHeld.length) {
+      held.textContent = t('clip.empty', clipFrom);
+    } else {
+      var preview = clipHeld.slice(0, 70).replace(/\s+/g, ' ') + (clipHeld.length > 70 ? '…' : '');
+      held.textContent = t('clip.held', clipFrom, clipHeld.length, preview);
+    }
+
+    var lbl2 = document.createElement('span');
+    lbl2.className = 'lbl';
+    lbl2.textContent = t('clip.put');
+    put.appendChild(lbl2);
+    hosts.forEach(function (h) {
+      var b = document.createElement('button');
+      b.className = 'gear';
+      b.textContent = h.name || h.url;
+      var c = conns[h.id];
+      b.disabled = clipHeld === null || !clipHeld.length || !c || c.state !== 'on';
+      b.addEventListener('click', function () {
+        clipPut(h.id);
+        b.textContent = (h.name || h.url) + ' ✓';
+        setTimeout(function () { b.textContent = h.name || h.url; }, 1200);
+      });
+      put.appendChild(b);
+    });
+
+    var forget = document.createElement('button');
+    forget.className = 'gear';
+    forget.textContent = t('clip.forget');
+    forget.disabled = clipHeld === null;
+    forget.addEventListener('click', function () {
+      clipHeld = null; clipFrom = '';
+      renderClip();
+    });
+    put.appendChild(forget);
+  }
+
+  // ---------- status of every machine (N5) ----------
+  //
+  // Asked for, never sampled in the background (KM6). A page nobody is looking
+  // at must cost nothing — that lesson was paid for once already.
+  var statTimer = null;
+
+  function pollStats() {
+    hosts.forEach(function (h) {
+      var c = conns[h.id];
+      if (c && c.ws && c.ws.readyState === 1) c.ws.send(JSON.stringify({ t: 'stat' }));
+    });
+  }
+
+  function statsRunning(on) {
+    clearInterval(statTimer);
+    statTimer = null;
+    if (!on) return;
+    pollStats();
+    statTimer = setInterval(pollStats, 3000);
+  }
+
+  function renderStats() {
+    var box = el('statlist');
+    box.innerHTML = '';
+    if (!hosts.length) { box.textContent = '—'; return; }
+    hosts.forEach(function (h) {
+      var c = conns[h.id] || {};
+      var row = document.createElement('div');
+      row.className = 'statrow';
+      var facts = [];
+      if (c.state !== 'on') {
+        facts.push(stateLabel(c.state));
+      } else {
+        var st = c.stat;
+        facts.push(c.front && c.front.app ? c.front.app : (st && st.front) || t('stat.noapp'));
+        if (st) {
+          // Load per core is the number that means the same thing on a 4-core
+          // laptop and a 12-core desktop.
+          var per = st.cores ? st.load / st.cores : st.load;
+          facts.push(t('stat.load') + ' ' + st.load.toFixed(2)
+            + (st.cores ? ' (' + Math.round(per * 100) + '%)' : ''));
+          facts.push(t('stat.ram') + ' ' + Math.round((st.memTotal - st.memFree) / 1024)
+            + '/' + Math.round(st.memTotal / 1024) + ' GB');
+          facts.push(t('stat.uptime', Math.round(st.uptime / 3600)));
+        }
+        if (c.rtts && c.rtts.length) {
+          var sorted = c.rtts.slice().sort(function (a, b) { return a - b; });
+          facts.push(sorted[Math.floor(sorted.length * 0.5)] + ' ms');
+        }
+        if (!c.trusted) facts.push(t('stat.untrusted'));
+      }
+      row.innerHTML = '<span class="dot state-' + (c.state || 'off') + '"></span>'
+        + '<span class="nm"></span><span class="facts"></span>';
+      row.querySelector('.nm').textContent = h.name || h.url;
+      var f = row.querySelector('.facts');
+      // Bukan `function (t)`: nama itu menutupi fungsi terjemahan t() di dalam
+      // blok ini, dan kesalahannya diam — teksnya berubah jadi kunci mentah.
+      facts.forEach(function (fact) {
+        var sp = document.createElement('span');
+        // Amber past 70% per core: that is the point at which "which machine
+        // is busy" stops being a curiosity and starts being the answer.
+        if (fact.indexOf(t('stat.load')) === 0 && c.stat && c.stat.cores
+            && c.stat.load / c.stat.cores > 0.7) sp.className = 'busy';
+        sp.textContent = fact;
+        f.appendChild(sp);
+      });
+      box.appendChild(row);
+    });
+  }
+
+  // ---------- cursor handover between machines ----------
+  //
+  // The Mac reports that a movement was thrown away because the screen ran out
+  // of room. Only the tablet knows what sits next to that machine on the desk,
+  // so the tablet is what turns "pressed against the right edge" into "you are
+  // driving the MacBook now". No Mac ever talks to another Mac — K6 holds.
+  var EDGE_PUSH = 90;        // px of swallowed motion before the handover fires
+  // deckd-input batches its edge reports at 50 ms, so asking for two of them
+  // asks for roughly a tenth of a second of continuous pushing. Measured
+  // against the real binary, one fast flick can hand over 300 px in a single
+  // frame — the pixel count alone would let a flick that merely overshoots the
+  // edge throw the cursor onto another machine.
+  var EDGE_REPORTS = 2;
+  var EDGE_COOLDOWN = 700;   // ms of quiet after a switch
+  var edgePush = 0, edgeReports = 0, edgeSide = null, edgeSwitchedAt = 0;
+  var OPPOSITE = { l: 'r', r: 'l', t: 'b', b: 't' };
+
+  // The order of `hosts` IS the physical order, left to right. Deriving it from
+  // anything else — pairing order, address — is right once and wrong forever
+  // after the third machine arrives.
+  // Returns the host, or a reason it cannot. Failing silently here was a
+  // mistake: "no machine to the right" and "it fired and the other Mac ignored
+  // it" look identical from the tablet, and that is exactly the question
+  // someone asks when nothing happens.
+  var edgeBlocked = '';
+
+  function neighbour(side) {
+    var index = hosts.findIndex(function (h) { return h.id === activeId; });
+    if (index < 0) { edgeBlocked = t('dbg.noactive'); return null; }
+    var step = side === 'r' ? 1 : side === 'l' ? -1 : 0;
+    if (!step) { edgeBlocked = t('dbg.unmapped', side); return null; }
+    var next = hosts[index + step];
+    if (!next) {
+      edgeBlocked = t('dbg.nohostside', step > 0 ? t('dbg.sideright') : t('dbg.sideleft'));
+      return null;
+    }
+    var c = conns[next.id];
+    // Handing over to a machine that is not listening would drop the cursor
+    // into a hole with no way back except the chip.
+    if (!c || c.state !== 'on') {
+      edgeBlocked = t('dbg.hostgone', next.name || next.url);
+      return null;
+    }
+    edgeBlocked = '';
+    return next;
+  }
+
+  function onEdge(hostId, frame) {
+    if (!cfg.edgeSwitch || hostId !== activeId) return;
+    var now = Date.now();
+    if (now - edgeSwitchedAt < EDGE_COOLDOWN) return;
+
+    if (frame.side !== edgeSide) { edgeSide = frame.side; edgePush = 0; edgeReports = 0; }
+    edgePush += frame.over || 0;
+    edgeReports += 1;
+    updateBadge();
+    // A firm, sustained push — brushing the edge during ordinary work happens
+    // constantly and must never move the cursor to another machine.
+    if (edgePush < EDGE_PUSH || edgeReports < EDGE_REPORTS) return;
+
+    var next = neighbour(frame.side);
+    edgePush = 0;
+    edgeReports = 0;
+    if (!next) { updateBadge(); return; }
+
+    var target = next.id;
+    var side = frame.side;
+    var ry = typeof frame.ry === 'number' ? frame.ry : 0.5;
+    edgeSwitchedAt = now;
+    edgeSide = null;
+    edgeReports = 0;
+    setActive(target);
+    // Enter the new screen from the facing edge at the same height, so the
+    // crossing reads as continuous rather than as the cursor teleporting.
+    var c = conns[target];
+    if (c && c.ws && c.ws.readyState === 1) {
+      c.ws.send(JSON.stringify({ t: 'warp', side: OPPOSITE[side], v: ry }));
+    }
+    clickSound(true);
+  }
+
+  // ---------- layout ----------
+  // One button that cycles, showing the layout it is currently in rather than
+  // the one it would switch to. Three states is one too many for a toggle and
+  // too few to spend header width on a segmented control.
+  var LAYOUTS = ['pad', 'both', 'swap', 'kb'];
+  function layoutLabel(name) { return t('layout.' + name); }
+  // A picture of the layout, drawn the way it sits on screen. One vocabulary
+  // throughout: two short lines mean keys, a dot means the trackpad — so which
+  // half is which is readable at 17 px without a legend.
+  var LAYOUT_ICON = {
+    pad: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/>'
+       + '<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+    both: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/><path d="M6.2 6.3h11.6M6.2 8.9h11.6"/>'
+        + '<rect x="3" y="14" width="18" height="6.5" rx="1.8"/>'
+        + '<circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/>',
+    swap: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/>'
+        + '<circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/>'
+        + '<rect x="3" y="14" width="18" height="6.5" rx="1.8"/><path d="M6.2 16.3h11.6M6.2 18.6h11.6"/>',
+    kb: '<rect x="3" y="12" width="18" height="8.5" rx="1.8"/><path d="M6.5 15.5h11M6.5 18h11"/>'
+  };
+  var layout = 'both';
+
+  function setLayout(next) {
+    layout = LAYOUTS.indexOf(next) < 0 ? 'both' : next;
+    // Never leave a modifier physically held down on the Mac when the keyboard
+    // goes away — there would be no way to release it from here.
+    if (layout === 'pad') releaseAllMods();
+    LAYOUTS.forEach(function (name) {
+      document.body.classList.toggle('lay-' + name, name === layout);
+    });
+    el('layout').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.6" stroke-linecap="round">' + LAYOUT_ICON[layout] + '</svg>';
+    el('layout').title = layoutLabel(layout);
+    try { localStorage.setItem('switchdeck.layout', layout); } catch (e) {}
+    updateBadge();
+  }
+
+  el('layout').addEventListener('click', function () {
+    setLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length]);
+  });
+
+  (function restoreLayout() {
+    var saved = null;
+    try { saved = localStorage.getItem('switchdeck.layout'); } catch (e) {}
+    if (!saved) {
+      // Carry over the old open/shut drawer setting rather than resetting it.
+      try { saved = localStorage.getItem('switchdeck.kb') === '1' ? 'both' : 'pad'; } catch (e) {}
+    }
+    setLayout(saved || 'both');
+  }());
 
   // ---------- install to home screen ----------
   // Only offered over a secure context, because that is the only place a
@@ -1474,8 +2755,8 @@
   function paintWake() {
     var el2 = el('wake');
     if (!el2) return;
-    if (wakeLock) { el2.textContent = 'layar dijaga'; el2.className = 'pill up'; return; }
-    el2.textContent = window.isSecureContext ? 'layar bisa tidur' : 'http — layar bisa tidur';
+    if (wakeLock) { el2.textContent = t('wake.held'); el2.className = 'pill up'; return; }
+    el2.textContent = window.isSecureContext ? t('wake.free') : t('wake.http');
     el2.className = 'pill down';
   }
 
@@ -1493,15 +2774,25 @@
   });
 
   // ---------- settings ----------
+  // Formatter disimpan, karena sebagiannya memuat kata ("mentah"/"raw",
+  // "mati"/"off") dan harus digambar ulang saat bahasa berganti. Tanpa ini,
+  // satu angka di sudut layar tetap berbahasa lama sampai slider-nya disentuh.
+  var ranges = [];
+
   function bindRange(id, key, fmt) {
     var input = el('s-' + id), out = el('v-' + id);
     input.value = cfg[key];
     out.textContent = fmt(cfg[key]);
+    ranges.push(function () { out.textContent = fmt(cfg[key]); });
     input.addEventListener('input', function () {
       cfg[key] = parseFloat(input.value);
       out.textContent = fmt(cfg[key]);
       saveCfg();
     });
+  }
+
+  function refreshRanges() {
+    ranges.forEach(function (f) { f(); });
   }
   function bindToggle(id, key) {
     var input = el('s-' + id);
@@ -1511,55 +2802,125 @@
   bindRange('sens', 'sens', function (v) { return v.toFixed(1) + '×'; });
   bindRange('accel', 'accel', function (v) { return v.toFixed(1); });
   bindRange('scroll', 'scroll', function (v) { return v.toFixed(1) + '×'; });
-  bindRange('smooth', 'smooth', function (v) { return v >= 1 ? 'mentah' : v.toFixed(2); });
+  bindRange('smooth', 'smooth', function (v) { return v >= 1 ? t('set.smooth.raw') : v.toFixed(2); });
   bindRange('keepalive', 'keepalive', function (v) { return v + 'ms'; });
-  bindRange('click', 'click', function (v) { return v === 0 ? 'mati' : Math.round(v * 100) + '%'; });
+  bindRange('click', 'click', function (v) { return v === 0 ? t('set.off') : Math.round(v * 100) + '%'; });
   // Preview as it is dragged, otherwise the slider is guesswork.
   el('s-click').addEventListener('input', function () { clickSound(false); });
 
-  (function buildSwipePicker() {
-    var names = { space: 'Pindah desktop', app: 'Ganti app' };
-    var box = el('s-swipe');
-    Object.keys(names).forEach(function (key) {
-      var b = document.createElement('button');
-      b.textContent = names[key];
-      b.className = cfg.swipe === key ? 'on' : '';
-      b.addEventListener('click', function () {
-        cfg.swipe = key;
-        saveCfg();
-        Array.prototype.forEach.call(box.children, function (c) { c.classList.remove('on'); });
-        b.classList.add('on');
-      });
-      box.appendChild(b);
-    });
-  })();
+  buildPicker('s-lang', { id: 'Indonesia', en: 'English' }, 'lang', function () { relanguage(); });
 
-  (function buildSoundPicker() {
-    var names = { tik: 'Tik', thock: 'Thock', pop: 'Pop', tipis: 'Tipis' };
-    var box = el('s-sound');
-    Object.keys(names).forEach(function (key) {
+  // Bahasa berubah di tengah pemakaian, jadi semua yang sudah tergambar harus
+  // digambar ulang — bukan cuma teks statis. Yang tidak digambar ulang akan
+  // tertinggal dalam bahasa lama sampai kebetulan ada yang memicunya.
+  function relanguage() {
+    applyI18n();
+    renderDeck({ pages: deckPages });
+    renderHosts();
+    paintStatus();
+    paintWake();
+    setLayout(layout);
+    if (el('settings').classList.contains('open')) {
+      renderHostList();
+      renderDeviceList();
+      renderClip();
+      renderStats();
+      paintInstallNote();
+    }
+    rebuildPickers();
+    refreshRanges();
+    paintDebug();
+  }
+
+  // Satu pembangun untuk semua picker, karena label sebagiannya ikut bahasa dan
+  // harus bisa digambar ulang. Tiga salinan yang hampir sama adalah cara
+  // memastikan yang satu lupa ikut diperbarui.
+  function buildPicker(boxId, names, key, after) {
+    var box = el(boxId);
+    box.innerHTML = '';
+    Object.keys(names).forEach(function (value) {
       var b = document.createElement('button');
-      b.textContent = names[key];
-      b.className = cfg.sound === key ? 'on' : '';
+      b.textContent = names[value];
+      b.className = cfg[key] === value ? 'on' : '';
       b.addEventListener('click', function () {
-        cfg.sound = key;
+        cfg[key] = value;
         saveCfg();
         Array.prototype.forEach.call(box.children, function (c) { c.classList.remove('on'); });
         b.classList.add('on');
-        clickSound(false);   // hear it immediately
+        if (after) after(value);
       });
       box.appendChild(b);
     });
-  })();
-  el('s-keepalive').addEventListener('change', function () { if (ws && ws.readyState === 1) startPing(); });
+  }
+
+  function rebuildPickers() {
+    buildPicker('s-swipe', { space: t('set.swipe.space'), app: t('set.swipe.app') }, 'swipe');
+    // Tik/Thock/Pop itu tiruan bunyi dan berlaku di dua bahasa; "Tipis" adalah
+    // kata Indonesia dan tidak. Jadi keempatnya lewat kamus, bukan sebagian.
+    buildPicker('s-sound', {
+      tik: t('sound.tik'), thock: t('sound.thock'),
+      pop: t('sound.pop'), tipis: t('sound.tipis')
+    }, 'sound', function () { clickSound(false); });
+  }
+  rebuildPickers();
+  el('s-keepalive').addEventListener('change', function () {
+    hosts.forEach(function (h) { schedulePing(h.id); });
+  });
   bindToggle('natural', 'natural');
+  bindToggle('debug', 'debug');
+  // Take effect on the surface behind the sheet, not on the next touch.
+  el('s-debug').addEventListener('change', function () {
+    sentTotal = 0; sentCount = 0; sentRate = 0; sentWindow = 0;
+    updateBadge();
+    paintDebug();
+    debugTimer();
+  });
   bindToggle('tap', 'tapClick');
+  bindToggle('holddrag', 'holdDrag');
+  bindToggle('edge', 'edgeSwitch');
+  function renderDesk() {
+    var box = el('desk');
+    box.innerHTML = '';
+    if (hosts.length < 2) { box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    var lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = t('desk.left');
+    box.appendChild(lbl);
+    hosts.forEach(function (h, i) {
+      if (i) {
+        var a = document.createElement('span');
+        a.className = 'arrow';
+        a.textContent = '→';
+        box.appendChild(a);
+      }
+      var m = document.createElement('span');
+      m.className = 'm' + (h.id === activeId ? ' on' : '');
+      var c = conns[h.id];
+      m.innerHTML = '<span class="dot state-' + (c ? c.state : 'off') + '"></span>'
+        + '<span class="nm"></span><span class="n"></span>';
+      m.querySelector('.nm').textContent = h.name || h.url;
+      m.querySelector('.n').textContent = i + 1;
+      box.appendChild(m);
+    });
+    var end = document.createElement('span');
+    end.className = 'lbl';
+    end.textContent = t('desk.right');
+    box.appendChild(end);
+  }
+
   function renderHostList() {
+    renderDesk();
     var box = el('h-list');
     box.innerHTML = '';
     hosts.forEach(function (h) {
       var row = document.createElement('div');
       row.className = 'hostrow';
+
+      var pos = document.createElement('div');
+      pos.className = 'hostpos';
+      pos.textContent = hosts.indexOf(h) + 1;
+      row.appendChild(pos);
 
       var who = document.createElement('div');
       who.className = 'who';
@@ -1567,7 +2928,7 @@
       var nameInput = document.createElement('input');
       nameInput.className = 'hostname';
       nameInput.value = h.name || h.url;
-      nameInput.placeholder = 'kasih nama';
+      nameInput.placeholder = t('set.hosts.name');
       nameInput.setAttribute('spellcheck', 'false');
       nameInput.addEventListener('change', function () {
         var v = nameInput.value.trim();
@@ -1585,13 +2946,35 @@
       who.appendChild(nameInput);
       who.appendChild(where);
 
+      // Left-to-right order on the desk, which the edge handover reads. It is a
+      // fact about furniture, so it has to be told, not inferred.
+      var order = document.createElement('div');
+      order.className = 'hostorder';
+      [['◀', -1], ['▶', 1]].forEach(function (pair) {
+        var b = document.createElement('button');
+        b.className = 'iconbtn';
+        b.textContent = pair[0];
+        b.title = pair[1] < 0 ? t('set.hosts.left') : t('set.hosts.right');
+        var index = hosts.indexOf(h), to = index + pair[1];
+        if (to < 0 || to >= hosts.length) b.disabled = true;
+        b.addEventListener('click', function () {
+          if (to < 0 || to >= hosts.length) return;
+          hosts.splice(to, 0, hosts.splice(index, 1)[0]);
+          saveHosts();
+          renderHostList();
+          renderHosts();
+        });
+        order.appendChild(b);
+      });
+      row.appendChild(order);
+
       var del = document.createElement('button');
       del.className = 'iconbtn';
       del.textContent = '✕';
-      del.setAttribute('aria-label', 'hapus');
+      del.title = t('set.hosts.remove');
       del.addEventListener('click', function () {
         var c = conns[h.id];
-        if (c) { clearTimeout(c.retry); clearInterval(c.pingTimer); if (c.ws) try { c.ws.close(); } catch (e) {} }
+        if (c) { clearTimeout(c.retry); clearTimeout(c.pingTimer); if (c.ws) try { c.ws.close(); } catch (e) {} }
         delete conns[h.id];
         hosts = hosts.filter(function (x) { return x.id !== h.id; });
         saveHosts();
@@ -1617,7 +3000,7 @@
     if (!list.length) {
       var empty = document.createElement('p');
       empty.className = 'note';
-      empty.textContent = 'belum ada';
+      empty.textContent = t('set.devices.none');
       box.appendChild(empty);
       return;
     }
@@ -1629,8 +3012,9 @@
       var who = document.createElement('div');
       who.className = 'who';
       var when = (d.pairedAt || '').slice(0, 10);
-      who.innerHTML = '<div>' + d.name + (d.current ? ' <span style="color:#57d68b">· ini</span>' : '')
-        + '</div><div class="where">dipasangkan ' + when + '</div>';
+      who.innerHTML = '<div>' + d.name
+        + (d.current ? ' <span style="color:#57d68b">· ' + t('set.devices.this') + '</span>' : '')
+        + '</div><div class="where">' + t('set.devices.paired') + when + '</div>';
 
       var del = document.createElement('button');
       del.className = 'iconbtn';
@@ -1640,7 +3024,7 @@
         // Revoking the device you are using is allowed — it is the fastest way
         // to undo a pairing you did not mean to make — but it should not happen
         // by a stray tap.
-        if (d.current && !confirm('Ini device yang lagi kamu pakai. Cabut dan putus sekarang?')) return;
+        if (d.current && !confirm(t('set.devices.confirm'))) return;
         send({ t: 'revoke', id: d.id });
       });
 
@@ -1665,11 +3049,11 @@
   function paintInstallNote() {
     var note = el('installnote');
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      note.textContent = 'Sudah terpasang — ini lagi jalan sebagai aplikasi.';
+      note.textContent = t('set.install.done');
     } else if (!window.isSecureContext) {
-      note.innerHTML = 'Perlu HTTPS. Buka <code>/setup</code> untuk pasang sertifikatnya dulu.';
+      note.innerHTML = t('pair.https');
     } else if (!installPrompt) {
-      note.textContent = 'Browser belum menawarkan pemasangan. Coba lewat menu ⋮ → Add to Home screen.';
+      note.textContent = t('set.install.no');
     } else {
       note.textContent = '';
     }
@@ -1678,7 +3062,7 @@
   el('h-add').addEventListener('click', function () {
     var addr = el('h-addr').value.trim();
     var code = el('h-code').value.replace(/\D/g, '');
-    if (!addr) { el('h-msg').textContent = 'alamatnya belum diisi'; return; }
+    if (!addr) { el('h-msg').textContent = t('pair.noaddr'); return; }
     if (code.length !== 6) { el('h-msg').textContent = 'kodenya 6 angka'; return; }
     if (!/:\d+$/.test(addr)) addr += ':8777';   // port default, biar nggak perlu diketik
     pair(addr, code, el('h-msg')).then(function (ok) {
@@ -1686,17 +3070,23 @@
     });
   });
 
-  var HOST_HINT = 'Jalankan <code>make code</code> di Mac itu untuk kodenya.';
+  var HOST_HINT = null;   // diambil dari t() saat dipakai, biar ikut ganti bahasa
 
   function openSettings(open) {
     el('settings').classList.toggle('open', open);
+    statsRunning(open);
     if (!open) return;
     renderHostList();
     renderDeviceList();
+    renderClip();
+    renderStats();
+    paintStatus();
+    paintLatency();
+    paintWake();
     paintInstall();
     paintInstallNote();
     el('h-msg').style.color = 'var(--dim)';
-    el('h-msg').innerHTML = HOST_HINT;   // reset dari pesan error sebelumnya
+    el('h-msg').innerHTML = t('set.hosts.msg');   // reset dari pesan error sebelumnya
   }
 
   el('gear').addEventListener('click', function () {
@@ -1769,12 +3159,12 @@
       }
       msgEl.style.color = '#f2777f';
       msgEl.textContent = r.status === 429
-        ? 'terlalu banyak percobaan, tunggu ' + r.body.retryAfter + ' detik'
-        : 'kode salah';
+        ? t('pair.ratelimit') + r.body.retryAfter + 's'
+        : t('pair.wrong');
       return false;
     }).catch(function () {
       msgEl.style.color = '#f2777f';
-      msgEl.textContent = 'tidak bisa menghubungi ' + address;
+      msgEl.textContent = t('pair.unreachable') + address;
       return false;
     });
   }
@@ -1789,7 +3179,12 @@
     if (v.length === 6) pair(location.host, v, el('pairmsg'));
   });
 
+  applyI18n();
+  el('v-version').textContent = VERSION;
   startAll();
+  // The toggle is remembered per device, so the panel has to come back with it.
+  paintDebug();
+  debugTimer();
   paintWake();
   holdScreen();
 })();
