@@ -42,7 +42,8 @@ function render(state) {
     'minSendGap', 'flushing', 'pointers', 'gestureMax', 'mode', 'dragging',
     'gx', 'gy', 'gestureFired', 'lastGesture', 'accX', 'accY', 'accSX', 'accSY',
     'activePage', 'AUTO', 'NO_PAGE', 'deckPages', 'autoPage', 'frontApp',
-    'wakeLock', 'audio', 'holdTimer', 'window', 'document',
+    'wakeLock', 'audio', 'holdTimer', 'layout', 'LAYOUT_LABEL',
+    'window', 'document',
     chunk + '\n return paintDebug();'
   );
   return build(
@@ -52,7 +53,8 @@ function render(state) {
     state.dragging, state.gx, state.gy, state.gestureFired, state.lastGesture,
     state.accX, state.accY, state.accSX, state.accSY, state.activePage, -2, -1,
     state.deckPages, state.autoPage, state.frontApp, state.wakeLock, state.audio,
-    null, win, doc
+    null, state.layout, { pad: 'trackpad saja', both: 'keyboard + trackpad', kb: 'keyboard saja' },
+    win, doc
   );
 }
 
@@ -64,7 +66,8 @@ const base = {
   pointers: new Set(), gestureMax: 0, mode: null, dragging: false,
   gx: 0, gy: 0, gestureFired: false, lastGesture: '',
   accX: 0, accY: 0, accSX: 0, accSY: 0,
-  activePage: 0, deckPages: [], autoPage: 0, frontApp: '', wakeLock: null, audio: null
+  activePage: 0, deckPages: [], autoPage: 0, frontApp: '', wakeLock: null, audio: null,
+  layout: 'both'
 };
 
 // 1. Cold start: nothing paired, nothing connected. The panel that only works
@@ -92,7 +95,8 @@ try {
   box.html = '';
   render(live);
   const want = ['Mac mini', 'wss (tls)', 'terhubung', 'trusted', 'p50 / p95',
-                '120 Hz', 'Auto → Xcode', 'Xcode', '88 f/s', 'JALAN', 'dipegang'];
+                '120 Hz', 'Auto → Xcode', 'Xcode', '88 f/s', 'JALAN', 'dipegang',
+                'keyboard + trackpad'];
   const missing = want.filter((w) => !box.html.includes(w));
   ok(missing.length === 0, 'kondisi hidup menampilkan semua field' + (missing.length ? ' — hilang: ' + missing.join(', ') : ''));
   ok(box.html.includes('120 ms · aktif'), 'ping dilaporkan mode aktif saat baru ada input');

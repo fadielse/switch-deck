@@ -34,13 +34,31 @@
   .up { background: #10331f; color: #57d68b; border: 1px solid #1d5c37; }
   .down { background: #34181b; color: #f2777f; border: 1px solid #5e2a2f; }
   .mid { background: #33290f; color: #e2b356; border: 1px solid #5c4a1d; }
-  .gear { width: 32px; height: 32px; padding: 0; flex: 0 0 auto; border-radius: 8px;
-          border: 1px solid var(--line); background: var(--panel); color: var(--fg);
-          font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  /* A normal button by default. The bar's copies are square icons, but the
+     settings sheet reuses this class for "Tambah" and "Pasang" — squaring it
+     globally flattened those into 32 px stubs. */
+  .gear { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+          background: var(--panel); color: var(--fg); font-size: 13px; font-weight: 600; }
+  header .gear { width: 32px; height: 32px; padding: 0; flex: 0 0 auto; font-size: 14px;
+                 display: flex; align-items: center; justify-content: center; }
+  header .gear svg { width: 17px; height: 17px; }
 
   /* One chip for the active Mac instead of a chip per Mac: the old row grew
      with every host paired, and the header has no room to grow. The dot is the
      connection state; the list behind it scales to any number of machines. */
+  /* The wordmark went missing when the bar was compacted. It earns its place:
+     this is the only thing on screen that says what is being driven. The name
+     hides on a narrow screen and the mark stays — the mark is the part that is
+     recognisable at a glance anyway. */
+  .brand { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; margin-right: 2px; }
+  .brand svg { width: 21px; height: 21px; display: block; }
+  .brand .wm { font-size: 13.5px; letter-spacing: -.01em; white-space: nowrap; }
+  .brand .wm .a { color: var(--dim); font-weight: 500; }
+  .brand .wm .b { color: var(--fg); font-weight: 800; }
+  @media (max-width: 720px), (orientation: portrait) {
+    .brand .wm { display: none; }
+  }
+
   .hostbtn {
     flex: 0 1 auto; min-width: 0; max-width: 30%; height: 32px;
     display: flex; align-items: center; gap: 6px; padding: 0 9px;
@@ -187,10 +205,35 @@
   .pages button .app {
     font-weight: 500; color: inherit; opacity: .8;
   }
-  #kbtoggle.on, #fs.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
+  #fs.on { background: #1f2a3d; border-color: #3d6fd1; color: #9dc0f5; }
+  #layout { color: #9dc0f5; }
 
   #kb { flex: 1.7 1 0; display: none; flex-direction: column; gap: 5px; min-height: 0; }
-  #kb.on { display: flex; }
+
+  /* Three layouts, not a drawer that is open or shut.
+     pad  — the trackpad takes everything the deck does not need.
+     both — unchanged: the keyboard shrinks the trackpad rather than replacing it.
+     kb   — the trackpad goes away and the keyboard DROPS to the bottom at the
+            same size it has in `both`, rather than stretching to fill. A
+            keyboard stretched over a whole tablet has rows taller than a
+            thumb, which is worse to type on, not better. `main` keeps its
+            share of the column and only its contents are hidden, so the
+            keyboard geometry is identical in both modes. */
+  body.lay-both #kb, body.lay-kb #kb { display: flex; }
+  /* The keyboard sits before <main> in the document, so simply emptying main
+     leaves the gap BELOW the keys — it floats up instead of dropping down.
+     Reordering is what actually puts it at the bottom. */
+  body.lay-kb main { visibility: hidden; pointer-events: none; order: 1; }
+  body.lay-kb #kb { order: 2; }
+
+  body.lay-pad #pad { flex: 1 1 auto; }
+  /* Landscape only: in portrait `main` is a column, so a flex-basis here would
+     become the deck's HEIGHT and squash the grid rather than narrowing it. */
+  @media (orientation: landscape) {
+    body.lay-pad .palm { flex: 0 0 108px; }
+  }
+  /* A deck page with no keys should not hold a column open. */
+  .palm:empty { display: none; }
   /* Magic Keyboard proportions: every row is 15 units wide, and the function
      row sits at roughly two-thirds height like the real thing. */
   .krow { display: flex; gap: 5px; flex: 1 1 0; min-height: 0; }
@@ -322,11 +365,16 @@
   }
   .picker button.on { background: #1f2a3d; border-color: #3d6fd1; color: #cdd6e4; }
 
-  .hostadd { display: flex; gap: 7px; }
+  .hostadd { display: flex; gap: 7px; align-items: stretch; }
   .hostadd input {
-    padding: 11px; font-size: 14px; border-radius: 9px; border: 1px solid var(--line);
+    padding: 10px 11px; font-size: 14px; border-radius: 9px; border: 1px solid var(--line);
     background: var(--panel); color: var(--fg); min-width: 0;
   }
+  /* An address is at most "255.255.255.255:8778" and a code is six digits.
+     Sizing them by their real content leaves the button room to be a button. */
+  #h-addr { flex: 1 1 auto; max-width: 220px; }
+  #h-code { flex: 0 0 118px; text-align: center; font-variant-numeric: tabular-nums; }
+  #h-add { flex: 0 0 auto; white-space: nowrap; }
   .hostrow {
     display: flex; gap: 10px; align-items: center; font-size: 13px;
     padding: 7px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
@@ -356,13 +404,23 @@
 <body>
 
 <header>
+  <span class="brand" aria-label="SwitchDeck">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="6" fill="#3d6fd1"/>
+      <path d="M7.1 9.6h8.1M12.9 7.3l2.4 2.3-2.4 2.3" stroke="#fff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16.9 14.4H8.8M11.1 16.7l-2.4-2.3 2.4-2.3" stroke="#bcd4ff" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="wm"><span class="a">Switch</span><span class="b">Deck</span></span>
+  </span>
   <button class="hostbtn" id="hostbtn" title="pilih Mac">
     <span class="dot" id="hostdot"></span>
     <span class="nm" id="host">SwitchDeck</span>
     <span class="caret" id="hostcaret" style="display:none">▾</span>
   </button>
   <span class="pages" id="pages"></span>
-  <button class="gear" id="kbtoggle" title="keyboard">⌨</button>
+  <button class="gear" id="layout" title="tata letak"></button>
   <button class="gear" id="fs" title="fullscreen">⛶</button>
   <button class="gear" id="gear" title="setelan">⚙︎</button>
 </header>
@@ -596,7 +654,7 @@
     out += dbgRow('secure ctx', window.isSecureContext ? 'ya' : 'tidak (http)',
                   window.isSecureContext ? 'good' : 'warnv');
     out += dbgRow('audio', audio ? audio.state : 'belum dibuat', audio && audio.state === 'running' ? 'warnv' : 'good');
-    out += dbgRow('keyboard', el('kb').classList.contains('on') ? 'terbuka' : 'tertutup');
+    out += dbgRow('tata letak', LAYOUT_LABEL[layout] || layout);
 
     box.innerHTML = out;
   }
@@ -931,7 +989,12 @@
   // shape as machines are added.
   function renderHosts() {
     var active = activeHost();
-    el('host').textContent = active ? (active.name || active.url) : 'SwitchDeck';
+    // The chip used to fall back to the product name, which now sits two
+    // centimetres to its left as the wordmark — the bar read "SwitchDeck
+    // SwitchDeck". With nothing paired there is no Mac to name, and the
+    // pairing panel below is already saying so.
+    el('hostbtn').style.display = hosts.length ? '' : 'none';
+    el('host').textContent = active ? (active.name || active.url) : '';
     el('hostcaret').style.display = hosts.length > 1 ? '' : 'none';
 
     var box = el('hostlist');
@@ -992,7 +1055,12 @@
 
   function startAll() {
     loadHosts();
-    if (!hosts.length) { el('pair').style.display = 'flex'; paintStatus(); return; }
+    if (!hosts.length) {
+      el('pair').style.display = 'flex';
+      renderHosts();     // hides the chip: with nothing paired it has no name
+      paintStatus();
+      return;
+    }
     el('pair').style.display = 'none';
     var saved = null;
     try { saved = localStorage.getItem('switchdeck.active'); } catch (e) {}
@@ -1826,21 +1894,48 @@
   }
   renderKeyboard();
 
-  // ---------- keyboard drawer ----------
-  var kbOpen = false;
+  // ---------- layout ----------
+  // One button that cycles, showing the layout it is currently in rather than
+  // the one it would switch to. Three states is one too many for a toggle and
+  // too few to spend header width on a segmented control.
+  var LAYOUTS = ['pad', 'both', 'kb'];
+  var LAYOUT_LABEL = { pad: 'trackpad saja', both: 'keyboard + trackpad', kb: 'keyboard saja' };
+  var LAYOUT_ICON = {
+    // A picture of the layout, drawn the way it actually sits on screen.
+    pad: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+    both: '<rect x="3" y="3.5" width="18" height="8" rx="1.8"/><rect x="3" y="14" width="18" height="6.5" rx="1.8"/>',
+    kb: '<rect x="3" y="12" width="18" height="8.5" rx="1.8"/><path d="M6.5 15.5h11M6.5 18h11"/>'
+  };
+  var layout = 'both';
 
-  function setKeyboard(open) {
-    kbOpen = open;
+  function setLayout(next) {
+    layout = LAYOUTS.indexOf(next) < 0 ? 'both' : next;
     // Never leave a modifier physically held down on the Mac when the keyboard
     // goes away — there would be no way to release it from here.
-    if (!open) releaseAllMods();
-    el('kb').classList.toggle('on', open);
-    el('kbtoggle').classList.toggle('on', open);
-    try { localStorage.setItem('switchdeck.kb', open ? '1' : '0'); } catch (e) {}
+    if (layout === 'pad') releaseAllMods();
+    LAYOUTS.forEach(function (name) {
+      document.body.classList.toggle('lay-' + name, name === layout);
+    });
+    el('layout').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.6" stroke-linecap="round">' + LAYOUT_ICON[layout] + '</svg>';
+    el('layout').title = LAYOUT_LABEL[layout];
+    try { localStorage.setItem('switchdeck.layout', layout); } catch (e) {}
+    updateBadge();
   }
 
-  el('kbtoggle').addEventListener('click', function () { setKeyboard(!kbOpen); });
-  try { setKeyboard(localStorage.getItem('switchdeck.kb') === '1'); } catch (e) { setKeyboard(false); }
+  el('layout').addEventListener('click', function () {
+    setLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length]);
+  });
+
+  (function restoreLayout() {
+    var saved = null;
+    try { saved = localStorage.getItem('switchdeck.layout'); } catch (e) {}
+    if (!saved) {
+      // Carry over the old open/shut drawer setting rather than resetting it.
+      try { saved = localStorage.getItem('switchdeck.kb') === '1' ? 'both' : 'pad'; } catch (e) {}
+    }
+    setLayout(saved || 'both');
+  }());
 
   // ---------- install to home screen ----------
   // Only offered over a secure context, because that is the only place a
