@@ -388,6 +388,9 @@
     padding: 7px 10px; border-radius: 9px; background: #181b21; border: 1px solid #22262f;
   }
   .hostrow .who { flex: 1; min-width: 0; }
+  .hostorder { display: flex; gap: 4px; flex: 0 0 auto; }
+  .hostorder .iconbtn { width: 30px; height: 30px; font-size: 11px; }
+  .hostorder .iconbtn:disabled { opacity: .3; }
   .hostrow .hostname {
     width: 100%; padding: 5px 8px; font-size: 14px; color: var(--fg);
     background: #12151b; border: 1px solid #262a33; border-radius: 7px;
@@ -473,6 +476,7 @@
         <div class="row"><label>Kecepatan scroll</label><input type="range" id="s-scroll" min="0.5" max="5" step="0.1"><span class="val" id="v-scroll"></span></div>
         <div class="row"><label>Scroll natural<small>konten ikut arah jari</small></label><input type="checkbox" id="s-natural"></div>
         <div class="row"><label>Tap buat klik</label><input type="checkbox" id="s-tap"></div>
+        <div class="row"><label>Nyeberang di tepi layar<small>dorong kursor terus ke tepi kiri/kanan sampai mentok, kendali pindah ke Mac sebelahnya. Urutan Mac diatur di "Mac lain" di bawah</small></label><input type="checkbox" id="s-edge"></div>
         <div class="row"><label>Tahan buat drag<small>tahan diam ~0,45 detik lalu geser — cahayanya berubah hijau saat aktif. Ini satu-satunya cara drag di Mission Control, karena tap di sana malah menutupnya</small></label><input type="checkbox" id="s-holddrag"></div>
         <div class="row"><label>Geser 3 jari kiri/kanan<small>kalau pindah desktop tidak jalan, cek System Settings → Keyboard → Shortcuts → Mission Control</small></label><span class="picker" id="s-swipe"></span></div>
       </section>
@@ -507,6 +511,7 @@
           <button class="gear" id="h-add">Tambah</button>
         </div>
         <p class="note" id="h-msg">Jalankan <code>make code</code> di Mac itu untuk kodenya.</p>
+        <p class="note">Urutan di bawah = urutan fisik di meja, kiri ke kanan. Itu yang dipakai "nyeberang di tepi layar".</p>
         <div id="h-list" style="display:flex;flex-direction:column;gap:7px"></div>
       </section>
 
@@ -530,7 +535,7 @@
   var CFG = 'switchdeck.cfg';
 
   var cfg = Object.assign({
-    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', swipe: 'space', natural: true, tapClick: true, holdDrag: true, debug: false
+    sens: 1.4, accel: 1.8, scroll: 2.0, smooth: 1, keepalive: 120, click: 0.35, sound: 'tik', swipe: 'space', natural: true, tapClick: true, holdDrag: true, edgeSwitch: true, debug: false
   }, readCfg());
 
   function readCfg() {
@@ -638,6 +643,10 @@
     out += dbgRow('mode', mode || '—');
     out += dbgRow('drag', dragging ? 'YA' : 'tidak', dragging ? 'warnv' : '');
     out += dbgRow('tahan-drag', holdTimer ? 'menghitung...' : (cfg.holdDrag ? 'siap' : 'mati'));
+    out += dbgRow('dorong tepi', cfg.edgeSwitch
+      ? (edgeSide ? edgeSide + ' ' + Math.round(edgePush) + '/' + EDGE_PUSH + 'px · '
+          + edgeReports + '/' + EDGE_REPORTS + ' laporan' : 'siap')
+      : 'mati', edgeSide ? 'warnv' : '');
     if (mode === 'gesture' || lastGesture) {
       out += dbgRow('gestur', Math.round(Math.abs(gx) > Math.abs(gy) ? gx : gy) + ' px / ambang 55'
         + (gestureFired ? ' · KIRIM' : ''), gestureFired ? 'good' : '');
@@ -920,6 +929,8 @@
         }
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'edge') {
+        onEdge(host.id, f);
       } else if (f.t === 'front') {
         c.front = f;
         if (host.id === activeId) applyFront(f);
@@ -1902,6 +1913,73 @@
   }
   renderKeyboard();
 
+  // ---------- cursor handover between machines ----------
+  //
+  // The Mac reports that a movement was thrown away because the screen ran out
+  // of room. Only the tablet knows what sits next to that machine on the desk,
+  // so the tablet is what turns "pressed against the right edge" into "you are
+  // driving the MacBook now". No Mac ever talks to another Mac — K6 holds.
+  var EDGE_PUSH = 90;        // px of swallowed motion before the handover fires
+  // deckd-input batches its edge reports at 50 ms, so asking for two of them
+  // asks for roughly a tenth of a second of continuous pushing. Measured
+  // against the real binary, one fast flick can hand over 300 px in a single
+  // frame — the pixel count alone would let a flick that merely overshoots the
+  // edge throw the cursor onto another machine.
+  var EDGE_REPORTS = 2;
+  var EDGE_COOLDOWN = 700;   // ms of quiet after a switch
+  var edgePush = 0, edgeReports = 0, edgeSide = null, edgeSwitchedAt = 0;
+  var OPPOSITE = { l: 'r', r: 'l', t: 'b', b: 't' };
+
+  // The order of `hosts` IS the physical order, left to right. Deriving it from
+  // anything else — pairing order, address — is right once and wrong forever
+  // after the third machine arrives.
+  function neighbour(side) {
+    var index = hosts.findIndex(function (h) { return h.id === activeId; });
+    if (index < 0) return null;
+    var step = side === 'r' ? 1 : side === 'l' ? -1 : 0;
+    if (!step) return null;                 // top and bottom edges mean nothing yet
+    var next = hosts[index + step];
+    if (!next) return null;
+    var c = conns[next.id];
+    // Handing over to a machine that is not listening would drop the cursor
+    // into a hole with no way back except the chip.
+    return c && c.state === 'on' ? next : null;
+  }
+
+  function onEdge(hostId, frame) {
+    if (!cfg.edgeSwitch || hostId !== activeId) return;
+    var now = Date.now();
+    if (now - edgeSwitchedAt < EDGE_COOLDOWN) return;
+
+    if (frame.side !== edgeSide) { edgeSide = frame.side; edgePush = 0; edgeReports = 0; }
+    edgePush += frame.over || 0;
+    edgeReports += 1;
+    updateBadge();
+    // A firm, sustained push — brushing the edge during ordinary work happens
+    // constantly and must never move the cursor to another machine.
+    if (edgePush < EDGE_PUSH || edgeReports < EDGE_REPORTS) return;
+
+    var next = neighbour(frame.side);
+    edgePush = 0;
+    edgeReports = 0;
+    if (!next) return;
+
+    var target = next.id;
+    var side = frame.side;
+    var ry = typeof frame.ry === 'number' ? frame.ry : 0.5;
+    edgeSwitchedAt = now;
+    edgeSide = null;
+    edgeReports = 0;
+    setActive(target);
+    // Enter the new screen from the facing edge at the same height, so the
+    // crossing reads as continuous rather than as the cursor teleporting.
+    var c = conns[target];
+    if (c && c.ws && c.ws.readyState === 1) {
+      c.ws.send(JSON.stringify({ t: 'warp', side: OPPOSITE[side], v: ry }));
+    }
+    clickSound(true);
+  }
+
   // ---------- layout ----------
   // One button that cycles, showing the layout it is currently in rather than
   // the one it would switch to. Three states is one too many for a toggle and
@@ -2102,6 +2180,7 @@
   });
   bindToggle('tap', 'tapClick');
   bindToggle('holddrag', 'holdDrag');
+  bindToggle('edge', 'edgeSwitch');
   function renderHostList() {
     var box = el('h-list');
     box.innerHTML = '';
@@ -2132,6 +2211,28 @@
 
       who.appendChild(nameInput);
       who.appendChild(where);
+
+      // Left-to-right order on the desk, which the edge handover reads. It is a
+      // fact about furniture, so it has to be told, not inferred.
+      var order = document.createElement('div');
+      order.className = 'hostorder';
+      [['◀', -1], ['▶', 1]].forEach(function (pair) {
+        var b = document.createElement('button');
+        b.className = 'iconbtn';
+        b.textContent = pair[0];
+        b.setAttribute('aria-label', pair[1] < 0 ? 'geser kiri' : 'geser kanan');
+        var index = hosts.indexOf(h), to = index + pair[1];
+        if (to < 0 || to >= hosts.length) b.disabled = true;
+        b.addEventListener('click', function () {
+          if (to < 0 || to >= hosts.length) return;
+          hosts.splice(to, 0, hosts.splice(index, 1)[0]);
+          saveHosts();
+          renderHostList();
+          renderHosts();
+        });
+        order.appendChild(b);
+      });
+      row.appendChild(order);
 
       var del = document.createElement('button');
       del.className = 'iconbtn';

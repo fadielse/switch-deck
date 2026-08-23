@@ -152,8 +152,16 @@ final class Injector {
         // Clamp, otherwise pushing into an edge keeps accumulating off-screen
         // and the cursor appears stuck until the movement is undone.
         let area = displayBounds()
+        let wanted = target
         target.x = min(max(target.x, area.minX), area.maxX - 1)
         target.y = min(max(target.y, area.minY), area.maxY - 1)
+
+        // The clamp above already knows something nobody has been told: motion
+        // was asked for and the screen had nowhere to put it. That is exactly
+        // what "the cursor is pressed against the right edge" means, and it is
+        // what a handover to the next machine needs. Report it rather than
+        // building a second edge detector on top of the same fact.
+        reportEdge(wanted: wanted, clamped: target, area: area, dx: dx, dy: dy)
 
         virtualPosition = target
         lastMoveAt = now
@@ -200,6 +208,75 @@ final class Injector {
     private var lastClickAt: [MouseButton: TimeInterval] = [:]
     private var lastClickPos: [MouseButton: CGPoint] = [:]
     private var clickState: [MouseButton: Int64] = [:]
+
+    /// Called with the edge being pushed against and how much motion the clamp
+    /// swallowed. Set by main.swift; the injector itself knows nothing about
+    /// the protocol.
+    var onEdge: ((String, Double, Double) -> Void)?
+
+    private var edgeOverflow: Double = 0
+    private var edgeSide: String?
+    private var edgeReportedAt: TimeInterval = 0
+    private static let edgeReportEvery: TimeInterval = 0.05
+
+    private func reportEdge(wanted: CGPoint, clamped: CGPoint, area: CGRect,
+                            dx: Double, dy: Double) {
+        var side: String?
+        var lost: Double = 0
+        // Direction matters: sitting at the right edge while moving left is not
+        // pushing against it.
+        if dx > 0, wanted.x > clamped.x { side = "r"; lost = wanted.x - clamped.x }
+        else if dx < 0, wanted.x < clamped.x { side = "l"; lost = clamped.x - wanted.x }
+        else if dy > 0, wanted.y > clamped.y { side = "b"; lost = wanted.y - clamped.y }
+        else if dy < 0, wanted.y < clamped.y { side = "t"; lost = clamped.y - wanted.y }
+
+        guard let side else {
+            edgeOverflow = 0
+            edgeSide = nil
+            return
+        }
+        if side != edgeSide { edgeOverflow = 0; edgeSide = side }
+        edgeOverflow += lost
+
+        // Batched: pressed against an edge this fires every frame, and ninety
+        // messages a second down the socket is the shape of the problem the
+        // client just finished removing.
+        let now = Date().timeIntervalSince1970
+        guard now - edgeReportedAt >= Injector.edgeReportEvery else { return }
+        edgeReportedAt = now
+
+        // Where along the edge, as a fraction. The next machine uses it to put
+        // the cursor at the same height on its own screen, so the crossing
+        // reads as continuous rather than as a jump.
+        let ratio = side == "l" || side == "r"
+            ? (area.height > 0 ? (clamped.y - area.minY) / area.height : 0.5)
+            : (area.width > 0 ? (clamped.x - area.minX) / area.width : 0.5)
+        onEdge?(side, edgeOverflow, ratio)
+        edgeOverflow = 0
+    }
+
+    /// Place the cursor on one edge at a given fraction along it — the other
+    /// half of a handover, run on the machine being handed to.
+    func warp(side: String, ratio: Double) {
+        guard ratio.isFinite else { return }
+        let area = displayBounds()
+        let r = min(max(ratio, 0), 1)
+        var point: CGPoint
+        switch side {
+        case "l": point = CGPoint(x: area.minX + 2, y: area.minY + area.height * r)
+        case "r": point = CGPoint(x: area.maxX - 3, y: area.minY + area.height * r)
+        case "t": point = CGPoint(x: area.minX + area.width * r, y: area.minY + 2)
+        case "b": point = CGPoint(x: area.minX + area.width * r, y: area.maxY - 3)
+        default: return
+        }
+        virtualPosition = point
+        lastMoveAt = Date().timeIntervalSince1970
+        edgeOverflow = 0
+        edgeSide = nil
+        guard let event = CGEvent(mouseEventSource: source, mouseType: .mouseMoved,
+                                  mouseCursorPosition: point, mouseButton: .left) else { return }
+        event.post(tap: Injector.tap)
+    }
 
     func button(_ button: MouseButton, down: Bool) {
         guard let current = CGEvent(source: nil)?.location else { return }

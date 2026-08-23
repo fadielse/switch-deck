@@ -50,6 +50,15 @@ const input = new InputBridge(binary, {
       }
     }, 250);
   },
+  onEdge: (edge) => {
+    // Not debounced and not batched again: deckd-input already reports at most
+    // every 50 ms, and this is a live gesture — a late edge report is a cursor
+    // that crosses over after the hand has stopped pushing.
+    const payload = JSON.stringify({ t: 'edge', side: edge.side, over: edge.over, ry: edge.ry });
+    for (const client of wss.clients) {
+      if (client.readyState === 1) client.send(payload);
+    }
+  },
   onStatus: (frame) => {
     if (frame.trusted) return;
     console.error('\n!! deckd-input TIDAK punya izin Accessibility.');
@@ -290,7 +299,8 @@ wss.on('connection', (ws, req) => {
     // would double the traffic for no benefit — the character appearing is the
     // feedback.
     if (frame.t === 'm' || frame.t === 's' || frame.t === 'b'
-        || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media') {
+        || frame.t === 'k' || frame.t === 'txt' || frame.t === 'media'
+        || frame.t === 'warp') {
       // Touching the tablet after a spell of quiet is someone coming back to
       // the desk, so wake the screen rather than making them find the mouse.
       // Rate-limited to the gap that suggests a return, not to every frame.

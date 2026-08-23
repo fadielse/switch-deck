@@ -150,6 +150,13 @@ if arguments.contains("--check") {
 }
 
 let injector = Injector()
+
+// The clamp inside move() is the only thing that knows the screen ran out of
+// room. Hand that upward as a frame so the tablet can decide it means "switch
+// to the next machine".
+injector.onEdge = { side, over, ratio in
+    emit(["t": "edge", "side": side, "over": over, "ry": ratio])
+}
 let trusted = Injector.isTrusted()
 
 let refreshHz = CGDisplayCopyDisplayMode(CGMainDisplayID())?.refreshRate ?? 0
@@ -238,6 +245,9 @@ func readStdin() {
             continue
         }
         injector.media(Int32(code), down: (frame.d ?? 1) == 1)
+
+    case "warp":
+        injector.warp(side: frame.side ?? "", ratio: frame.v ?? 0.5)
 
     case "txt":
         injector.type(frame.s ?? "")

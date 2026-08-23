@@ -14,4 +14,15 @@ process.stdout.write(JSON.stringify({
 
 createInterface({ input: process.stdin }).on('line', (line) => {
   if (out) appendFileSync(out, line + '\n');
+  // The stub has no screen, so it pretends its own ends at the clamp: a move
+  // that arrives at the maximum the sanitiser allows is exactly what pushing
+  // into an edge looks like. That gives the chain test a deterministic way to
+  // exercise the edge report without a display or Accessibility.
+  let frame;
+  try { frame = JSON.parse(line); } catch { return; }
+  if (frame.t === 'm' && Math.abs(frame.dx) >= 400) {
+    process.stdout.write(JSON.stringify({
+      t: 'edge', side: frame.dx > 0 ? 'r' : 'l', over: Math.abs(frame.dx), ry: 0.5
+    }) + '\n');
+  }
 });

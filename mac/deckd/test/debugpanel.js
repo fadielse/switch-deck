@@ -43,6 +43,7 @@ function render(state) {
     'gx', 'gy', 'gestureFired', 'lastGesture', 'accX', 'accY', 'accSX', 'accSY',
     'activePage', 'AUTO', 'NO_PAGE', 'deckPages', 'autoPage', 'frontApp',
     'wakeLock', 'audio', 'holdTimer', 'layout', 'LAYOUT_LABEL',
+    'edgeSide', 'edgePush', 'EDGE_PUSH', 'edgeReports', 'EDGE_REPORTS',
     'window', 'document',
     chunk + '\n return paintDebug();'
   );
@@ -55,6 +56,7 @@ function render(state) {
     state.deckPages, state.autoPage, state.frontApp, state.wakeLock, state.audio,
     null, state.layout, { pad: 'trackpad saja', both: 'keyboard atas + trackpad bawah',
       swap: 'trackpad atas + keyboard bawah', kb: 'keyboard saja' },
+    state.edgeSide, state.edgePush, 90, state.edgeReports, 2,
     win, doc
   );
 }
@@ -68,7 +70,7 @@ const base = {
   gx: 0, gy: 0, gestureFired: false, lastGesture: '',
   accX: 0, accY: 0, accSX: 0, accSY: 0,
   activePage: 0, deckPages: [], autoPage: 0, frontApp: '', wakeLock: null, audio: null,
-  layout: 'both'
+  layout: 'both', edgeSide: null, edgePush: 0, edgeReports: 0
 };
 
 // 1. Cold start: nothing paired, nothing connected. The panel that only works

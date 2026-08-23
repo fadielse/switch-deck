@@ -27,6 +27,10 @@ struct Frame: Decodable {
     // NX_KEYTYPE_* code for a media key
     let media: Int?
 
+    // cursor handover: which edge, and how far along it (0..1)
+    let side: String?
+    let v: Double?
+
     // latency probe echo value
     let ts: Double?
 }

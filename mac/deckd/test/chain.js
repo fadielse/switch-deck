@@ -155,6 +155,34 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(passed.some((f) => f.t === 's' && f.dy === 4), 'frame scroll diteruskan');
   check(passed.some((f) => f.t === 'b' && f.btn === 'r'), 'frame klik kanan diteruskan');
 
+  // --- serah-terima kursor di tepi layar ---
+  const beforeWarp = readSent().length;
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 0.42 }));
+  // Rejected: an unknown edge, and a fraction that is not a number. NaN would
+  // reach Swift, where the arithmetic on it is silent nonsense rather than an
+  // error, so it is stopped here like every other number.
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'diagonal', v: 0.5 }));
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: null }));
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 4 }));
+  await wait(250);
+  const warps = readSent().slice(beforeWarp).filter((f) => f.t === 'warp');
+  check(warps.some((f) => f.side === 'l' && Math.abs(f.v - 0.42) < 0.001),
+        'frame warp diteruskan');
+  check(!warps.some((f) => f.side === 'diagonal' || f.v === null),
+        'warp cacat DITOLAK', 'tepi ngawur dan nilai bukan angka');
+  check(warps.every((f) => f.v >= 0 && f.v <= 1),
+        'pecahan warp diclamp ke 0..1, bukan diteruskan mentah');
+
+  // Arah sebaliknya: laporan tepi dari injector harus sampai ke tablet, karena
+  // tablet satu-satunya yang tahu ada mesin apa di sebelahnya.
+  const seenBefore = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'm', dx: 5000, dy: 0 }));
+  await wait(300);
+  const edge = good.frames.slice(seenBefore).find((f) => f.t === 'edge');
+  check(!!edge, 'laporan tepi dari injector sampai ke client');
+  check(edge?.side === 'r' && typeof edge?.ry === 'number',
+        'laporan tepi bawa sisi dan posisi sepanjang tepi', JSON.stringify(edge ?? null));
+
   // --- F3: keyboard ---
   const beforeKb = readSent().length;
   good.ws.send(JSON.stringify({ t: 'txt', s: 'halo' }));

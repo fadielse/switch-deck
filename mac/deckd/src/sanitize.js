@@ -8,6 +8,7 @@ const BUTTONS = new Set(['l', 'r', 'm']);
 const MODIFIERS = new Set(['cmd', 'command', 'shift', 'opt', 'option', 'alt', 'ctrl', 'control', 'fn']);
 const MAX_KEYCODE = 127;   // macOS virtual keycodes stop well below this
 const MAX_TEXT = 256;      // a keystroke's worth, not a paste buffer
+const SIDES = new Set(['l', 'r', 't', 'b']);
 
 /// Absent means zero — `{t:'s',dy:4}` is a legitimate vertical-only scroll.
 /// Present but not a finite number means the sender is broken, and the frame is
@@ -57,6 +58,15 @@ export function toInputFrame(frame) {
       if (!Number.isInteger(frame.media) || frame.media < 0 || frame.media > 40) return null;
       if (frame.d !== 0 && frame.d !== 1) return null;
       return { t: 'media', media: frame.media, d: frame.d };
+    }
+
+    // Placing the cursor on one edge of the screen it is being handed to. The
+    // fraction says where along that edge, so the crossing lines up with where
+    // the cursor left the other machine.
+    case 'warp': {
+      if (!SIDES.has(frame.side)) return null;
+      if (typeof frame.v !== 'number' || !Number.isFinite(frame.v)) return null;
+      return { t: 'warp', side: frame.side, v: Math.max(0, Math.min(1, frame.v)) };
     }
 
     case 'txt': {

@@ -5,10 +5,11 @@ import { createInterface } from 'node:readline';
 /// the far side of this pipe (decision K10), so this file never learns what a
 /// CGEvent is.
 export class InputBridge {
-  constructor(binaryPath, { onStatus, onFront } = {}) {
+  constructor(binaryPath, { onStatus, onFront, onEdge } = {}) {
     this.binaryPath = binaryPath;
     this.onStatus = onStatus ?? (() => {});
     this.onFront = onFront ?? (() => {});
+    this.onEdge = onEdge ?? (() => {});
     this.child = null;
     this.trusted = null;
     this.refreshHz = 60;
@@ -32,6 +33,11 @@ export class InputBridge {
       } else if (frame.t === 'front') {
         this.front = { app: frame.app, bundle: frame.bundle };
         this.onFront(this.front);
+      } else if (frame.t === 'edge') {
+        // The cursor is pressed against an edge and motion is being thrown
+        // away. Only the tablet knows what is next to this machine, so it
+        // decides what that means.
+        this.onEdge({ side: frame.side, over: frame.over, ry: frame.ry });
       } else if (frame.t === 'err') {
         console.error('[deckd-input]', frame.msg, frame.raw ?? '');
       }
