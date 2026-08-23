@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build deps doctor selftest wait-trust r1 deckd e2e idle debug-panel client dblclick verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
+.PHONY: build deps doctor selftest wait-trust r1 deckd e2e idle debug-panel client dblclick docs verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -81,6 +81,11 @@ debug-panel:
 
 ## Every client check. Needs no Mac, no build, no Accessibility permission.
 client: idle debug-panel
+
+## Rebuild docs/index.html from README.md. Hand-written HTML docs drift from the
+## README within weeks; this derives one from the other.
+docs:
+	@python3 scripts/build-docs.py
 
 ## Does a double tap become a real double click? Reads kCGMouseEventClickState
 ## back off the stream, so it needs no app and no icon to aim at.
