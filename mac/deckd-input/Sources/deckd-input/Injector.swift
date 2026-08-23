@@ -188,6 +188,19 @@ final class Injector {
         event.post(tap: Injector.tap)
     }
 
+    /// How far the cursor may drift between two taps and still be the same
+    /// double click. Generous on purpose: a finger is allowed to wander up to
+    /// the client's tap slop and that wander is multiplied by pointer gain
+    /// before it reaches here, so a few pixels of tolerance would throw away
+    /// double clicks that the user made correctly. Two clicks this close
+    /// together in space AND inside the double-click interval are a double
+    /// click by any reasonable reading.
+    private static let doubleClickSlop: CGFloat = 24
+
+    private var lastClickAt: [MouseButton: TimeInterval] = [:]
+    private var lastClickPos: [MouseButton: CGPoint] = [:]
+    private var clickState: [MouseButton: Int64] = [:]
+
     func button(_ button: MouseButton, down: Bool) {
         guard let current = CGEvent(source: nil)?.location else { return }
         let type = down ? button.downType : button.upType
@@ -197,8 +210,30 @@ final class Injector {
                                   mouseCursorPosition: current,
                                   mouseButton: button.cgButton) else { return }
 
-        // Some apps ignore clicks whose click state is left at 0.
-        event.setIntegerValueField(.mouseEventClickState, value: 1)
+        // macOS does not time your clicks and decide for itself: the click
+        // count travels IN the event, and an event that always says 1 is always
+        // a single click no matter how fast the taps arrive. That is why double
+        // tap never opened anything — two perfect single clicks, forever.
+        //
+        // The up event has to carry the same count as its down, or the pair
+        // does not describe one click.
+        var state: Int64 = 1
+        if down {
+            let now = Date().timeIntervalSince1970
+            let elapsed = now - (lastClickAt[button] ?? -.greatestFiniteMagnitude)
+            let previous = lastClickPos[button] ?? CGPoint(x: -9999, y: -9999)
+            let moved = hypot(current.x - previous.x, current.y - previous.y)
+            if elapsed <= NSEvent.doubleClickInterval, moved <= Injector.doubleClickSlop {
+                // Capped at 3: macOS counts triple clicks and nothing beyond.
+                state = min((clickState[button] ?? 1) + 1, 3)
+            }
+            clickState[button] = state
+            lastClickAt[button] = now
+            lastClickPos[button] = current
+        } else {
+            state = clickState[button] ?? 1
+        }
+        event.setIntegerValueField(.mouseEventClickState, value: state)
         event.post(tap: Injector.tap)
 
         virtualPosition = current
