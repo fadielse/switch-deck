@@ -59,6 +59,12 @@ const input = new InputBridge(binary, {
       if (client.readyState === 1) client.send(payload);
     }
   },
+  onInputError: (err) => {
+    const payload = JSON.stringify({ t: 'inputerr', msg: err.msg, type: err.type });
+    for (const client of wss.clients) {
+      if (client.readyState === 1) client.send(payload);
+    }
+  },
   onStatus: (frame) => {
     if (frame.trusted) return;
     console.error('\n!! deckd-input TIDAK punya izin Accessibility.');

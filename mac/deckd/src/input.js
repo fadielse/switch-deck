@@ -5,11 +5,12 @@ import { createInterface } from 'node:readline';
 /// the far side of this pipe (decision K10), so this file never learns what a
 /// CGEvent is.
 export class InputBridge {
-  constructor(binaryPath, { onStatus, onFront, onEdge } = {}) {
+  constructor(binaryPath, { onStatus, onFront, onEdge, onInputError } = {}) {
     this.binaryPath = binaryPath;
     this.onStatus = onStatus ?? (() => {});
     this.onFront = onFront ?? (() => {});
     this.onEdge = onEdge ?? (() => {});
+    this.onInputError = onInputError ?? (() => {});
     this.child = null;
     this.trusted = null;
     this.refreshHz = 60;
@@ -39,7 +40,12 @@ export class InputBridge {
         // decides what that means.
         this.onEdge({ side: frame.side, over: frame.over, ry: frame.ry });
       } else if (frame.t === 'err') {
+        // Also sent onward. A rejection that only reaches this machine's
+        // console is invisible to the one place someone is actually looking —
+        // and "unknown frame type" is exactly what a binary that was pulled but
+        // not rebuilt says about a frame the client has just started sending.
         console.error('[deckd-input]', frame.msg, frame.raw ?? '');
+        this.onInputError({ msg: frame.msg, type: frame.type ?? null });
       }
     });
 

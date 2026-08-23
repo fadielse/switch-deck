@@ -20,6 +20,14 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   // exercise the edge report without a display or Accessibility.
   let frame;
   try { frame = JSON.parse(line); } catch { return; }
+  // The stub deliberately does NOT know 'warp' — it stands in for a binary
+  // that was pulled but never rebuilt, which is the failure this reporting
+  // path exists to make visible.
+  if (frame.t === 'warp') {
+    process.stdout.write(JSON.stringify({
+      t: 'err', msg: 'unknown frame type', type: frame.t
+    }) + '\n');
+  }
   if (frame.t === 'm' && Math.abs(frame.dx) >= 400) {
     process.stdout.write(JSON.stringify({
       t: 'edge', side: frame.dx > 0 ? 'r' : 'l', over: Math.abs(frame.dx), ry: 0.5

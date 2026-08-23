@@ -183,6 +183,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check(edge?.side === 'r' && typeof edge?.ry === 'number',
         'laporan tepi bawa sisi dan posisi sepanjang tepi', JSON.stringify(edge ?? null));
 
+  // Frame yang ditolak injector harus SAMPAI ke tablet, bukan cuma ke console
+  // Mac-nya. Binary yang di-pull tapi belum di-build bilang persis ini soal
+  // frame yang baru saja mulai dikirim client.
+  const beforeErr = good.frames.length;
+  good.ws.send(JSON.stringify({ t: 'warp', side: 'l', v: 0.5 }));
+  await wait(300);
+  const inputErr = good.frames.slice(beforeErr).find((f) => f.t === 'inputerr');
+  check(!!inputErr && /unknown frame type/i.test(inputErr.msg || ''),
+        'penolakan dari injector diteruskan ke client',
+        'stub sengaja tidak kenal warp — ini yang bikin binary lama kelihatan');
+
   // --- F3: keyboard ---
   const beforeKb = readSent().length;
   good.ws.send(JSON.stringify({ t: 'txt', s: 'halo' }));

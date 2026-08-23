@@ -610,6 +610,10 @@
                   c && c.state === 'on' ? 'good' : 'bad');
     out += dbgRow('accessibility', c ? (c.trusted ? 'trusted' : 'BELUM diizinkan') : '—',
                   c && c.trusted ? 'good' : 'bad');
+    if (c && c.lastError) {
+      out += dbgRow('injector nolak', c.lastError + ' · '
+        + Math.round((Date.now() - c.lastErrorAt) / 1000) + ' s lalu', 'bad');
+    }
     out += dbgRow('host lain', hosts.map(function (h) {
       return (h.name || h.url) + '(' + (conns[h.id] ? conns[h.id].state[0] : '-') + ')';
     }).join(' ') || '—');
@@ -647,6 +651,10 @@
       ? (edgeSide ? edgeSide + ' ' + Math.round(edgePush) + '/' + EDGE_PUSH + 'px · '
           + edgeReports + '/' + EDGE_REPORTS + ' laporan' : 'siap')
       : 'mati', edgeSide ? 'warnv' : '');
+    if (edgeBlocked) out += dbgRow('nyeberang gagal', edgeBlocked, 'bad');
+    out += dbgRow('urutan meja', hosts.map(function (h) {
+      return (h.id === activeId ? '[' : '') + (h.name || h.url) + (h.id === activeId ? ']' : '');
+    }).join(' → ') || '—');
     if (mode === 'gesture' || lastGesture) {
       out += dbgRow('gestur', Math.round(Math.abs(gx) > Math.abs(gy) ? gx : gy) + ' px / ambang 55'
         + (gestureFired ? ' · KIRIM' : ''), gestureFired ? 'good' : '');
@@ -929,6 +937,12 @@
         }
         if (host.id === activeId) adoptHost(host.id);
         renderHosts();
+      } else if (f.t === 'inputerr') {
+        // The Mac's injector refused a frame. Almost always means its binary is
+        // older than the client that is talking to it.
+        c.lastError = (f.type ? f.type + ': ' : '') + (f.msg || '');
+        c.lastErrorAt = Date.now();
+        if (host.id === activeId) updateBadge();
       } else if (f.t === 'edge') {
         onEdge(host.id, f);
       } else if (f.t === 'front') {
@@ -1933,17 +1947,32 @@
   // The order of `hosts` IS the physical order, left to right. Deriving it from
   // anything else — pairing order, address — is right once and wrong forever
   // after the third machine arrives.
+  // Returns the host, or a reason it cannot. Failing silently here was a
+  // mistake: "no machine to the right" and "it fired and the other Mac ignored
+  // it" look identical from the tablet, and that is exactly the question
+  // someone asks when nothing happens.
+  var edgeBlocked = '';
+
   function neighbour(side) {
     var index = hosts.findIndex(function (h) { return h.id === activeId; });
-    if (index < 0) return null;
+    if (index < 0) { edgeBlocked = 'host aktif tidak ada di daftar'; return null; }
     var step = side === 'r' ? 1 : side === 'l' ? -1 : 0;
-    if (!step) return null;                 // top and bottom edges mean nothing yet
+    if (!step) { edgeBlocked = 'tepi ' + side + ' belum dipetakan'; return null; }
     var next = hosts[index + step];
-    if (!next) return null;
+    if (!next) {
+      edgeBlocked = 'tidak ada Mac di sebelah ' + (step > 0 ? 'kanan' : 'kiri')
+        + ' — atur urutan di Setelan → Mac lain';
+      return null;
+    }
     var c = conns[next.id];
     // Handing over to a machine that is not listening would drop the cursor
     // into a hole with no way back except the chip.
-    return c && c.state === 'on' ? next : null;
+    if (!c || c.state !== 'on') {
+      edgeBlocked = (next.name || next.url) + ' tidak terhubung';
+      return null;
+    }
+    edgeBlocked = '';
+    return next;
   }
 
   function onEdge(hostId, frame) {
@@ -1962,7 +1991,7 @@
     var next = neighbour(frame.side);
     edgePush = 0;
     edgeReports = 0;
-    if (!next) return;
+    if (!next) { updateBadge(); return; }
 
     var target = next.id;
     var side = frame.side;
