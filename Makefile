@@ -1,7 +1,7 @@
 BIN := mac/deckd-input/.build/release/deckd-input
 PORT ?= 8000
 
-.PHONY: build deps doctor selftest wait-trust r1 deckd e2e idle debug-panel client dblclick docs verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
+.PHONY: build deps doctor selftest wait-trust r1 deckd e2e idle debug-panel version client dblclick docs verify-copy latency gesture-test install uninstall code status check prompt type move click cmd-c serve ip clean
 
 build:
 	swift build -c release --package-path mac/deckd-input
@@ -79,8 +79,12 @@ idle:
 debug-panel:
 	@cd mac/deckd && node test/debugpanel.js
 
+## Is the version on screen the same as the one in package.json?
+version:
+	@cd mac/deckd && node test/version.js
+
 ## Every client check. Needs no Mac, no build, no Accessibility permission.
-client: idle debug-panel
+client: idle debug-panel version
 
 ## Rebuild docs/index.html from README.md. Hand-written HTML docs drift from the
 ## README within weeks; this derives one from the other.

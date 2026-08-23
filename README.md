@@ -377,6 +377,7 @@ The starter deck it generates on first run *is* ours, so it is written in Englis
 | Setting | Meaning |
 |---|---|
 | **Language** | Indonesia or English. Applies immediately, saved per device |
+| **About → Version** | the version this client is running |
 | **Sensitivity** | cursor movement multiplier |
 | **Acceleration** | how much a fast movement multiplies the distance |
 | **Motion smoothing** | `1.00` = raw, no smoothing; lower is smoother but adds 1–2 frames of lag |
@@ -491,6 +492,7 @@ Still stuck? Turn on the **debug panel** and read the `connection` group — nea
 | `make install` / `make uninstall` | install / remove the launchd service |
 | `make status` | service status |
 | `make docs` | rebuild the HTML documentation from the README files |
+| `make version` | check the version on screen matches package.json |
 | **Tests** | |
 | `make e2e` | the full chain, WebSocket → deckd → deckd-input |
 | `make client` | every client-side check (no Mac, no build, no permission needed) |
@@ -516,5 +518,7 @@ Three processes, three responsibilities:
 - **The web client** — all of the UI. Edited most often, needs no compilation.
 - **`deckd` (Node)** — the router: WebSocket, tokens, deck, validation. **It does not know what a CGEvent is.**
 - **`deckd-input` (Swift)** — the only part that touches macOS APIs. Every OS-specific line is confined here, so adding Windows later will not disturb the other two layers.
+
+Contributions are welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for the setup, the tests to run, and the list of things deliberately left out. Agents working on this repository should read **[CLAUDE.md](CLAUDE.md)** first.
 
 One rule has held from the beginning and has never been relaxed: **the tablet sends an id, not a command.** The tablet never learns what a button's `action` contains; it only knows the id and the label. Every frame is validated in `deckd` before it is passed on — non-finite numbers, out-of-range keycodes, unknown modifier names and over-long text are all rejected rather than quietly repaired.

@@ -585,6 +585,11 @@
       </section>
 
       <section>
+        <h3 data-i18n="set.about"></h3>
+        <div class="row"><label><span data-i18n="set.version"></span><small data-i18n="set.about.hint"></small></label><span class="val" id="v-version" style="flex:0 0 auto"></span></div>
+      </section>
+
+      <section>
         <h3 data-i18n="set.devices"></h3>
         <p class="note" data-i18n="set.devices.hint"></p>
         <div id="d-list" style="display:flex;flex-direction:column;gap:7px"></div>
@@ -758,6 +763,10 @@
   }
 
 
+  // Dijaga oleh test/version.js supaya tidak melenceng dari package.json.
+  // Angka versi yang ditulis di dua tempat akan berbeda cepat atau lambat.
+  var VERSION = '1.0.0';
+
   // ---------- bahasa / language ----------
   //
   // Dua peta lengkap, bukan satu peta plus tambalan. Bahasa cadangan yang
@@ -851,6 +860,9 @@
       'set.debug.panel': 'Panel debug',
       'set.debug.hint': 'koneksi, latency, ping, frame/s, sentuhan & gestur, deck, dan kondisi tablet — melayang di pojok kiri bawah, sentuhan tetap tembus',
 
+      'set.about': 'Tentang',
+      'set.version': 'Versi',
+      'set.about.hint': 'SwitchDeck — tablet jadi trackpad, keyboard, dan deck makro',
       'set.devices': 'Tablet & HP terpasang',
       'set.devices.hint': 'Tablet atau HP yang boleh mengendalikan perangkat aktif. Mencabut langsung memutus koneksinya.',
       'set.devices.this': 'ini',
@@ -1010,6 +1022,9 @@
       'set.debug.panel': 'Debug panel',
       'set.debug.hint': 'connection, latency, ping, frames/s, touch & gestures, deck, and tablet state — floats bottom-left, touches pass straight through',
 
+      'set.about': 'About',
+      'set.version': 'Version',
+      'set.about.hint': 'SwitchDeck — a tablet as trackpad, keyboard and macro deck',
       'set.devices': 'Paired tablets & phones',
       'set.devices.hint': 'Tablets or phones allowed to drive the active device. Revoking disconnects it immediately.',
       'set.devices.this': 'this one',
@@ -3165,6 +3180,7 @@
   });
 
   applyI18n();
+  el('v-version').textContent = VERSION;
   startAll();
   // The toggle is remembered per device, so the panel has to come back with it.
   paintDebug();

@@ -377,6 +377,7 @@ Tapi **deck bawaan** yang dibuat saat pertama jalan itu tulisan KAMI, jadi sekar
 | Setelan | Arti |
 |---|---|
 | **Bahasa** | Indonesia atau English. Berlaku seketika, disimpan per perangkat |
+| **Tentang → Versi** | versi client yang sedang jalan |
 | **Sensitivitas** | pengali gerakan kursor |
 | **Akselerasi** | seberapa jauh gerakan cepat melipatgandakan jarak |
 | **Kehalusan gerak** | `1.00` = mentah tanpa penghalusan; makin kecil makin halus tapi menambah 1–2 frame jeda |
@@ -486,15 +487,17 @@ Masih buntu? Nyalakan **panel debug** dan baca grup `koneksi` — hampir semua p
 | `make deckd` | jalankan server |
 | `make doctor` | cek izin, rantai proses, kesehatan |
 | `make code` | cetak ulang kode pairing |
-| `make ip` | alamat Mac di jaringan lokal |
+| `make ip` | alamat perangkat di jaringan lokal |
 | `make cert` | buat sertifikat untuk HTTPS |
 | `make install` / `make uninstall` | pasang / cabut layanan launchd |
 | `make status` | status layanan |
+| `make docs` | bangun ulang dokumentasi HTML dari kedua README |
 | **Tes** | |
 | `make e2e` | rantai penuh WebSocket → deckd → deckd-input |
 | `make client` | semua cek sisi client (tanpa Mac, tanpa build, tanpa izin) |
 | `make idle` | memastikan client membiarkan CPU tidur |
-| `make debug-panel` | memastikan panel debug tergambar di semua kondisi |
+| `make debug-panel` | memastikan panel debug tergambar di semua kondisi, di dua bahasa |
+| `make version` | memastikan versi di layar sama dengan package.json |
 | `make dblclick` | memastikan dobel tap jadi dobel klik sungguhan |
 | `make selftest` | uji injeksi input langsung |
 | `make verify-copy` | uji rantai penuh sampai clipboard macOS |
@@ -515,5 +518,7 @@ Tiga proses, tiga tanggung jawab:
 - **Client web** — semua UI. Diedit paling sering, tidak perlu compile.
 - **`deckd` (Node)** — router: WebSocket, token, deck, validasi. **Tidak tahu apa itu CGEvent.**
 - **`deckd-input` (Swift)** — satu-satunya yang menyentuh API macOS. Semua kode khusus OS dikurung di sini, supaya menambah Windows nanti tidak menyentuh dua lapisan lainnya.
+
+Kontribusi terbuka — lihat **[CONTRIBUTING.md](CONTRIBUTING.md)** untuk cara setup, tes yang harus jalan, dan daftar hal yang sengaja tidak dikerjakan. Agent yang mengerjakan repo ini wajib membaca **[CLAUDE.md](CLAUDE.md)** dulu.
 
 Aturan yang berlaku sejak awal dan tidak pernah dilonggarkan: **tablet mengirim id, bukan perintah.** Tablet tidak pernah tahu isi `action` sebuah tombol; dia hanya tahu id dan label. Setiap frame divalidasi di `deckd` sebelum diteruskan — angka tidak berhingga, keycode di luar jangkauan, nama modifier ngawur, dan teks kepanjangan semuanya ditolak, bukan diam-diam diperbaiki.
