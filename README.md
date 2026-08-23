@@ -197,17 +197,30 @@ Still needs a human:
 
 ## A popup appears over the trackpad
 
-The page cancels the browser's own touch handling on the pad — long-press
+The page cancels what a page is allowed to cancel on the pad — long-press
 callout, context menu, and the raw `touchstart`/`touchmove` defaults that
-multi-finger gestures hang off. If a popup still appears (a QR/share sheet on
-a two-finger hold, for example), it does not belong to the browser and no
-amount of `preventDefault` will reach it.
+multi-finger gestures hang off. A popup that still appears (a QR/share sheet
+on a two-finger hold, for example) is being raised by something outside the
+document, and no amount of `preventDefault` will reach it.
 
-To tell the two apart in one try: **install to the home screen** (Settings →
-Pasang ke layar depan) and use it from that icon. That runs the client
-standalone with no browser UI, so anything that survives is the tablet's own
-system gesture. On Huawei/EMUI that means the gesture settings — knuckle
-gestures, smart-assistance scanning, and similar — not this repo.
+**Installing to the home screen does not tell you whose it is.** A PWA
+installed from a browser still runs on that browser's engine, so a gesture
+belonging to the browser survives standalone mode exactly like a system
+gesture does. That test only removes the visible browser UI, not the browser.
+
+What actually separates them is **a different browser**. Open the same
+address in Chrome and repeat the gesture:
+
+- gone in Chrome → it belongs to the other browser, and its own settings are
+  the only place to turn it off.
+- still there → it is the tablet's system layer (on Huawei/EMUI: knuckle
+  gestures, smart-assistance scanning, and similar).
+
+Known case: Vivaldi on Android raises a QR/share popup on a two-finger hold.
+The page cannot suppress it. This is one of the concrete reasons the native
+Android client exists as a plan — see the Flutter client roadmap in the
+vault: a control surface should not have to negotiate with a browser's own
+gestures.
 
 ## Protocol (stdin, JSON Lines)
 
