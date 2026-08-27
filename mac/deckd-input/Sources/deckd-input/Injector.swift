@@ -366,17 +366,30 @@ final class Injector {
         var index = 0
         while index < units.count {
             let chunk = Array(units[index ..< min(index + chunkSize, units.count)])
+
+            // The text rides on the key DOWN only. Attaching it to the release
+            // as well is what typed every character twice ("kketikk"): AppKit
+            // inserts on key down, but an app that also reads the key up sees
+            // the same string a second time and inserts it again. Whether it
+            // did depended on the app and on timing, which is why it looked
+            // intermittent rather than broken.
             paceKeyEvent()
-            for isDown in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: source,
-                                          virtualKey: 0,
-                                          keyDown: isDown) else { continue }
+            if let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) {
                 chunk.withUnsafeBufferPointer { buffer in
-                    event.keyboardSetUnicodeString(stringLength: buffer.count,
-                                                   unicodeString: buffer.baseAddress)
+                    down.keyboardSetUnicodeString(stringLength: buffer.count,
+                                                  unicodeString: buffer.baseAddress)
                 }
-                event.post(tap: Injector.tap)
+                down.post(tap: Injector.tap)
             }
+
+            // A bare release, and paced apart from its own press: a down and an
+            // up landing in the same instant is what let the two be processed
+            // out of order in the first place.
+            paceKeyEvent()
+            if let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) {
+                up.post(tap: Injector.tap)
+            }
+
             index += chunkSize
         }
     }

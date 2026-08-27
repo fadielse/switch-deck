@@ -1,6 +1,6 @@
 {
   "name": "deckd",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "SwitchDeck server \u2014 serves the client, holds the WebSocket, drives deckd-input",
