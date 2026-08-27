@@ -6,7 +6,7 @@ One tablet can drive **several Macs at once**: all of them stay connected, and c
 
 ![SwitchDeck main screen](docs/img/en/ss-main.png)
 
-> 🇮🇩 **Bahasa Indonesia:** [README.id.md](README.id.md) · 📖 HTML version with larger images: open **[docs/index.html](docs/index.html)** in a browser.
+> 🇮🇩 **Bahasa Indonesia:** [README.id.md](README.id.md) · 📖 HTML version with larger images: click **[Here](https://fadielse.github.io/switch-deck/)**.
 
 ---
 

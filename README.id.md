@@ -6,7 +6,7 @@ Satu tablet bisa menyetir **beberapa Mac sekaligus**: semua tersambung barengan,
 
 ![Layar utama SwitchDeck](docs/img/id/ss-main.png)
 
-> 🇬🇧 **English:** [README.md](README.md) · 📖 Versi HTML dengan gambar lebih besar: buka **[docs/id.html](docs/id.html)** di browser.
+> 🇬🇧 **English:** [README.md](README.md) · 📖 Versi HTML dengan gambar lebih besar: klik **[Disini](https://fadielse.github.io/switch-deck/)**.
 
 ---
 
